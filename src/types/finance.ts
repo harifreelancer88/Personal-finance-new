@@ -1,14 +1,20 @@
 export type TransactionType = 'Expense' | 'Income' | 'Transfer' | 'Investment' | 'Refund'
 export type Category = 'Shopping' | 'Food' | 'Transport' | 'Salary' | 'Utilities' | 'Transfer' | 'Investments' | 'Housing' | 'Groceries' | 'Education' | 'Refund' | 'Other'
-export type AccountKind = 'Savings' | 'Current' | 'Credit Card' | 'Investment'
+export type AccountType = 'Bank Account' | 'Credit Card' | 'Cash' | 'Wallet / Prepaid'
 
 export interface Account {
   id: string
   name: string
-  kind: AccountKind
+  institution: string
+  type: AccountType
   maskedIdentifier: string
   balance: number
   color: 'lime' | 'violet' | 'blue' | 'slate'
+  status?: 'Active' | 'Inactive'
+  notes?: string
+  creditLimit?: number
+  billingDate?: number
+  dueDate?: number
 }
 
 export interface Transaction {

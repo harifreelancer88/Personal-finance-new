@@ -5,7 +5,7 @@ import { Logo } from '../ui/Logo'
 const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
   { label: 'Transactions', icon: CreditCard, to: '/transactions' },
-  { label: 'Accounts', icon: BarChart3 },
+  { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp },
   { label: 'Reports', icon: FileChartColumn },
   { label: 'Settings', icon: Settings },
