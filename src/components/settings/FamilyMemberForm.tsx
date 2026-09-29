@@ -1,0 +1,9 @@
+import { useState, type FormEvent } from 'react'
+import type { FamilyMember } from '../../data/settingsData'
+import { Modal } from '../transactions/Modal'
+
+export function FamilyMemberForm({ initial, onSave, onClose }: { initial?: FamilyMember; onSave: (member: FamilyMember) => void; onClose: () => void }) {
+ const [name,setName]=useState(initial?.name??''); const [relationship,setRelationship]=useState(initial?.relationship??''); const [label,setLabel]=useState(initial?.label??''); const [included,setIncluded]=useState(initial?.included??true)
+ const submit=(e:FormEvent)=>{e.preventDefault();onSave({id:initial?.id??`family-${Date.now()}`,name:name.trim(),relationship:relationship.trim(),label:label.trim()||name.split(/\s+/).map(x=>x[0]).join('').slice(0,3).toUpperCase(),included})}
+ return <Modal title={initial?'Edit family member':'Add family member'} description="Family members help organise shared finances." onClose={onClose} size="small"><form className="transaction-form" onSubmit={submit}><div className="form-grid one-column"><label><span>Name</span><input required autoFocus value={name} onChange={e=>setName(e.target.value)}/></label><label><span>Relationship</span><input required value={relationship} onChange={e=>setRelationship(e.target.value)} placeholder="e.g. Parent"/></label><label><span>Short label / initials <em>Optional</em></span><input maxLength={3} value={label} onChange={e=>setLabel(e.target.value.toUpperCase())}/></label><label className="toggle-form-row"><input type="checkbox" checked={included} onChange={e=>setIncluded(e.target.checked)}/><span>Active and included in family finances</span></label></div><footer className="dialog-footer"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button">{initial?'Save changes':'Add member'}</button></footer></form></Modal>
+}

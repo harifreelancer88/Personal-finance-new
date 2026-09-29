@@ -1,0 +1,4 @@
+import { Pencil, Plus, Tags, Trash2 } from 'lucide-react'
+import { SettingsSection } from './SettingsSection'
+
+export function CategorySettings({ categories, onAdd, onEdit, onDelete }: { categories:string[]; onAdd:()=>void; onEdit:(name:string)=>void; onDelete:(name:string)=>void }) { return <SettingsSection icon={Tags} title="Categories" description="Manage the categories used to organise transactions." action={<button className="primary-button settings-action" onClick={onAdd}><Plus/>Add Category</button>}><div className="category-list">{categories.map(name=><article key={name}><span className="category-dot"/><strong>{name}</strong><button className="icon-button subtle" onClick={()=>onEdit(name)} aria-label={`Edit ${name}`}><Pencil/></button><button className="icon-button subtle danger-icon" onClick={()=>onDelete(name)} aria-label={`Delete ${name}`}><Trash2/></button></article>)}</div></SettingsSection> }
