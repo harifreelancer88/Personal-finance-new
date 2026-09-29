@@ -1,5 +1,5 @@
 export type TransactionType = 'Expense' | 'Income' | 'Transfer' | 'Investment' | 'Refund'
-export type Category = 'Shopping' | 'Food' | 'Transport' | 'Salary' | 'Utilities' | 'Transfer' | 'Investments' | 'Housing' | 'Groceries' | 'Education' | 'Refund' | 'Other'
+export type Category = string
 export type AccountType = 'Bank Account' | 'Credit Card' | 'Cash' | 'Wallet / Prepaid'
 
 export interface Account {
@@ -30,6 +30,11 @@ export interface Transaction {
   notes?: string
   fromAccount?: string
   toAccount?: string
+  amountMinor?: number
+  categoryId?: string | null
+  fromAccountId?: string | null
+  toAccountId?: string | null
+  originalTransactionId?: string | null
 }
 
 export interface CashFlowPoint {
