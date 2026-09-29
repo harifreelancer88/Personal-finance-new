@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check": "tsc -b --pretty false",
+    "bootstrap:local": "wrangler d1 execute personal-finance-db --local --file=bootstrap.sql",
+    "test:transactions": "bash scripts/test-transactions.sh",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

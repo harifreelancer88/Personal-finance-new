@@ -1,8 +1,8 @@
 # Personal Finance app
 
-Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. The backend foundation uses Cloudflare D1 with Wrangler-managed SQL migrations and a small read-only API.
+Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. Transactions are backed by Cloudflare D1; the other application pages intentionally retain their v1 data sources.
 
-The frontend still uses local mock data in this phase. It is intentionally not connected to the API yet, so the existing dashboard and the `/transactions`, `/accounts`, `/investments`, `/reports`, and `/settings` routes continue to work without a database.
+The Transactions page uses the API. Dashboard, Accounts, Investments, Reports, and Settings are intentionally not migrated to D1 yet.
 
 ## Prerequisites
 
@@ -48,7 +48,17 @@ npx wrangler d1 migrations apply personal-finance-db --remote
 
 Review the migration prompt before confirming remote changes. Remote migration is not required for frontend-only or local API development.
 
-## Development seed data
+## Minimum workspace bootstrap
+
+`bootstrap.sql` is the controlled, idempotent bootstrap for the current workspace. It creates only the workspace and starter categories—never accounts or transactions. After applying migrations, run it locally with:
+
+```bash
+npm run bootstrap:local
+```
+
+To initialize production lookup data, first confirm that `DEFAULT_WORKSPACE_ID` is `development-workspace`, then explicitly run `npx wrangler d1 execute personal-finance-db --remote --file=bootstrap.sql`. Review the target before confirming. Never run `seed.sql` against production.
+
+## Legacy development seed data
 
 `seed.sql` provides one development workspace and a small set of family members, accounts, categories, transactions, and investments. It uses stable IDs and `INSERT OR IGNORE`, so it can safely be loaded again after the first import.
 
@@ -75,6 +85,10 @@ GET /api/health
 GET /api/accounts
 GET /api/categories
 GET /api/transactions
+GET /api/transactions/:id
+POST /api/transactions
+PATCH /api/transactions/:id
+DELETE /api/transactions/:id
 GET /api/investments
 ```
 
