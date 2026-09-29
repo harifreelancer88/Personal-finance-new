@@ -1,6 +1,6 @@
 import { failure, success } from '../lib/http'
 import { ApiError, parseJsonObject } from '../lib/transaction-validation'
-import { parseSms } from '../lib/sms-parser'
+import { parseSms, resolveDirectionalTransaction } from '../lib/sms-parser'
 import { mappedCategoryName } from '../lib/sms-category'
 import { getSmsByDedupe } from '../repositories/sms-messages'
 import type { Env } from '../types'
@@ -45,27 +45,42 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   if ((inserted.meta.changes ?? 0) === 0) return success(result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), true))
 
   const parsed = parseSms(message, receivedAt, sender)
-  let accountId: string | null = null
-  if (parsed.accountLast4) {
-    const matches = await env.DB.prepare('SELECT id FROM accounts WHERE workspace_id = ? AND is_active = 1 AND last4 = ? LIMIT 2').bind(workspaceId, parsed.accountLast4).all<{ id: string }>()
-    if (matches.results.length === 1) accountId = matches.results[0].id
+  const findAccounts = async (last4: string | null) => {
+    if (!last4) return [] as string[]
+    const matches = await env.DB.prepare('SELECT id FROM accounts WHERE workspace_id = ? AND is_active = 1 AND last4 = ? LIMIT 2').bind(workspaceId, last4).all<{ id: string }>()
+    return matches.results.map(({ id }) => id)
+  }
+  const directionalPair = !!parsed.sourceAccountLast4 && !!parsed.destinationAccountLast4
+  const sourceMatches = await findAccounts(directionalPair ? parsed.sourceAccountLast4 : parsed.transactionType === 'expense' ? parsed.accountLast4 : null)
+  const destinationMatches = await findAccounts(directionalPair ? parsed.destinationAccountLast4 : parsed.transactionType === 'income' || parsed.transactionType === 'refund' ? parsed.accountLast4 : null)
+  const direction = resolveDirectionalTransaction(sourceMatches, destinationMatches)
+  const sourceAccountId = sourceMatches.length === 1 ? sourceMatches[0] : null
+  const destinationAccountId = destinationMatches.length === 1 ? destinationMatches[0] : null
+  let resolvedType = parsed.transactionType
+  let resolvedStatus = parsed.status
+  if (directionalPair && parsed.amountMinor && parsed.description) {
+    resolvedType = direction.transactionType
+    if (resolvedType) resolvedStatus = 'parsed'
   }
   let categoryId: string | null = null
   const categoryName = mappedCategoryName(message)
   if (categoryName) categoryId = (await env.DB.prepare('SELECT id FROM categories WHERE workspace_id = ? AND is_active = 1 AND name = ? COLLATE NOCASE').bind(workspaceId, categoryName).first<{ id: string }>())?.id ?? null
   let transactionId: string | null = null
-  if (parsed.status === 'parsed' && parsed.transactionType && parsed.amountMinor && parsed.description) {
+  if (resolvedStatus === 'parsed' && resolvedType && parsed.amountMinor && parsed.description) {
     transactionId = crypto.randomUUID()
-    const fromAccount = parsed.transactionType === 'expense' ? accountId : null
-    const toAccount = parsed.transactionType === 'income' || parsed.transactionType === 'refund' ? accountId : null
+    const fromAccount = resolvedType === 'expense' || resolvedType === 'transfer' ? sourceAccountId : null
+    const toAccount = resolvedType === 'income' || resolvedType === 'refund' || resolvedType === 'transfer' ? destinationAccountId : null
     await env.DB.prepare(`INSERT INTO transactions (id, workspace_id, transaction_type, description, amount_minor, category_id,
       from_account_id, to_account_id, transaction_date, source, external_id, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sms', ?, 'pending')`)
-      .bind(transactionId, workspaceId, parsed.transactionType, parsed.description, parsed.amountMinor, categoryId, fromAccount, toAccount, parsed.transactionDate, dedupeKey).run()
+      .bind(transactionId, workspaceId, resolvedType, parsed.description, parsed.amountMinor, categoryId, fromAccount, toAccount, parsed.transactionDate, dedupeKey).run()
   }
-  const notes = `${parsed.notes}${parsed.accountLast4 ? accountId ? ' Unique active account matched.' : ' Account was not uniquely matched.' : ''}${categoryName ? categoryId ? ` Category ${categoryName} matched.` : ` Category rule ${categoryName} had no existing category.` : ''}`
+  const accountNotes = directionalPair
+    ? ` Source account ${sourceAccountId ? 'matched' : sourceMatches.length > 1 ? 'was ambiguous' : 'was not matched'}; destination account ${destinationAccountId ? 'matched' : destinationMatches.length > 1 ? 'was ambiguous' : 'was not matched'}.`
+    : parsed.accountLast4 ? ` Account ${sourceAccountId || destinationAccountId ? 'uniquely matched' : sourceMatches.length > 1 || destinationMatches.length > 1 ? 'was ambiguous' : 'was not matched'}.` : ''
+  const notes = `${parsed.notes}${accountNotes ? ` ${accountNotes}` : ''}${categoryName ? categoryId ? ` Category ${categoryName} matched.` : ` Category rule ${categoryName} had no existing category.` : ''}`
   await env.DB.prepare(`UPDATE sms_messages SET parse_status = ?, parse_confidence = ?, parse_notes = ?, parsed_transaction_type = ?,
     parsed_amount_minor = ?, parsed_description = ?, parsed_transaction_date = ?, parsed_account_last4 = ?, transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-    .bind(parsed.status, parsed.confidence, notes, parsed.transactionType, parsed.amountMinor, parsed.description, parsed.transactionDate, parsed.accountLast4, transactionId, smsId).run()
+    .bind(resolvedStatus, parsed.confidence, notes, resolvedType, parsed.amountMinor, parsed.description, parsed.transactionDate, parsed.accountLast4, transactionId, smsId).run()
   return success(result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), false), { status: 201 })
 }
