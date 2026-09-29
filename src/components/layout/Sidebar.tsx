@@ -6,7 +6,7 @@ const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
   { label: 'Transactions', icon: CreditCard, to: '/transactions' },
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
-  { label: 'Investments', icon: TrendingUp },
+  { label: 'Investments', icon: TrendingUp, to: '/investments' },
   { label: 'Reports', icon: FileChartColumn },
   { label: 'Settings', icon: Settings },
 ]

@@ -1,0 +1,4 @@
+import { ArrowDownToLine, CalendarClock, CircleDollarSign } from 'lucide-react'
+import { investmentActivities } from '../../data/mockData'
+import { formatCurrency, formatDate } from '../../lib/format'
+export function InvestmentActivity(){return <section className="panel activity-panel"><div className="investment-section-head"><div><p className="eyebrow">Latest updates</p><h2>Recent Investment Activity</h2></div></div><div className="activity-list">{investmentActivities.map(a=>{const Icon=a.type==='Dividend'?CircleDollarSign:a.type==='Purchase'?ArrowDownToLine:CalendarClock;return <article key={a.id}><span><Icon/></span><div><strong>{a.title}</strong><small>{a.type} · {formatDate(a.date)}</small></div><b className={a.type==='Dividend'?'positive-text':''}>{a.type==='Dividend'?'+':''}{formatCurrency(a.amount)}</b></article>})}</div></section>}
