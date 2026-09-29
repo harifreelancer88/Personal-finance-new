@@ -10,23 +10,27 @@ import { getDashboardCashFlow, getDashboardSummary } from '../repositories/dashb
 import { getReport } from '../repositories/reports'
 import { REPORT_PERIODS, type ReportPeriod } from '../lib/report-calculations'
 import type { Env } from '../types'
+import { ingestSms } from './sms-ingestion'
+import { getSmsForTransaction, listSmsMessages } from '../repositories/sms-messages'
 
 const transactionTypes = new Set(['expense', 'income', 'transfer', 'investment', 'refund'])
 const statuses = new Set(['pending', 'confirmed', 'ignored'])
+const sources = new Set(['sms', 'manual'])
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
 function parseListQuery(url: URL) {
   const value = (name: string) => url.searchParams.get(name)?.trim() || undefined
-  const type = value('type'); const status = value('status'); const fromDate = value('fromDate'); const toDate = value('toDate')
+  const type = value('type'); const status = value('status'); const source = value('source'); const fromDate = value('fromDate'); const toDate = value('toDate')
   if (type && !transactionTypes.has(type)) throw new ApiError(400, 'INVALID_FILTER', 'type filter is invalid.')
   if (status && !statuses.has(status)) throw new ApiError(400, 'INVALID_FILTER', 'status filter is invalid.')
+  if (source && !sources.has(source)) throw new ApiError(400, 'INVALID_FILTER', 'source filter is invalid.')
   if (fromDate && !datePattern.test(fromDate)) throw new ApiError(400, 'INVALID_FILTER', 'fromDate must use YYYY-MM-DD.')
   if (toDate && !datePattern.test(toDate)) throw new ApiError(400, 'INVALID_FILTER', 'toDate must use YYYY-MM-DD.')
   const limitRaw = value('limit'); const offsetRaw = value('offset')
   const limit = limitRaw === undefined ? 100 : Number(limitRaw); const offset = offsetRaw === undefined ? 0 : Number(offsetRaw)
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new ApiError(400, 'INVALID_FILTER', 'limit must be an integer between 1 and 100.')
   if (!Number.isInteger(offset) || offset < 0) throw new ApiError(400, 'INVALID_FILTER', 'offset must be a non-negative integer.')
-  return { search: value('search'), type, categoryId: value('categoryId'), accountId: value('accountId'), status, fromDate, toDate, limit, offset }
+  return { search: value('search'), type, categoryId: value('categoryId'), accountId: value('accountId'), status, source, fromDate, toDate, limit, offset }
 }
 
 async function body(request: Request): Promise<Record<string, unknown>> {
@@ -46,7 +50,12 @@ async function transactions(request: Request, env: Env, id?: string): Promise<Re
   if (!id) return methodNotAllowed()
   const existing = await getTransaction(env.DB, workspaceId, id)
   if (!existing) throw new ApiError(404, 'TRANSACTION_NOT_FOUND', 'The transaction was not found.')
-  if (request.method === 'GET') return success(transactionToApi(existing))
+  if (request.method === 'GET') {
+    const data = transactionToApi(existing)
+    if (existing.source !== 'sms') return success(data)
+    const sms = await getSmsForTransaction(env.DB, workspaceId, id)
+    return success({ ...data, sms: sms ? { sender: sms.sender, rawText: sms.raw_text, receivedAt: sms.received_at, parseStatus: sms.parse_status, parseConfidence: sms.parse_confidence } : null })
+  }
   if (request.method === 'PATCH') {
     const value = validateTransaction(await body(request), existing); await validateReferences(env.DB, workspaceId, value, id)
     return success(transactionToApi(await updateTransaction(env.DB, workspaceId, id, value)))
@@ -79,6 +88,19 @@ async function accounts(request: Request, env: Env, id?: string): Promise<Respon
 export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
   const { pathname } = new URL(request.url)
   try {
+    if (pathname === '/api/ingest/sms') {
+      if (request.method !== 'POST') return methodNotAllowed()
+      return await ingestSms(request, env)
+    }
+    if (pathname === '/api/sms-messages') {
+      if (request.method !== 'GET') return methodNotAllowed()
+      const url = new URL(request.url), parseStatus = url.searchParams.get('parseStatus')?.trim() || undefined
+      const limit = Number(url.searchParams.get('limit') ?? 50), offset = Number(url.searchParams.get('offset') ?? 0)
+      if (parseStatus && !['received', 'parsed', 'unparsed', 'non_financial', 'needs_review'].includes(parseStatus)) throw new ApiError(400, 'INVALID_FILTER', 'parseStatus is invalid.')
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) throw new ApiError(400, 'INVALID_FILTER', 'limit must be 1–100 and offset must be non-negative.')
+      const rows = await listSmsMessages(env.DB, env.DEFAULT_WORKSPACE_ID, parseStatus, limit, offset)
+      return success(rows.map(row => ({ id: row.id, externalId: row.external_id, sender: row.sender, rawText: row.raw_text, receivedAt: row.received_at, parseStatus: row.parse_status, parseConfidence: row.parse_confidence, parseNotes: row.parse_notes, transactionId: row.transaction_id, createdAt: row.created_at })))
+    }
     if (pathname === '/api/health') {
       if (request.method !== 'GET') return methodNotAllowed()
       await env.DB.prepare('SELECT 1 AS healthy').first<{ healthy: number }>()

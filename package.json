@@ -12,7 +12,8 @@
     "test:accounts": "bash scripts/test-accounts.sh",
     "test:dashboard": "rm -rf .dashboard-test-dist && tsc --ignoreConfig worker/lib/dashboard-calculations.ts --module nodenext --target es2022 --outDir .dashboard-test-dist && node --test tests/dashboard-calculations.test.mjs && rm -rf .dashboard-test-dist",
     "deploy": "npm run build && wrangler deploy",
-    "test:reports": "rm -rf .reports-test-dist && tsc --ignoreConfig worker/lib/report-calculations.ts --module nodenext --target es2022 --outDir .reports-test-dist && node --test tests/report-calculations.test.mjs && rm -rf .reports-test-dist"
+    "test:reports": "rm -rf .reports-test-dist && tsc --ignoreConfig worker/lib/report-calculations.ts --module nodenext --target es2022 --outDir .reports-test-dist && node --test tests/report-calculations.test.mjs && rm -rf .reports-test-dist",
+    "test:sms": "bash scripts/test-sms.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

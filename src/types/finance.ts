@@ -28,7 +28,8 @@ export interface Transaction {
   account: string
   type: TransactionType
   amount: number
-  status: 'Completed' | 'Pending'
+  status: 'Confirmed' | 'Completed' | 'Pending' | 'Ignored'
+  source?: string
   notes?: string
   fromAccount?: string
   toAccount?: string
