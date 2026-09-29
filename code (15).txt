@@ -1,0 +1,682 @@
+export default function Transactions() {
+  return (
+    <div className="bg-[#FFF] min-w-screen min-h-screen overflow-hidden">
+      <div className="flex justify-between items-center w-[1110px] absolute left-[290px] top-[30px]">
+        <p className="text-[#1B212D] font-kumbhSans text-[25px] font-semibold w-fit">
+          Transactions
+        </p>
+        <div className="flex items-center gap-[45px] w-fit">
+          <div className="flex items-start gap-[45px] w-fit">
+            <div className="w-6 h-6 overflow-hidden relative">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4 absolute left-[3px] top-[3px] "
+              >
+                <path
+                  d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z"
+                  stroke="#929EAE"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <svg
+                width="7"
+                height="7"
+                viewBox="0 0 7 7"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-1 h-1 absolute left-[17px] top-[17px] "
+              >
+                <path
+                  d="M5.35 5.35L1 1"
+                  stroke="#929EAE"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6 overflow-hidden relative "
+            >
+              <path
+                d="M20.1892 14.0608L19.0592 12.1808C18.8092 11.7708 18.5892 10.9808 18.5892 10.5008V8.63078C18.5892 5.00078 15.6392 2.05078 12.0192 2.05078C8.38923 2.06078 5.43923 5.00078 5.43923 8.63078V10.4908C5.43923 10.9708 5.21923 11.7608 4.97923 12.1708L3.84923 14.0508C3.41923 14.7808 3.31923 15.6108 3.58923 16.3308C3.85923 17.0608 4.46923 17.6408 5.26923 17.9008C6.34923 18.2608 7.43923 18.5208 8.54923 18.7108C8.65923 18.7308 8.76923 18.7408 8.87923 18.7608C9.01923 18.7808 9.16923 18.8008 9.31923 18.8208C9.57923 18.8608 9.83923 18.8908 10.1092 18.9108C10.7392 18.9708 11.3792 19.0008 12.0192 19.0008C12.6492 19.0008 13.2792 18.9708 13.8992 18.9108C14.1292 18.8908 14.3592 18.8708 14.5792 18.8408C14.7592 18.8208 14.9392 18.8008 15.1192 18.7708C15.2292 18.7608 15.3392 18.7408 15.4492 18.7208C16.5692 18.5408 17.6792 18.2608 18.7592 17.9008C19.5292 17.6408 20.1192 17.0608 20.3992 16.3208C20.6792 15.5708 20.5992 14.7508 20.1892 14.0608ZM12.7492 10.0008C12.7492 10.4208 12.4092 10.7608 11.9892 10.7608C11.5692 10.7608 11.2292 10.4208 11.2292 10.0008V6.90078C11.2292 6.48078 11.5692 6.14078 11.9892 6.14078C12.4092 6.14078 12.7492 6.48078 12.7492 6.90078V10.0008ZM14.8297 20.01C14.4097 21.17 13.2997 22 11.9997 22C11.2097 22 10.4297 21.68 9.87969 21.11C9.55969 20.81 9.31969 20.41 9.17969 20C9.30969 20.02 9.43969 20.03 9.57969 20.05C9.80969 20.08 10.0497 20.11 10.2897 20.13C10.8597 20.18 11.4397 20.21 12.0197 20.21C12.5897 20.21 13.1597 20.18 13.7197 20.13C13.9297 20.11 14.1397 20.1 14.3397 20.07C14.4997 20.05 14.6597 20.03 14.8297 20.01Z"
+                fill="#929EAE"
+              />
+            </svg>
+          </div>
+          <div className="flex pt-1.5 pr-[15px] pb-1.5 pl-[7px] justify-between items-center rounded-[100px] bg-[#FAFAFA] w-[215px]">
+            <div className="flex items-center gap-3 w-fit">
+              <img
+                src="/Ellipse1.png"
+                className="rounded-[36px] w-9 h-9 max-w-none"
+                alt="Ellipse 1"
+              />
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+                Mahfuzul Nabil
+              </p>
+            </div>
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 17 17"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="shrink-0 w-[17px] h-[17px] overflow-hidden relative "
+            >
+              <path
+                d="M12.6923 5.79395H8.27941H4.30563C3.62563 5.79395 3.28563 6.61561 3.7673 7.09729L7.43649 10.7665C8.02441 11.3544 8.98066 11.3544 9.56857 10.7665L10.964 9.37104L13.2377 7.09729C13.7123 6.61561 13.3723 5.79395 12.6923 5.79395Z"
+                fill="#1B212D"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div className="inline-flex pt-[30px] pr-[25px] pb-[100px] pl-[25px] flex-col justify-center items-start gap-10 bg-[#FAFAFA] absolute left-0 top-0">
+        <div className="flex items-center gap-3 absolute left-[25px] top-[30px]">
+          <div className="w-[30px] h-[30px] relative">
+            <div className="rounded-lg bg-[#C4C4C4] w-[30px] h-[30px] absolute left-0 top-0"></div>
+          </div>
+          <p className="text-[#1B212D] font-gordita text-lg font-bold w-20 h-[23px]">
+            Maglo.
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-[354px] absolute left-[25px] top-[100px]">
+          <div className="flex flex-col items-start gap-0.5 w-fit">
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0 w-5 h-5 overflow-hidden relative "
+                >
+                  <path
+                    d="M16.6998 5.68471L11.8998 2.32637C10.5915 1.40971 8.58318 1.45971 7.32487 2.43471L3.14987 5.69304C2.31654 6.34304 1.6582 7.67637 1.6582 8.72633V14.4763C1.6582 16.6013 3.3832 18.3347 5.5082 18.3347H14.4915C16.6165 18.3347 18.3415 16.6097 18.3415 14.4847V8.83466C18.3415 7.70971 17.6165 6.32637 16.6998 5.68471ZM10.6248 15.0013C10.6248 15.343 10.3415 15.6263 9.99985 15.6263C9.65818 15.6263 9.37485 15.343 9.37485 15.0013V12.5013C9.37485 12.1597 9.65818 11.8763 9.99985 11.8763C10.3415 11.8763 10.6248 12.1597 10.6248 12.5013V15.0013Z"
+                    fill="#929EAE"
+                  />
+                </svg>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                Dashboard
+              </p>
+            </div>
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg bg-[#C8EE44] w-[200px]">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="shrink-0 w-5 h-5 overflow-hidden relative "
+              >
+                <path
+                  d="M13.492 1.66675H6.50866C3.47533 1.66675 1.66699 3.47508 1.66699 6.50841V13.4834C1.66699 16.5251 3.47533 18.3334 6.50866 18.3334H13.4837C16.517 18.3334 18.3253 16.5251 18.3253 13.4917V6.50841C18.3337 3.47508 16.5253 1.66675 13.492 1.66675ZM14.3837 8.30008L12.4587 10.7834C12.217 11.0917 11.8753 11.2917 11.4837 11.3334C11.092 11.3834 10.7087 11.2751 10.4003 11.0334L8.87533 9.83342C8.81699 9.78341 8.75033 9.78341 8.71699 9.79175C8.68366 9.79175 8.62533 9.80842 8.57533 9.87508L6.59199 12.4501C6.46699 12.6084 6.28366 12.6917 6.10033 12.6917C5.96699 12.6917 5.83366 12.6501 5.71699 12.5584C5.44199 12.3501 5.39199 11.9584 5.60033 11.6834L7.58366 9.10842C7.82533 8.80008 8.16699 8.60008 8.55866 8.55008C8.94199 8.50008 9.33366 8.60842 9.64199 8.85008L11.167 10.0501C11.2253 10.1001 11.2837 10.1001 11.3253 10.0917C11.3587 10.0917 11.417 10.0751 11.467 10.0084L13.392 7.52508C13.6003 7.25008 14.0003 7.20008 14.267 7.41675C14.542 7.64175 14.592 8.03341 14.3837 8.30008Z"
+                  fill="#1B212D"
+                />
+              </svg>
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+                Transactions
+              </p>
+            </div>
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0 w-5 h-5 overflow-hidden relative "
+                >
+                  <path
+                    d="M13.1503 1.66675H6.85033C3.70033 1.66675 2.91699 2.50841 2.91699 5.86675V15.2501C2.91699 17.4667 4.13366 17.9917 5.60866 16.4084L5.61699 16.4001C6.30033 15.6751 7.34199 15.7334 7.93366 16.5251L8.77533 17.6501C9.45033 18.5417 10.542 18.5417 11.217 17.6501L12.0587 16.5251C12.6587 15.7251 13.7003 15.6667 14.3837 16.4001C15.867 17.9834 17.0753 17.4584 17.0753 15.2417V5.86675C17.0837 2.50841 16.3003 1.66675 13.1503 1.66675ZM12.292 8.95842H7.70866C7.36699 8.95842 7.08366 8.67508 7.08366 8.33342C7.08366 7.99175 7.36699 7.70842 7.70866 7.70842H12.292C12.6337 7.70842 12.917 7.99175 12.917 8.33342C12.917 8.67508 12.6337 8.95842 12.292 8.95842Z"
+                    fill="#929EAE"
+                  />
+                </svg>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                Invoices
+              </p>
+            </div>
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <div className="shrink-0 w-5 h-5 overflow-hidden relative">
+                  <svg
+                    width="16"
+                    height="12"
+                    viewBox="0 0 16 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-3 absolute left-0.5 top-0.5 "
+                  >
+                    <path
+                      d="M10.2917 1.58333V4.75H9.04167V1.58333C9.04167 1.35833 8.84167 1.25 8.70833 1.25C8.66667 1.25 8.625 1.25833 8.58333 1.275L1.975 3.76667C1.53333 3.93333 1.25 4.35 1.25 4.825V5.38333C0.491667 5.95 0 6.85835 0 7.88335V4.825C0 3.83333 0.608333 2.95 1.53333 2.6L8.15 0.0999999C8.33333 0.0333332 8.525 0 8.70833 0C9.54167 0 10.2917 0.675 10.2917 1.58333ZM15.8339 10.3743V11.2077C15.8339 11.4327 15.6589 11.616 15.4256 11.6243H14.2089C13.7672 11.6243 13.3672 11.2993 13.3339 10.866C13.3089 10.6077 13.4089 10.366 13.5756 10.1993C13.7256 10.041 13.9339 9.95768 14.1589 9.95768H15.4172C15.6589 9.96602 15.8339 10.1493 15.8339 10.3743Z"
+                      fill="#929EAE"
+                    />
+                  </svg>
+                  <svg
+                    width="16"
+                    height="12"
+                    viewBox="0 0 16 12"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-3 absolute left-0.5 top-1.5 "
+                  >
+                    <path
+                      d="M14.15 4.33333H15C15.4583 4.33333 15.8333 3.95833 15.8333 3.5V3.13333C15.8333 1.40833 14.425 0 12.7 0H3.13333C2.425 0 1.775 0.233334 1.25 0.633334C0.491667 1.2 0 2.10833 0 3.13333V8.74167C0 10.4667 1.40833 11.875 3.13333 11.875H12.7C14.425 11.875 15.8333 10.4667 15.8333 8.74167V8.58333C15.8333 8.125 15.4583 7.75 15 7.75H14.275C13.475 7.75 12.7083 7.25833 12.5 6.48333C12.325 5.85 12.5333 5.24167 12.95 4.83333C13.2583 4.51667 13.6833 4.33333 14.15 4.33333ZM9.58333 4.16667H3.75C3.40833 4.16667 3.125 3.88333 3.125 3.54167C3.125 3.2 3.40833 2.91667 3.75 2.91667H9.58333C9.925 2.91667 10.2083 3.2 10.2083 3.54167C10.2083 3.88333 9.925 4.16667 9.58333 4.16667Z"
+                      fill="#929EAE"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                My Wallets
+              </p>
+            </div>
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0 w-5 h-5 overflow-hidden relative "
+                >
+                  <path
+                    d="M16.7503 7.68458C15.242 7.68458 14.6253 6.61792 15.3753 5.30958C15.8087 4.55125 15.5503 3.58458 14.792 3.15125L13.3503 2.32625C12.692 1.93458 11.842 2.16792 11.4503 2.82625L11.3587 2.98458C10.6087 4.29292 9.37533 4.29292 8.61699 2.98458L8.52533 2.82625C8.15033 2.16792 7.30033 1.93458 6.64199 2.32625L5.20033 3.15125C4.44199 3.58458 4.18366 4.55958 4.61699 5.31792C5.37533 6.61792 4.75866 7.68458 3.25033 7.68458C2.38366 7.68458 1.66699 8.39291 1.66699 9.26791V10.7346C1.66699 11.6012 2.37533 12.3179 3.25033 12.3179C4.75866 12.3179 5.37533 13.3846 4.61699 14.6929C4.18366 15.4512 4.44199 16.4179 5.20033 16.8512L6.64199 17.6762C7.30033 18.0679 8.15033 17.8346 8.54199 17.1762L8.63366 17.0179C9.38366 15.7096 10.617 15.7096 11.3753 17.0179L11.467 17.1762C11.8587 17.8346 12.7087 18.0679 13.367 17.6762L14.8087 16.8512C15.567 16.4179 15.8253 15.4429 15.392 14.6929C14.6337 13.3846 15.2503 12.3179 16.7587 12.3179C17.6253 12.3179 18.342 11.6096 18.342 10.7346V9.26791C18.3337 8.40125 17.6253 7.68458 16.7503 7.68458ZM10.0003 12.7096C8.50866 12.7096 7.29199 11.4929 7.29199 10.0012C7.29199 8.50958 8.50866 7.29292 10.0003 7.29292C11.492 7.29292 12.7087 8.50958 12.7087 10.0012C12.7087 11.4929 11.492 12.7096 10.0003 12.7096Z"
+                    fill="#929EAE"
+                  />
+                </svg>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                Settings
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-0.5 w-fit">
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0 w-5 h-5 overflow-hidden relative "
+                >
+                  <path
+                    d="M14.167 2.02466H5.83366C3.33366 2.02466 1.66699 3.69132 1.66699 6.19133V11.1913C1.66699 13.6913 3.33366 15.358 5.83366 15.358V17.133C5.83366 17.7997 6.57533 18.1997 7.12533 17.8247L10.8337 15.358H14.167C16.667 15.358 18.3337 13.6913 18.3337 11.1913V6.19133C18.3337 3.69132 16.667 2.02466 14.167 2.02466ZM10.0003 12.1663C9.65033 12.1663 9.37533 11.883 9.37533 11.5413C9.37533 11.1997 9.65033 10.9163 10.0003 10.9163C10.3503 10.9163 10.6253 11.1997 10.6253 11.5413C10.6253 11.883 10.3503 12.1663 10.0003 12.1663ZM11.0503 8.708C10.7253 8.92467 10.6253 9.06633 10.6253 9.29967V9.47467C10.6253 9.81633 10.342 10.0997 10.0003 10.0997C9.65866 10.0997 9.37533 9.81633 9.37533 9.47467V9.29967C9.37533 8.33299 10.0837 7.85799 10.3503 7.67466C10.6587 7.46633 10.7587 7.32466 10.7587 7.10799C10.7587 6.69133 10.417 6.34966 10.0003 6.34966C9.58366 6.34966 9.24199 6.69133 9.24199 7.10799C9.24199 7.44966 8.95866 7.73299 8.61699 7.73299C8.27533 7.73299 7.99199 7.44966 7.99199 7.10799C7.99199 5.99966 8.89199 5.09966 10.0003 5.09966C11.1087 5.09966 12.0087 5.99966 12.0087 7.10799C12.0087 8.05799 11.3087 8.533 11.0503 8.708Z"
+                    fill="#929EAE"
+                  />
+                </svg>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                Help
+              </p>
+            </div>
+            <div className="flex pt-3.5 pr-[81px] pb-3.5 pl-[15px] items-center gap-3 rounded-lg w-[200px]">
+              <div className="flex justify-center items-center shrink-0 w-5 h-5">
+                <div className="shrink-0 w-5 h-5 overflow-hidden relative">
+                  <svg
+                    width="10"
+                    height="17"
+                    viewBox="0 0 10 17"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-[9px] h-[17px] absolute left-[3px] top-0.5 "
+                  >
+                    <path
+                      d="M3.86667 8.39167C3.86667 8.05 4.15 7.76667 4.49167 7.76667H9.05835V0.716667C9.05002 0.316667 8.73335 0 8.33335 0C3.425 0 0 3.425 0 8.33333C0 13.2417 3.425 16.6667 8.33335 16.6667C8.72502 16.6667 9.05002 16.35 9.05002 15.95V9.00833H4.49167C4.14167 9.01667 3.86667 8.73333 3.86667 8.39167Z"
+                      fill="#929EAE"
+                    />
+                  </svg>
+                  <svg
+                    width="6"
+                    height="6"
+                    viewBox="0 0 6 6"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-1.5 h-1.5 absolute left-3 top-[7px] "
+                  >
+                    <path
+                      d="M5.36667 2.55628L3 0.18125C2.75833 -0.0604167 2.35833 -0.0604167 2.11667 0.18125C1.875 0.422917 1.875 0.822917 2.11667 1.06458L3.41667 2.36462H0V3.61462H3.40833L2.10833 4.91462C1.86667 5.15628 1.86667 5.55628 2.10833 5.79795C2.23333 5.92295 2.39167 5.98128 2.55 5.98128C2.70833 5.98128 2.86667 5.92295 2.99167 5.79795L5.35834 3.42295C5.60834 3.18962 5.60833 2.79795 5.36667 2.55628Z"
+                      fill="#929EAE"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-[#929EAE] font-kumbhSans text-sm font-medium w-fit">
+                Logout
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="inline-flex pt-3 pr-[70px] pb-3 pl-[15px] items-center gap-[15px] rounded-[15px] border border-[#F5F5F5] bg-[#F8F8F8] absolute left-[290px] top-[98px]">
+        <div className="w-6 h-6 absolute left-[15px] top-3 overflow-hidden">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4 absolute left-[3px] top-[3px] "
+          >
+            <path
+              d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z"
+              stroke="#363A3F"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <svg
+            width="7"
+            height="7"
+            viewBox="0 0 7 7"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-1 h-1 absolute left-[17px] top-[17px] "
+          >
+            <path
+              d="M5.35 5.35L1 1"
+              stroke="#363A3F"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <p className="text-[#929EAE] font-kumbhSans text-sm absolute left-[54px] top-4">
+          Search anything on Transactions
+        </p>
+      </div>
+      <div className="inline-flex items-center gap-[30px] absolute left-[290px] top-[196px]">
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold w-[237px] absolute left-0 top-0">
+          NAME&#x2F;BUSINESS
+        </p>
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold w-[123px] absolute left-[267px] top-0">
+          TYPE
+        </p>
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold w-[148px] absolute left-[420px] top-0">
+          AMOUNT
+        </p>
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold w-[148px] absolute left-[598px] top-0">
+          DATE
+        </p>
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold w-[158px] absolute left-[776px] top-0">
+          INVOICE ID
+        </p>
+        <p className="text-[#929EAE] font-kumbhSans text-xs font-semibold absolute left-[964px] top-0">
+          ACTION
+        </p>
+      </div>
+      <div className="bg-[#F5F5F5] w-[1110px] absolute left-[290px] top-[171px]"></div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[236px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461.png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Iphone 13 Pro MAX
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Apple. Inc
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Mobile
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $420.84
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              14 Apr 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 8:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0124877
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[311px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(1).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Netflix Subscription
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Netflix
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Entertainment
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $100.00
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              05 Apr 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 7:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0124585
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[386px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(2).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Figma Subscription
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Figma. Inc
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Software
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $244.20
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              02 Apr 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 10:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0124124
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[461px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(3).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Bitcoin Transaction
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Coinbase
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Technology
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            - $520.84
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              02 Apr 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 6:00 AM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0128544
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[536px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(4).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Sajib Rahman
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Appsumo
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Withdraw
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $500.10
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              30 Mar 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 9:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0122143
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[686px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(5).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                UIHUT Subscription
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                UIHUT
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Payment
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            - $84.00
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              24 Mar 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 8:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0124244
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[611px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(6).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Instagram Ads
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                Meta
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Entertainment
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $100.00
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              20 Mar 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 9:00 PM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0124877
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+        <div className="bg-[#F5F5F5] w-[1112px] absolute left-0 top-[60px]"></div>
+      </div>
+      <div className="inline-flex flex-col items-start gap-5 absolute left-[290px] top-[761px]">
+        <div className="flex items-center gap-[30px] absolute left-0 top-0">
+          <div className="flex items-center gap-3.5 w-fit">
+            <div className="w-10 h-10 relative">
+              <img
+                src="/Rectangle461(7).png"
+                className="rounded-[5px] w-10 h-10 absolute left-0 top-0 max-w-none"
+                alt="Rectangle 461"
+              />
+            </div>
+            <div className="w-[183px] h-[39px] relative">
+              <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[183px] h-[17px] absolute left-0 top-0">
+                Citi Bank Ltd.
+              </p>
+              <p className="text-[#78778B] font-kumbhSans text-[13px] w-[183px] h-4 absolute left-0 top-[23px]">
+                City Bank
+              </p>
+            </div>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[123px]">
+            Withdraw
+          </p>
+          <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-[148px]">
+            $400.11
+          </p>
+          <div className="w-[148px] h-[38px] relative">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-medium w-[148px] h-[17px] absolute left-0 top-0">
+              10 Mar 2022
+            </p>
+            <p className="text-[#78778B] font-kumbhSans text-[13px] w-[148px] h-4 absolute left-0 top-[22px]">
+              at 7:00 AM
+            </p>
+          </div>
+          <p className="text-[#78778B] font-kumbhSans text-sm font-medium w-[158px]">
+            MGL0127749
+          </p>
+          <button className="cursor-pointer text-nowrap flex pt-[11px] pr-5 pb-3 pl-5 justify-center items-center gap-2.5 rounded bg-[#C8EE44] w-fit">
+            <p className="text-[#1B212D] font-kumbhSans text-sm font-semibold w-fit">
+              View
+            </p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
