@@ -1,0 +1,16 @@
+import { Search, X } from 'lucide-react'
+import type { Category, TransactionType } from '../../types/finance'
+export type FilterState = { search: string; type: 'All' | TransactionType; category: 'All' | Category; account: string; range: 'All' | '7' | '30' | '90' }
+export const emptyFilters: FilterState = { search: '', type: 'All', category: 'All', account: 'All', range: 'All' }
+const types: FilterState['type'][] = ['All', 'Expense', 'Income', 'Transfer', 'Investment', 'Refund']
+export function TransactionFilters({ value, onChange, categories, accounts }: { value: FilterState; onChange: (next: FilterState) => void; categories: Category[]; accounts: string[] }) {
+  const set = <K extends keyof FilterState>(key: K, next: FilterState[K]) => onChange({ ...value, [key]: next })
+  const dirty = JSON.stringify(value) !== JSON.stringify(emptyFilters)
+  return <div className="filters-area"><label className="search-box"><Search/><span className="sr-only">Search transactions</span><input value={value.search} onChange={e => set('search', e.target.value)} placeholder="Search merchant, category or account…"/></label><div className="filter-selects">
+    <label><span>Type</span><select value={value.type} onChange={e => set('type', e.target.value as FilterState['type'])}>{types.map(item => <option key={item}>{item}</option>)}</select></label>
+    <label><span>Category</span><select value={value.category} onChange={e => set('category', e.target.value as FilterState['category'])}><option>All</option>{categories.map(item => <option key={item}>{item}</option>)}</select></label>
+    <label><span>Account</span><select value={value.account} onChange={e => set('account', e.target.value)}><option>All</option>{accounts.map(item => <option key={item}>{item}</option>)}</select></label>
+    <label><span>Date range</span><select value={value.range} onChange={e => set('range', e.target.value as FilterState['range'])}><option value="All">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+    {dirty && <button className="clear-filters" onClick={() => onChange(emptyFilters)}><X/>Clear filters</button>}
+  </div></div>
+}

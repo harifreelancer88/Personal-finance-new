@@ -1,22 +1,24 @@
-import { Filter, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ListChecks, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { PageHeader } from '../components/layout/PageHeader'
+import { ConfirmDialog } from '../components/transactions/ConfirmDialog'
+import { TransactionDetails } from '../components/transactions/TransactionDetails'
+import { emptyFilters, TransactionFilters, type FilterState } from '../components/transactions/TransactionFilters'
+import { TransactionForm } from '../components/transactions/TransactionForm'
 import { TransactionTable } from '../components/transactions/TransactionTable'
-import { transactions } from '../data/mockData'
-import type { TransactionType } from '../types/finance'
-
-const filters: Array<'All' | TransactionType> = ['All', 'Expense', 'Income', 'Transfer', 'Investment']
+import { transactions as mockTransactions } from '../data/mockData'
+import { formatCurrency } from '../lib/format'
+import type { Category, Transaction } from '../types/finance'
 
 export function TransactionsPage() {
-  const { openMenu } = useOutletContext<{ openMenu: () => void }>()
-  const [search, setSearch] = useState(''); const [filter, setFilter] = useState<(typeof filters)[number]>('All')
-  const visible = useMemo(() => transactions.filter(item => (filter === 'All' || item.type === filter) && `${item.description} ${item.merchant} ${item.category} ${item.account}`.toLowerCase().includes(search.toLowerCase())), [filter, search])
-  return <><PageHeader title="Transactions" eyebrow="Money movement" onMenu={openMenu}/><div className="page-body">
-    <div className="transaction-intro"><div><h2>All transactions</h2><p>Track and review spending across all your accounts.</p></div><button className="primary-button"><Plus size={18}/> Add transaction</button></div>
-    <section className="transactions-panel panel"><div className="transaction-tools"><label className="search-box"><Search/><span className="sr-only">Search transactions</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search transactions..."/></label><button className="outline-button"><Filter/> Date range</button><button className="outline-button"><SlidersHorizontal/> More filters</button></div>
-      <div className="filter-tabs" aria-label="Transaction type filters">{filters.map(type => <button className={filter === type ? 'active' : ''} onClick={() => setFilter(type)} key={type}>{type}<span>{type === 'All' ? transactions.length : transactions.filter(item => item.type === type).length}</span></button>)}</div>
-      <TransactionTable items={visible}/><footer className="table-footer">Showing {visible.length} of {transactions.length} transactions <div><button disabled>Previous</button><button disabled>Next</button></div></footer>
-    </section>
-  </div></>
+ const { openMenu } = useOutletContext<{ openMenu: () => void }>(); const [items, setItems] = useState<Transaction[]>(mockTransactions); const [filters, setFilters] = useState<FilterState>(emptyFilters); const [form, setForm] = useState<{ mode: 'add' | 'edit'; item?: Transaction }>(); const [viewing, setViewing] = useState<Transaction>(); const [deleting, setDeleting] = useState<Transaction>()
+ const categories = useMemo(() => [...new Set(items.map(i => i.category))].sort() as Category[], [items]); const accountNames = useMemo(() => [...new Set(items.flatMap(i => i.type === 'Transfer' ? [i.fromAccount, i.toAccount] : [i.account]).filter(Boolean) as string[])].sort(), [items])
+ const visible = useMemo(() => items.filter(item => { const text = `${item.description} ${item.merchant} ${item.category} ${item.account}`.toLowerCase(); const cutoff = filters.range === 'All' ? 0 : new Date('2026-09-29T23:59:59').getTime() - Number(filters.range) * 86400000; return (!filters.search || text.includes(filters.search.toLowerCase())) && (filters.type === 'All' || item.type === filters.type) && (filters.category === 'All' || item.category === filters.category) && (filters.account === 'All' || item.account.includes(filters.account)) && (!cutoff || new Date(item.date).getTime() >= cutoff) }), [items, filters])
+ const totals = useMemo(() => ({ income: items.filter(i => i.type === 'Income' || i.type === 'Refund').reduce((n,i) => n + Math.abs(i.amount), 0), expenses: items.filter(i => i.type === 'Expense' || i.type === 'Investment').reduce((n,i) => n + Math.abs(i.amount), 0) }), [items])
+ const save = (item: Transaction) => { setItems(old => old.some(i => i.id === item.id) ? old.map(i => i.id === item.id ? item : i) : [item, ...old]); setForm(undefined) }
+ return <><PageHeader title="Transactions" eyebrow="Money movement" onMenu={openMenu}/><main className="page-body transactions-page"><div className="transaction-intro"><div><h2>Transactions</h2><p>Track and manage your financial activity across every account.</p></div><button className="primary-button" onClick={() => setForm({ mode: 'add' })}><Plus/> <span>Add transaction</span></button></div>
+ <section className="transaction-summary" aria-label="Transaction summary"><article><span className="summary-mini-icon income"><ArrowDownLeft/></span><div><p>Total income</p><strong>{formatCurrency(totals.income)}</strong></div></article><article><span className="summary-mini-icon expense"><ArrowUpRight/></span><div><p>Total expenses</p><strong>{formatCurrency(totals.expenses)}</strong></div></article><article><span className="summary-mini-icon flow"><ArrowLeftRight/></span><div><p>Net cash flow</p><strong className={totals.income - totals.expenses >= 0 ? 'positive-text' : 'negative-text'}>{totals.income - totals.expenses >= 0 ? '+' : '−'}{formatCurrency(totals.income - totals.expenses)}</strong></div></article><article><span className="summary-mini-icon count"><ListChecks/></span><div><p>Transactions</p><strong>{items.length}</strong></div></article></section>
+ <section className="transactions-panel panel"><div className="transactions-panel-head"><div><h3>All activity</h3><p>{visible.length} {visible.length === 1 ? 'transaction' : 'transactions'} found</p></div></div><TransactionFilters value={filters} onChange={setFilters} categories={categories} accounts={accountNames}/><TransactionTable items={visible} onView={setViewing} onEdit={item => setForm({mode:'edit',item})} onDelete={setDeleting}/><footer className="table-footer">Showing {visible.length} of {items.length} transactions</footer></section></main>
+ {form && <TransactionForm initial={form.item} onClose={() => setForm(undefined)} onSave={save}/>} {viewing && <TransactionDetails item={viewing} onClose={() => setViewing(undefined)} onEdit={() => { setForm({mode:'edit',item:viewing}); setViewing(undefined) }}/>} {deleting && <ConfirmDialog name={deleting.description} onCancel={() => setDeleting(undefined)} onConfirm={() => { setItems(old => old.filter(i => i.id !== deleting.id)); setDeleting(undefined) }}/>}</>
 }
