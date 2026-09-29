@@ -37,3 +37,42 @@ export interface CashFlowPoint {
   income: number
   expense: number
 }
+
+export type InvestmentType = 'Stocks / Equity' | 'Mutual Funds' | 'Gold' | 'EPF' | 'NPS' | 'Fixed Deposits' | 'Crypto' | 'Other Investments'
+
+export interface Investment {
+  id: string
+  name: string
+  type: InvestmentType
+  institution: string
+  investedAmount: number
+  currentValue: number
+  startDate: string
+  notes?: string
+  quantity?: number
+  averagePrice?: number
+  currentPrice?: number
+  units?: number
+  averageNav?: number
+  currentNav?: number
+  weightGrams?: number
+  goldType?: string
+  monthlyContribution?: number
+  principal?: number
+  interestRate?: number
+  maturityDate?: string
+}
+
+export interface InvestmentActivity {
+  id: string
+  investmentId?: string
+  title: string
+  type: 'Contribution' | 'Purchase' | 'Dividend'
+  date: string
+  amount: number
+}
+
+export interface PortfolioPoint {
+  label: string
+  value: number
+}
