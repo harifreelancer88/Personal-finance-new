@@ -9,6 +9,7 @@
     "check": "tsc -b --pretty false",
     "bootstrap:local": "wrangler d1 execute personal-finance-db --local --file=bootstrap.sql",
     "test:transactions": "bash scripts/test-transactions.sh",
+    "test:accounts": "bash scripts/test-accounts.sh",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

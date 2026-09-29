@@ -1,15 +1,15 @@
 import type { AccountRow, CategoryRow, InvestmentRow, TransactionRow } from '../types'
 
-export function accountToApi(row: AccountRow) {
+export function accountToApi(row: AccountRow & { current_balance_minor?: number }) {
   return {
     id: row.id,
-    workspaceId: row.workspace_id,
     name: row.name,
     institution: row.institution,
     accountType: row.account_type,
     last4: row.last4,
     openingBalanceMinor: row.opening_balance_minor,
     openingBalanceDate: row.opening_balance_date,
+    currentBalanceMinor: row.current_balance_minor ?? row.opening_balance_minor,
     creditLimitMinor: row.credit_limit_minor,
     billingDay: row.billing_day,
     dueDay: row.due_day,

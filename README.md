@@ -1,8 +1,8 @@
 # Personal Finance app
 
-Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. Transactions are backed by Cloudflare D1; the other application pages intentionally retain their v1 data sources.
+Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. Transactions and Accounts are backed by Cloudflare D1; the other application pages intentionally retain their v1 data sources.
 
-The Transactions page uses the API. Dashboard, Accounts, Investments, Reports, and Settings are intentionally not migrated to D1 yet.
+The Transactions and Accounts pages use the API. Dashboard, Investments, Reports, and Settings are intentionally not migrated to D1 yet.
 
 ## Prerequisites
 
@@ -83,6 +83,10 @@ Open the URL printed by Vite. The Worker serves API requests and delegates all o
 ```text
 GET /api/health
 GET /api/accounts
+GET /api/accounts/:id
+POST /api/accounts
+PATCH /api/accounts/:id
+DELETE /api/accounts/:id
 GET /api/categories
 GET /api/transactions
 GET /api/transactions/:id
@@ -102,7 +106,7 @@ Database columns remain in `snake_case`, while the API maps them to `camelCase` 
 
 ## Account balance semantics
 
-An account stores an `opening_balance_minor` and an optional `opening_balance_date`, not a mutable current balance. A future balance service will calculate the balance from that opening point and **confirmed** transactions only:
+An account stores an `opening_balance_minor` and an optional `opening_balance_date`, not a mutable current balance. Account API reads return a calculated `currentBalanceMinor` from that opening point and **confirmed** transactions only:
 
 - an expense subtracts `amount_minor` from `from_account_id`;
 - income adds `amount_minor` to `to_account_id`;
@@ -110,7 +114,7 @@ An account stores an `opening_balance_minor` and an optional `opening_balance_da
 - a transfer subtracts from `from_account_id` and adds to `to_account_id` as one transaction; and
 - an investment subtracts `amount_minor` from `from_account_id`.
 
-Pending and ignored transactions do not affect calculated balances. Credit-card balances may be negative internally to represent a liability; presentation code may display the absolute outstanding amount where appropriate.
+Pending and ignored transactions do not affect calculated balances. Credit-card balances are negative internally when they represent a liability. The Accounts UI presents the positive outstanding amount; a positive internal card balance represents a credit and is not counted as outstanding.
 
 Refunds remain their own transaction type. When known, `original_transaction_id` links a refund to its original transaction so future reports can offset the original expense category rather than treating the refund as ordinary income. Removing the original transaction sets this optional link to null and does not remove the refund.
 

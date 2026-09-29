@@ -4,7 +4,7 @@ import type { Account } from '../../types/finance'
 
 export function AccountSummary({ accounts }: { accounts: Account[] }) {
   const bank = accounts.filter(a => a.type === 'Bank Account').reduce((sum,a) => sum + a.balance, 0)
-  const credit = accounts.filter(a => a.type === 'Credit Card').reduce((sum,a) => sum + Math.abs(a.balance), 0)
+  const credit = accounts.filter(a => a.type === 'Credit Card').reduce((sum,a) => sum + Math.max(0, -a.balance), 0)
   const liquid = accounts.filter(a => a.type === 'Cash' || a.type === 'Wallet / Prepaid').reduce((sum,a) => sum + a.balance, 0)
   const available = bank + liquid
   const cards = [{ label:'Total available balance', value:available, icon:Landmark, tone:'lime' }, { label:'Bank balance', value:bank, icon:Building2, tone:'blue' }, { label:'Credit card outstanding', value:credit, icon:CreditCard, tone:'expense' }, { label:'Cash / wallet balance', value:liquid, icon:Banknote, tone:'violet' }]
