@@ -8,7 +8,7 @@ const items = [
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
   { label: 'Reports', icon: FileChartColumn, to: '/reports' },
-  { label: 'Settings', icon: Settings },
+  { label: 'Settings', icon: Settings, to: '/settings' },
 ]
 
 interface SidebarProps { open: boolean; onClose: () => void }
