@@ -1,7 +1,8 @@
 import { failure, methodNotAllowed, notFound, success } from '../lib/http'
 import { accountToApi, categoryToApi, investmentToApi, transactionToApi } from '../lib/api-mappers'
 import { ApiError, parseJsonObject, validateReferences, validateTransaction } from '../lib/transaction-validation'
-import { listAccounts } from '../repositories/accounts'
+import { validateAccount } from '../lib/account-validation'
+import { accountInUse, createAccount, deleteAccount, getAccount, listAccounts, updateAccount } from '../repositories/accounts'
 import { listCategories } from '../repositories/categories'
 import { listInvestments } from '../repositories/investments'
 import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../repositories/transactions'
@@ -55,6 +56,23 @@ async function transactions(request: Request, env: Env, id?: string): Promise<Re
   return methodNotAllowed()
 }
 
+async function accounts(request: Request, env: Env, id?: string): Promise<Response> {
+  const workspaceId = env.DEFAULT_WORKSPACE_ID
+  if (!id && request.method === 'GET') return success((await listAccounts(env.DB, workspaceId)).map(accountToApi))
+  if (!id && request.method === 'POST') return success(accountToApi(await createAccount(env.DB, workspaceId, validateAccount(await body(request)))), { status: 201 })
+  if (!id) return methodNotAllowed()
+  const existing = await getAccount(env.DB, workspaceId, id)
+  if (!existing) throw new ApiError(404, 'ACCOUNT_NOT_FOUND', 'The account was not found.')
+  if (request.method === 'GET') return success(accountToApi(existing))
+  if (request.method === 'PATCH') return success(accountToApi(await updateAccount(env.DB, workspaceId, id, validateAccount(await body(request), existing))))
+  if (request.method === 'DELETE') {
+    if (await accountInUse(env.DB, workspaceId, id)) throw new ApiError(409, 'ACCOUNT_IN_USE', 'This account is referenced by financial history. Deactivate it instead.')
+    await deleteAccount(env.DB, workspaceId, id)
+    return success({ id })
+  }
+  return methodNotAllowed()
+}
+
 export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
   const { pathname } = new URL(request.url)
   try {
@@ -65,8 +83,9 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     }
     const match = pathname.match(/^\/api\/transactions(?:\/([^/]+))?$/)
     if (match) return transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
+    const accountMatch = pathname.match(/^\/api\/accounts(?:\/([^/]+))?$/)
+    if (accountMatch) return accounts(request, env, accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined)
     if (request.method !== 'GET') return methodNotAllowed()
-    if (pathname === '/api/accounts') return success((await listAccounts(env.DB, env.DEFAULT_WORKSPACE_ID)).map(accountToApi))
     if (pathname === '/api/categories') return success((await listCategories(env.DB, env.DEFAULT_WORKSPACE_ID)).map(categoryToApi))
     if (pathname === '/api/investments') return success((await listInvestments(env.DB, env.DEFAULT_WORKSPACE_ID)).map(investmentToApi))
     return notFound()

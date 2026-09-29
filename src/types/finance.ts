@@ -15,6 +15,8 @@ export interface Account {
   creditLimit?: number
   billingDate?: number
   dueDate?: number
+  openingBalanceMinor?: number
+  openingBalanceDate?: string | null
 }
 
 export interface Transaction {
