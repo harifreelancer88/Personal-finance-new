@@ -7,7 +7,7 @@ const items = [
   { label: 'Transactions', icon: CreditCard, to: '/transactions' },
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
-  { label: 'Reports', icon: FileChartColumn },
+  { label: 'Reports', icon: FileChartColumn, to: '/reports' },
   { label: 'Settings', icon: Settings },
 ]
 
