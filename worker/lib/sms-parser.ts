@@ -1,4 +1,4 @@
-export type SmsTransactionType = 'expense' | 'income' | 'refund'
+export type SmsTransactionType = 'expense' | 'income' | 'refund' | 'transfer'
 
 export interface ParsedSms {
   status: 'parsed' | 'non_financial' | 'needs_review' | 'unparsed'
@@ -7,8 +7,22 @@ export interface ParsedSms {
   description: string | null
   transactionDate: string
   accountLast4: string | null
+  sourceAccountLast4: string | null
+  destinationAccountLast4: string | null
   confidence: number
   notes: string
+}
+
+export function resolveDirectionalTransaction(sourceAccountIds: string[], destinationAccountIds: string[]): {
+  transactionType: SmsTransactionType | null; fromAccountId: string | null; toAccountId: string | null
+} {
+  if (sourceAccountIds.length > 1 || destinationAccountIds.length > 1) return { transactionType: null, fromAccountId: null, toAccountId: null }
+  const fromAccountId = sourceAccountIds[0] ?? null
+  const toAccountId = destinationAccountIds[0] ?? null
+  if (fromAccountId && toAccountId && fromAccountId !== toAccountId) return { transactionType: 'transfer', fromAccountId, toAccountId }
+  if (fromAccountId && !toAccountId) return { transactionType: 'expense', fromAccountId, toAccountId: null }
+  if (!fromAccountId && toAccountId) return { transactionType: 'income', fromAccountId: null, toAccountId }
+  return { transactionType: null, fromAccountId: null, toAccountId: null }
 }
 
 const amountPattern = /(?:₹|\bINR\s*|\bRs\.?\s*)([0-9][0-9,]*(?:\.[0-9]{1,2})?)(?![\d.])/i
@@ -26,8 +40,16 @@ export function parseAmountMinor(message: string): number | null {
 }
 
 export function extractAccountLast4(message: string): string | null {
-  const match = message.match(/(?:ending(?:\s+in)?|xx+|x{2,}|card(?:\s+(?:no\.?|ending))?|a\/c)\s*[:#-]?\s*\**x*([0-9]{1,4})\b/i)
+  const match = message.match(/(?:ending(?:\s+in)?|xx+|x{2,}|card(?:\s+(?:no\.?|ending))?|a\/c|acct(?:ount)?)\s*[:#-]?\s*\**x*([0-9]{1,4})\b/i)
   return match?.[1] ?? null
+}
+
+/** Extract only suffixes which are grammatically attached to their transaction direction. */
+export function extractDirectionalAccountSuffixes(message: string): { sourceAccountLast4: string | null; destinationAccountLast4: string | null } {
+  const account = String.raw`(?:acct(?:ount)?|a\/c|card(?:\s+(?:no\.?|ending))?)\s*[:#-]?\s*\**x*([0-9]{1,4})`
+  const source = message.match(new RegExp(`${account}\\s+(?:was\\s+)?debited\\b`, 'i'))
+  const destination = message.match(new RegExp(`${account}\\s+(?:was\\s+)?credited\\b`, 'i'))
+  return { sourceAccountLast4: source?.[1] ?? null, destinationAccountLast4: destination?.[1] ?? null }
 }
 
 function validDate(year: number, month: number, day: number): string | null {
@@ -41,31 +63,44 @@ function transactionDate(message: string, receivedAt: string): { date: string; e
   if (iso) { const date = validDate(+iso[1], +iso[2], +iso[3]); if (date) return { date, explicit: true } }
   const indian = message.match(/\b([0-3]?\d)[/-]([01]?\d)[/-](20\d{2})\b/)
   if (indian) { const date = validDate(+indian[3], +indian[2], +indian[1]); if (date) return { date, explicit: true } }
+  const monthNames: Record<string, number> = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 }
+  const named = message.match(/\b([0-3]?\d)[-\s](JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[-\s](\d{2}|20\d{2})\b/i)
+  if (named) {
+    const rawYear = +named[3]
+    const year = named[3].length === 2 ? 2000 + rawYear : rawYear
+    const date = validDate(year, monthNames[named[2].toUpperCase()], +named[1])
+    if (date) return { date, explicit: true }
+  }
   return { date: receivedAt.slice(0, 10), explicit: false }
 }
 
 function description(message: string, sender?: string | null): { value: string; merchant: boolean } {
   const match = message.match(/\b(?:UPI\s+to|at|to)\s+([A-Z0-9][A-Z0-9 .&'_-]{1,40}?)(?=\s+(?:on|using|via|ref|txn|transaction|avl|available|balance|for)\b|[,.]|$)/i)
-  if (match) return { value: match[1].trim().replace(/\s+/g, ' '), merchant: true }
+  if (match && /[a-z]/i.test(match[1])) return { value: match[1].trim().replace(/\s+/g, ' '), merchant: true }
+  if (/\bUPI\b/i.test(message)) return { value: 'UPI payment', merchant: false }
   const cleanSender = sender?.trim().replace(/[^a-z0-9 ]/gi, ' ')
   return { value: cleanSender ? `${cleanSender.replace(/\s+/g, ' ')} transaction` : 'SMS transaction', merchant: false }
 }
 
 export function parseSms(message: string, receivedAt: string, sender?: string | null): ParsedSms {
   const date = transactionDate(message, receivedAt)
-  if (nonFinancialPattern.test(message)) return { status: 'non_financial', transactionType: null, amountMinor: null, description: null, transactionDate: date.date, accountLast4: extractAccountLast4(message), confidence: 0.98, notes: 'Security, service, or promotional message detected.' }
+  const directional = extractDirectionalAccountSuffixes(message)
+  const accountLast4 = directional.sourceAccountLast4 ?? directional.destinationAccountLast4 ?? extractAccountLast4(message)
+  if (nonFinancialPattern.test(message)) return { status: 'non_financial', transactionType: null, amountMinor: null, description: null, transactionDate: date.date, accountLast4, ...directional, confidence: 0.98, notes: 'Security, service, or promotional message detected.' }
   const amountMinor = parseAmountMinor(message)
   const refund = /\b(?:refund(?:ed)?|reversed|reversal|credited back)\b/i.test(message)
   const expense = /\b(?:spent|debited|purchase(?:d)?|paid|withdrawn)\b/i.test(message)
   const income = /\b(?:credited|received|deposited|salary credited)\b/i.test(message)
+  const directionalPair = !refund && expense && income && !!directional.sourceAccountLast4 && !!directional.destinationAccountLast4
   const matches = [refund, expense, income].filter(Boolean).length
-  const type: SmsTransactionType | null = refund ? 'refund' : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
+  const type: SmsTransactionType | null = refund ? 'refund' : directionalPair ? null : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
   const desc = description(message, sender)
   const notes: string[] = []
-  if (type) notes.push(`${type} keyword recognized`); else notes.push(matches > 1 ? 'Conflicting transaction indicators' : 'No supported transaction indicator')
+  if (type) notes.push(`${type} keyword recognized`); else if (directionalPair) notes.push('Linked debit and credit account indicators recognized'); else notes.push(matches > 1 ? 'Conflicting transaction indicators' : 'No supported transaction indicator')
   if (amountMinor) notes.push('INR amount parsed'); else notes.push('No valid positive INR amount')
   notes.push(date.explicit ? 'transaction date parsed from message' : 'received date used')
-  if (extractAccountLast4(message)) notes.push('account suffix recognized')
-  const confidence = type && amountMinor ? (desc.merchant ? 0.95 : 0.88) : amountMinor || type ? 0.45 : 0.1
-  return { status: type && amountMinor ? 'parsed' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: type && amountMinor ? desc.value : null, transactionDate: date.date, accountLast4: extractAccountLast4(message), confidence, notes: notes.join('; ') + '.' }
+  if (accountLast4) notes.push('account suffix recognized')
+  const ready = !!amountMinor && (!!type || directionalPair)
+  const confidence = ready ? (desc.merchant ? 0.95 : 0.88) : amountMinor || type ? 0.45 : 0.1
+  return { status: type && amountMinor ? 'parsed' : directionalPair && amountMinor ? 'needs_review' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: ready ? desc.value : null, transactionDate: date.date, accountLast4, ...directional, confidence, notes: notes.join('; ') + '.' }
 }
