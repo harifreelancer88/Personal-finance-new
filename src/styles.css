@@ -103,3 +103,4 @@ button:disabled,.primary-button[aria-disabled="true"] { cursor:not-allowed; opac
   .app-dialog { max-height:calc(100dvh - env(safe-area-inset-top) - 12px); }
   .dialog-footer { padding-bottom:calc(14px + env(safe-area-inset-bottom)); }
 }
+.report-empty{min-height:110px;display:grid;place-content:center;margin:12px 0 0;color:var(--muted);font-size:10px;text-align:center}.top-expenses>.report-empty{margin:0;padding:30px}.reports-loading{min-height:360px;display:grid;place-content:center;color:var(--muted);font-size:12px}.reports-refreshing{margin:-12px 0 10px;color:var(--muted);font-size:9px;text-align:right}

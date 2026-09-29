@@ -7,6 +7,8 @@ import { listCategories } from '../repositories/categories'
 import { listInvestments } from '../repositories/investments'
 import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../repositories/transactions'
 import { getDashboardCashFlow, getDashboardSummary } from '../repositories/dashboard'
+import { getReport } from '../repositories/reports'
+import { REPORT_PERIODS, type ReportPeriod } from '../lib/report-calculations'
 import type { Env } from '../types'
 
 const transactionTypes = new Set(['expense', 'income', 'transfer', 'investment', 'refund'])
@@ -87,6 +89,15 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return success(pathname.endsWith('summary')
         ? await getDashboardSummary(env.DB, env.DEFAULT_WORKSPACE_ID)
         : await getDashboardCashFlow(env.DB, env.DEFAULT_WORKSPACE_ID))
+    }
+    const reportMatch = pathname.match(/^\/api\/reports\/(summary|cash-flow|category-breakdown|account-breakdown|income-breakdown|top-expenses|insights)$/)
+    if (reportMatch) {
+      if (request.method !== 'GET') return methodNotAllowed()
+      const url = new URL(request.url), period = url.searchParams.get('period') ?? '6Months'
+      if (!REPORT_PERIODS.includes(period as ReportPeriod)) throw new ApiError(400, 'INVALID_PERIOD', 'period must be thisMonth, 3Months, 6Months, 1Year, or all.')
+      const rawLimit = url.searchParams.get('limit'), limit = rawLimit === null ? 10 : Number(rawLimit)
+      if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new ApiError(400, 'INVALID_LIMIT', 'limit must be an integer between 1 and 50.')
+      return success(await getReport(env.DB, env.DEFAULT_WORKSPACE_ID, period as ReportPeriod, reportMatch[1], limit))
     }
     const match = pathname.match(/^\/api\/transactions(?:\/([^/]+))?$/)
     if (match) return transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
