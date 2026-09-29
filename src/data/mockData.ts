@@ -1,10 +1,13 @@
 import type { Account, CashFlowPoint, Transaction } from '../types/finance'
 
 export const accounts: Account[] = [
-  { id: 'hdfc', name: 'HDFC Bank', kind: 'Savings', maskedIdentifier: '•• 2847', balance: 184250, color: 'lime' },
-  { id: 'icici', name: 'ICICI Bank', kind: 'Current', maskedIdentifier: '•• 6192', balance: 96400, color: 'violet' },
-  { id: 'sbi', name: 'SBI Bank', kind: 'Savings', maskedIdentifier: '•• 3701', balance: 67850, color: 'blue' },
-  { id: 'hdfc-card', name: 'HDFC Credit Card', kind: 'Credit Card', maskedIdentifier: '•• 9438', balance: -18420, color: 'slate' },
+  { id: 'hdfc', name: 'Salary Account', institution: 'HDFC Bank', type: 'Bank Account', maskedIdentifier: '•••• 2847', balance: 184250, color: 'lime', status: 'Active', notes: 'Primary salary and household account' },
+  { id: 'icici', name: 'Savings Account', institution: 'ICICI Bank', type: 'Bank Account', maskedIdentifier: '•••• 6192', balance: 96400, color: 'violet', status: 'Active' },
+  { id: 'sbi', name: 'Family Savings', institution: 'SBI Bank', type: 'Bank Account', maskedIdentifier: '•••• 3701', balance: 67850, color: 'blue', status: 'Active' },
+  { id: 'hdfc-card', name: 'Millennia Credit Card', institution: 'HDFC Credit Card', type: 'Credit Card', maskedIdentifier: '•••• 9438', balance: -18420, creditLimit: 150000, billingDate: 18, dueDate: 7, color: 'slate', status: 'Active' },
+  { id: 'icici-card', name: 'Coral Credit Card', institution: 'ICICI Credit Card', type: 'Credit Card', maskedIdentifier: '•••• 5216', balance: -9250, creditLimit: 100000, billingDate: 12, dueDate: 1, color: 'violet', status: 'Active' },
+  { id: 'pluxee', name: 'Meal Wallet', institution: 'Pluxee', type: 'Wallet / Prepaid', maskedIdentifier: '•••• 1084', balance: 4850, color: 'blue', status: 'Active' },
+  { id: 'cash', name: 'Cash', institution: 'Personal', type: 'Cash', maskedIdentifier: 'Cash on hand', balance: 3200, color: 'lime', status: 'Active' },
 ]
 
 export const transactions: Transaction[] = [
