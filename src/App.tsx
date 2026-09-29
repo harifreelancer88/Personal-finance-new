@@ -4,7 +4,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 import { AccountsPage } from './pages/AccountsPage'
 import { InvestmentsPage } from './pages/InvestmentsPage'
+import { ReportsPage } from './pages/ReportsPage'
 
 export default function App() {
-  return <Routes><Route element={<AppLayout/>}><Route index element={<DashboardPage/>}/><Route path="transactions" element={<TransactionsPage/>}/><Route path="accounts" element={<AccountsPage/>}/><Route path="investments" element={<InvestmentsPage/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes>
+  return <Routes><Route element={<AppLayout/>}><Route index element={<DashboardPage/>}/><Route path="transactions" element={<TransactionsPage/>}/><Route path="accounts" element={<AccountsPage/>}/><Route path="investments" element={<InvestmentsPage/>}/><Route path="reports" element={<ReportsPage/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes>
 }

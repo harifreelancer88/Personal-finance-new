@@ -76,3 +76,13 @@ export interface PortfolioPoint {
   label: string
   value: number
 }
+
+export interface ReportMonth {
+  month: string
+  label: string
+  income: number
+  expenses: number
+  categories: Record<string, number>
+  accounts: Record<string, number>
+  incomeSources: Record<string, number>
+}
