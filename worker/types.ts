@@ -2,6 +2,15 @@ export interface Env {
   ASSETS: Fetcher
   DB: D1Database
   DEFAULT_WORKSPACE_ID: string
+  SMS_INGEST_TOKEN?: string
+}
+
+export interface SmsMessageRow {
+  id: string; workspace_id: string; external_id: string | null; dedupe_key: string
+  sender: string | null; raw_text: string; received_at: string; parse_status: string
+  parse_confidence: number | null; parse_notes: string | null; parsed_transaction_type: string | null
+  parsed_amount_minor: number | null; parsed_description: string | null; parsed_transaction_date: string | null
+  parsed_account_last4: string | null; transaction_id: string | null; created_at: string; updated_at: string
 }
 
 export interface AccountRow {

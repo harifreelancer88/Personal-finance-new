@@ -46,9 +46,9 @@ export function validateTransaction(value: Record<string, unknown>, current?: Tr
   const originalTransactionId = nullableString(read('originalTransactionId', current?.original_transaction_id), 'originalTransactionId')
   const notesValue = read('notes', current?.notes)
   const notes = nullableString(notesValue, 'notes')?.trim() || null
-  if ((transactionType === 'expense' || transactionType === 'investment') && (!fromAccountId || toAccountId)) throw new ApiError(400, 'INVALID_ACCOUNT_DIRECTION', `${transactionType} requires fromAccountId and no toAccountId.`)
-  if ((transactionType === 'income' || transactionType === 'refund') && (!toAccountId || fromAccountId)) throw new ApiError(400, 'INVALID_ACCOUNT_DIRECTION', `${transactionType} requires toAccountId and no fromAccountId.`)
-  if (transactionType === 'transfer' && (!fromAccountId || !toAccountId)) throw new ApiError(400, 'INVALID_ACCOUNT_DIRECTION', 'transfer requires both fromAccountId and toAccountId.')
+  if (status === 'confirmed' && (transactionType === 'expense' || transactionType === 'investment') && (!fromAccountId || toAccountId)) throw new ApiError(400, 'INCOMPLETE_TRANSACTION', `${transactionType} must have a from account before it can be confirmed.`)
+  if (status === 'confirmed' && (transactionType === 'income' || transactionType === 'refund') && (!toAccountId || fromAccountId)) throw new ApiError(400, 'INCOMPLETE_TRANSACTION', `${transactionType} must have a to account before it can be confirmed.`)
+  if (status === 'confirmed' && transactionType === 'transfer' && (!fromAccountId || !toAccountId)) throw new ApiError(400, 'INCOMPLETE_TRANSACTION', 'transfer must have both accounts before it can be confirmed.')
   if (fromAccountId && fromAccountId === toAccountId) throw new ApiError(409, 'SAME_TRANSFER_ACCOUNT', 'Transfer accounts must be different.')
   return { transactionType: transactionType as TransactionWrite['transactionType'], description: descriptionValue.trim(), amountMinor: amountMinor as number, categoryId, fromAccountId, toAccountId, transactionDate, notes, originalTransactionId, status: status as TransactionWrite['status'] }
 }

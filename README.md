@@ -2,7 +2,34 @@
 
 Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. Transactions and Accounts are backed by Cloudflare D1; the other application pages intentionally retain their v1 data sources.
 
-The Transactions, Accounts, and Dashboard pages use the API. Investments, Reports, and Settings intentionally retain their v1 data sources.
+The Transactions, Accounts, Dashboard, and Reports pages use the API. Investments and Settings retain their existing data sources.
+
+## Direct SMS ingestion
+
+The direct ingestion path is **Android SMS Forwarder → Cloudflare Worker → D1 → Personal Finance**. Google Sheets and Google Apps Script are not required (and neither are Telegram, Odoo, or AI parsing). The Android app only forwards the original message; deterministic parsing, account matching, category matching, deduplication, and pending-transaction creation happen in the Worker.
+
+Configure `SMS_INGEST_TOKEN` as an encrypted Worker secret (never as a frontend variable or a value in this repository):
+
+```bash
+npx wrangler secret put SMS_INGEST_TOKEN
+```
+
+The forwarder must make an `application/json` `POST` to `/api/ingest/sms`, authenticating with either `Authorization: Bearer <token>` or `X-SMS-Token: <token>`. `message` and an ISO-8601 `receivedAt` are required; the device message ID `externalId` and sender label `sender` are optional. It must not send a workspace ID.
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $SMS_INGEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "externalId":"example-123",
+    "sender":"HDFCBK",
+    "message":"INR 650 spent using card xx2847 at AMAZON",
+    "receivedAt":"2026-09-29T16:30:00+05:30"
+  }' \
+  https://example.workers.dev/api/ingest/sms
+```
+
+Retries are safe: `externalId` is the primary deduplication input when present; otherwise a SHA-256 identity is derived from sender, received time, and exact message text. Successful financial parses create one pending SMS transaction. Unrecognized and non-financial messages remain in `sms_messages` for audit and can be inspected through `GET /api/sms-messages`; raw text is returned on the individual transaction API only, never in the bulk transaction list.
 
 ## Dashboard calculation semantics
 

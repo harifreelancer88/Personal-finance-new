@@ -10,6 +10,7 @@ export interface TransactionFilters {
   categoryId?: string
   accountId?: string
   status?: string
+  source?: string
   fromDate?: string
   toDate?: string
   limit: number
@@ -37,6 +38,7 @@ export async function listTransactions(db: D1Database, workspaceId: string, filt
   if (filters.categoryId) { where.push('category_id = ?'); values.push(filters.categoryId) }
   if (filters.accountId) { where.push('(from_account_id = ? OR to_account_id = ?)'); values.push(filters.accountId, filters.accountId) }
   if (filters.status) { where.push('status = ?'); values.push(filters.status) }
+  if (filters.source) { where.push('source = ?'); values.push(filters.source) }
   if (filters.fromDate) { where.push('transaction_date >= ?'); values.push(filters.fromDate) }
   if (filters.toDate) { where.push('transaction_date <= ?'); values.push(filters.toDate) }
   values.push(filters.limit, filters.offset)

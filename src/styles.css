@@ -104,3 +104,8 @@ button:disabled,.primary-button[aria-disabled="true"] { cursor:not-allowed; opac
   .dialog-footer { padding-bottom:calc(14px + env(safe-area-inset-bottom)); }
 }
 .report-empty{min-height:110px;display:grid;place-content:center;margin:12px 0 0;color:var(--muted);font-size:10px;text-align:center}.top-expenses>.report-empty{margin:0;padding:30px}.reports-loading{min-height:360px;display:grid;place-content:center;color:var(--muted);font-size:12px}.reports-refreshing{margin:-12px 0 10px;color:var(--muted);font-size:9px;text-align:right}
+/* SMS ingestion review */
+.source-badge{display:inline-flex;margin-left:.5rem;padding:.15rem .45rem;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:.68rem;font-weight:800;letter-spacing:.05em}
+.status.ignored{background:#f1f5f9;color:#64748b}.needs-review{padding:1.25rem;margin-bottom:1.25rem;border:1px solid #ddd6fe;background:linear-gradient(135deg,#faf5ff,#fff)}
+.needs-review>div:first-child{margin-bottom:.8rem}.needs-review h3,.needs-review p{margin:0}.needs-review p{color:#64748b;margin-top:.2rem}.review-list{display:grid;gap:.6rem}.review-list article{display:flex;align-items:center;gap:1rem;padding:.75rem;background:#fff;border:1px solid #ede9fe;border-radius:.75rem}.review-list article>div:first-child{min-width:0;flex:1}.review-list small{display:block;color:#64748b;margin-top:.2rem}.review-actions{display:flex;gap:.4rem}.review-actions button{padding:.45rem .65rem}
+@media(max-width:760px){.review-list article{align-items:flex-start;flex-wrap:wrap}.review-actions{width:100%;overflow-x:auto}}
