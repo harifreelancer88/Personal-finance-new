@@ -1,11 +1,22 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "personal-finance-app",
-  "main": "src/worker.ts",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-29",
   "assets": {
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "vars": {
+    "DEFAULT_WORKSPACE_ID": "development-workspace"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "personal-finance-db",
+      "database_id": "f0bdbad7-15db-4878-8408-dcde679bbada",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
