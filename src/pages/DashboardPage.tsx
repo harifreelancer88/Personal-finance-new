@@ -1,11 +1,12 @@
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
+import { getAccounts, type AccountDto } from '../api/accounts'
+import { getDashboardCashFlow, getDashboardSummary, type CashFlowPoint, type DashboardSummary } from '../api/dashboard'
+import { getTransactions, type TransactionDto } from '../api/transactions'
 import { AccountsPanel } from '../components/dashboard/AccountsPanel'
 import { CashFlowChart } from '../components/dashboard/CashFlowChart'
 import { RecentTransactions } from '../components/dashboard/RecentTransactions'
 import { SummaryCards } from '../components/dashboard/SummaryCards'
 import { PageHeader } from '../components/layout/PageHeader'
-
-export function DashboardPage() {
-  const { openMenu } = useOutletContext<{ openMenu: () => void }>()
-  return <><PageHeader title="Dashboard" eyebrow="Tuesday, 29 September" onMenu={openMenu}/><div className="page-body"><div className="welcome"><div><h2>Good morning, Arjun</h2><p>Here’s how your family finances are looking this month.</p></div><Link className="primary-button" to="/transactions">+ Add transaction</Link></div><SummaryCards/><div className="dashboard-grid"><CashFlowChart/><AccountsPanel/><RecentTransactions/></div></div></>
-}
+interface DashboardData{summary:DashboardSummary;cashFlow:CashFlowPoint[];accounts:AccountDto[];transactions:TransactionDto[]}
+export function DashboardPage(){const{openMenu}=useOutletContext<{openMenu:()=>void}>();const[data,setData]=useState<DashboardData>();const[loading,setLoading]=useState(true);const[error,setError]=useState<string>();const load=useCallback(async()=>{setLoading(true);try{const[summary,cashFlow,accounts,transactions]=await Promise.all([getDashboardSummary(),getDashboardCashFlow(),getAccounts(),getTransactions({limit:5,status:'confirmed'})]);setData({summary,cashFlow,accounts,transactions});setError(undefined)}catch(cause){setError(cause instanceof Error?cause.message:'Could not load the dashboard.')}finally{setLoading(false)}},[]);useEffect(()=>{void load()},[load]);const today=new Intl.DateTimeFormat('en-IN',{weekday:'long',day:'numeric',month:'long'}).format(new Date());return <><PageHeader title="Dashboard" eyebrow={today} onMenu={openMenu}/><div className="page-body"><div className="welcome"><div><h2>Your financial overview</h2><p>Here’s how your finances are looking this month.</p></div><Link className="primary-button" to="/transactions">+ Add transaction</Link></div>{error&&<div className="api-feedback error" role="alert"><span>{error}{data?' Previously loaded figures are still shown.':''}</span><button className="secondary-button" onClick={()=>void load()}>Try again</button></div>}{loading&&!data&&<div className="dashboard-loading" role="status">Loading your dashboard…</div>}{data&&<><SummaryCards summary={data.summary}/><div className="dashboard-grid"><CashFlowChart points={data.cashFlow}/><AccountsPanel accounts={data.accounts}/><RecentTransactions transactions={data.transactions} accounts={data.accounts}/></div></>}</div></>}

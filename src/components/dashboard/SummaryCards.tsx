@@ -1,15 +1,8 @@
-import { ArrowDownRight, ArrowUpRight, Landmark, PiggyBank, ReceiptText, Wallet } from 'lucide-react'
-import { summaryMetrics } from '../../data/mockData'
-import { formatCurrency } from '../../lib/format'
-
+import { Landmark, PiggyBank, ReceiptText, Wallet } from 'lucide-react'
+import type { DashboardSummary } from '../../api/dashboard'
+import { formatMinorCurrency } from '../../lib/format'
 const icons = [Wallet, ReceiptText, Landmark, PiggyBank]
-
-export function SummaryCards() {
-  return <section className="summary-grid" aria-label="Financial summary">{summaryMetrics.map((metric, index) => {
-    const Icon = icons[index]; const ChangeIcon = metric.direction === 'up' ? ArrowUpRight : ArrowDownRight
-    return <article className={`summary-card ${index === 0 ? 'featured' : ''}`} key={metric.label}>
-      <div className="summary-top"><span className="summary-icon"><Icon /></span><span className={`change ${metric.direction}`}><ChangeIcon size={14}/>{metric.change}</span></div>
-      <p>{metric.label}</p><h2>{formatCurrency(metric.value)}</h2><small>Compared with last month</small>
-    </article>
-  })}</section>
+export function SummaryCards({ summary }: { summary: DashboardSummary }) {
+  const metrics = [{ label:'Total Balance', value:summary.totalBalanceMinor, note:'Available after card liabilities' },{ label:'Monthly Spending', value:summary.monthlyExpenseMinor, note:'Confirmed expenses this month' },{ label:'Monthly Income', value:summary.monthlyIncomeMinor, note:'Confirmed income this month' },{ label:'Net Cash Flow', value:summary.monthlyNetCashFlowMinor, note:'Income less spending this month' }]
+  return <section className="summary-grid" aria-label="Financial summary">{metrics.map((metric,index)=>{const Icon=icons[index];return <article className={`summary-card ${index===0?'featured':''}`} key={metric.label}><div className="summary-top"><span className="summary-icon"><Icon/></span></div><p>{metric.label}</p><h2 className={metric.value<0?'negative-text':''}>{metric.value<0?'−':''}{formatMinorCurrency(metric.value)}</h2><small>{metric.note}</small></article>})}</section>
 }

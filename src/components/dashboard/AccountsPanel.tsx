@@ -1,9 +1,5 @@
-import { Building2, CreditCard, MoreHorizontal, Plus } from 'lucide-react'
-import { accounts } from '../../data/mockData'
-import { formatCurrency } from '../../lib/format'
-
-export function AccountsPanel() {
-  return <section className="panel accounts-panel"><div className="section-heading"><div><p className="eyebrow">Connected</p><h2>Accounts</h2></div><button className="round-add" aria-label="Add account"><Plus /></button></div>
-    <div className="account-list">{accounts.slice(0, 4).map(account => <article className="account-row" key={account.id}><span className={`account-icon ${account.color}`}>{account.type === 'Credit Card' ? <CreditCard/> : <Building2/>}</span><div><strong>{account.institution}</strong><small>{account.type} · {account.maskedIdentifier}</small></div><div className="account-balance"><strong className={account.balance < 0 ? 'negative' : ''}>{account.balance < 0 ? '−' : ''}{formatCurrency(account.balance)}</strong><small>{account.type === 'Credit Card' ? 'Outstanding' : 'Available'}</small></div><button className="more-button" aria-label={`More options for ${account.name}`}><MoreHorizontal/></button></article>)}</div>
-  </section>
-}
+import { Banknote, Building2, CreditCard, Plus, Wallet } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import type { AccountDto } from '../../api/accounts'
+import { formatMinorCurrency } from '../../lib/format'
+export function AccountsPanel({accounts}:{accounts:AccountDto[]}) {return <section className="panel accounts-panel"><div className="section-heading"><div><p className="eyebrow">Connected</p><h2>Accounts</h2></div><Link className="round-add" aria-label="Add account" to="/accounts"><Plus/></Link></div>{!accounts.length?<div className="dashboard-panel-empty"><strong>No accounts yet</strong><small>Add an account to see its balance here.</small></div>:<div className="account-list">{accounts.slice(0,4).map((a,index)=>{const Icon=a.accountType==='credit_card'?CreditCard:a.accountType==='cash'?Banknote:a.accountType==='wallet'?Wallet:Building2;const amount=a.accountType==='credit_card'?Math.max(0,-a.currentBalanceMinor):a.currentBalanceMinor;return <article className="account-row" key={a.id}><span className={`account-icon ${['lime','violet','blue','slate'][index%4]}`}><Icon/></span><div><strong>{a.name}</strong><small>{a.institution}{a.last4?` · •••• ${a.last4}`:''}</small></div><div className="account-balance"><strong className={amount<0?'negative':''}>{amount<0?'−':''}{formatMinorCurrency(amount)}</strong><small>{a.accountType==='credit_card'?'Outstanding':'Available'}</small></div></article>})}</div>}</section>}

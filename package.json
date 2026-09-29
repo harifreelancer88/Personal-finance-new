@@ -10,6 +10,7 @@
     "bootstrap:local": "wrangler d1 execute personal-finance-db --local --file=bootstrap.sql",
     "test:transactions": "bash scripts/test-transactions.sh",
     "test:accounts": "bash scripts/test-accounts.sh",
+    "test:dashboard": "rm -rf .dashboard-test-dist && tsc --ignoreConfig worker/lib/dashboard-calculations.ts --module nodenext --target es2022 --outDir .dashboard-test-dist && node --test tests/dashboard-calculations.test.mjs && rm -rf .dashboard-test-dist",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

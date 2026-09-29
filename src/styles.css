@@ -86,6 +86,12 @@ button:disabled,.primary-button[aria-disabled="true"] { cursor:not-allowed; opac
 .empty-state-action { justify-self:center; margin-top:18px; }
 .api-feedback { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px; padding:12px 14px; border:1px solid rgba(239,133,120,.35); border-radius:10px; color:#ffc0b8; background:rgba(239,133,120,.09); font-size:10px; }
 .api-feedback.full { grid-column:1/-1; margin:0; }
+.dashboard-loading { min-height:360px; display:grid; place-content:center; color:var(--muted); font-size:12px; }
+.dashboard-panel-empty { min-height:150px; display:grid; place-content:center; gap:7px; text-align:center; }
+.dashboard-panel-empty strong { font-size:12px; }
+.dashboard-panel-empty small,.dashboard-empty-note { color:var(--muted); font-size:9px; }
+.dashboard-empty-note { margin:-7px 0 8px; }
+.round-add { text-decoration:none; }
 @media(max-width:800px){
   .sidebar { width:min(300px,86vw); padding-bottom:calc(22px + env(safe-area-inset-bottom)); }
   .sidebar-backdrop { width:100%; height:100%; padding:0; }

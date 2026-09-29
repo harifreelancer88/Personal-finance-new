@@ -2,7 +2,15 @@
 
 Personal Finance is a responsive personal and family finance dashboard built with React, TypeScript, Vite, React Router, and Cloudflare Workers. Transactions and Accounts are backed by Cloudflare D1; the other application pages intentionally retain their v1 data sources.
 
-The Transactions and Accounts pages use the API. Dashboard, Investments, Reports, and Settings are intentionally not migrated to D1 yet.
+The Transactions, Accounts, and Dashboard pages use the API. Investments, Reports, and Settings intentionally retain their v1 data sources.
+
+## Dashboard calculation semantics
+
+The Dashboard reads the current `DEFAULT_WORKSPACE_ID` through `GET /api/dashboard/summary` and `GET /api/dashboard/cash-flow`. All monetary API fields are integer paise. Only confirmed transactions contribute to totals and recent Dashboard activity.
+
+Total available balance is the sum of bank, cash, and wallet balances, minus outstanding credit-card liability. A negative calculated credit-card balance is treated as outstanding; a positive card balance is not treated as available cash. Investments are deliberately excluded until Investments are D1-backed.
+
+Calendar-month income includes income transactions. Spending includes expenses, reduced (not below zero) by refunds linked to an expense or assigned an expense/both category. Transfers and investments contribute to neither monthly income nor spending. Pending and ignored transactions are excluded. The cash-flow endpoint applies the same rules to the latest six UTC calendar months and returns zero-filled months when there is no activity.
 
 ## Prerequisites
 
