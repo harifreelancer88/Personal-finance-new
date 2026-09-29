@@ -6,6 +6,7 @@ import { accountInUse, createAccount, deleteAccount, getAccount, listAccounts, u
 import { listCategories } from '../repositories/categories'
 import { listInvestments } from '../repositories/investments'
 import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../repositories/transactions'
+import { getDashboardCashFlow, getDashboardSummary } from '../repositories/dashboard'
 import type { Env } from '../types'
 
 const transactionTypes = new Set(['expense', 'income', 'transfer', 'investment', 'refund'])
@@ -80,6 +81,12 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       if (request.method !== 'GET') return methodNotAllowed()
       await env.DB.prepare('SELECT 1 AS healthy').first<{ healthy: number }>()
       return success({ database: 'connected' })
+    }
+    if (pathname === '/api/dashboard/summary' || pathname === '/api/dashboard/cash-flow') {
+      if (request.method !== 'GET') return methodNotAllowed()
+      return success(pathname.endsWith('summary')
+        ? await getDashboardSummary(env.DB, env.DEFAULT_WORKSPACE_ID)
+        : await getDashboardCashFlow(env.DB, env.DEFAULT_WORKSPACE_ID))
     }
     const match = pathname.match(/^\/api\/transactions(?:\/([^/]+))?$/)
     if (match) return transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
