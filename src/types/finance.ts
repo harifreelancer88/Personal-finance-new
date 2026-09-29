@@ -1,5 +1,5 @@
-export type TransactionType = 'Expense' | 'Income' | 'Transfer' | 'Investment'
-export type Category = 'Shopping' | 'Food' | 'Transport' | 'Salary' | 'Utilities' | 'Transfer' | 'Investments' | 'Housing'
+export type TransactionType = 'Expense' | 'Income' | 'Transfer' | 'Investment' | 'Refund'
+export type Category = 'Shopping' | 'Food' | 'Transport' | 'Salary' | 'Utilities' | 'Transfer' | 'Investments' | 'Housing' | 'Groceries' | 'Education' | 'Refund' | 'Other'
 export type AccountKind = 'Savings' | 'Current' | 'Credit Card' | 'Investment'
 
 export interface Account {
@@ -21,6 +21,9 @@ export interface Transaction {
   type: TransactionType
   amount: number
   status: 'Completed' | 'Pending'
+  notes?: string
+  fromAccount?: string
+  toAccount?: string
 }
 
 export interface CashFlowPoint {

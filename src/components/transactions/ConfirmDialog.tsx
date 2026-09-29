@@ -1,0 +1,3 @@
+import { AlertTriangle } from 'lucide-react'
+import { Modal } from './Modal'
+export function ConfirmDialog({ name, onCancel, onConfirm }: { name: string; onCancel: () => void; onConfirm: () => void }) { return <Modal title="Delete transaction?" description="This action cannot be undone." onClose={onCancel} size="small"><div className="confirm-content"><span><AlertTriangle/></span><p><strong>{name}</strong> will be removed from this session’s transaction history.</p></div><footer className="dialog-footer"><button className="secondary-button" onClick={onCancel}>Keep transaction</button><button className="danger-button" onClick={onConfirm}>Delete</button></footer></Modal> }
