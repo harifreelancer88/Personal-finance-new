@@ -5,7 +5,7 @@ import { validateAccount } from '../lib/account-validation'
 import { accountInUse, createAccount, deleteAccount, getAccount, listAccounts, updateAccount } from '../repositories/accounts'
 import { listCategories } from '../repositories/categories'
 import { listInvestments } from '../repositories/investments'
-import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../repositories/transactions'
+import { createTransaction, deleteTransaction, getTransaction, getTransactionPage, listTransactions, updateTransaction } from '../repositories/transactions'
 import { getDashboardCashFlow, getDashboardSummary } from '../repositories/dashboard'
 import { getReport } from '../repositories/reports'
 import { REPORT_PERIODS, type ReportPeriod } from '../lib/report-calculations'
@@ -42,7 +42,14 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 
 async function transactions(request: Request, env: Env, id?: string): Promise<Response> {
   const workspaceId = env.DEFAULT_WORKSPACE_ID
-  if (!id && request.method === 'GET') return success((await listTransactions(env.DB, workspaceId, parseListQuery(new URL(request.url)))).map(transactionToApi))
+  if (!id && request.method === 'GET') {
+    const url = new URL(request.url), filters = parseListQuery(url)
+    if (url.searchParams.get('paginated') === 'true') {
+      const page = await getTransactionPage(env.DB, workspaceId, filters)
+      return success({ ...page, items: page.items.map(transactionToApi) })
+    }
+    return success((await listTransactions(env.DB, workspaceId, filters)).map(transactionToApi))
+  }
   if (!id && request.method === 'POST') {
     const value = validateTransaction(await body(request)); await validateReferences(env.DB, workspaceId, value)
     return success(transactionToApi(await createTransaction(env.DB, workspaceId, value)), { status: 201 })
@@ -122,9 +129,9 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return success(await getReport(env.DB, env.DEFAULT_WORKSPACE_ID, period as ReportPeriod, reportMatch[1], limit))
     }
     const match = pathname.match(/^\/api\/transactions(?:\/([^/]+))?$/)
-    if (match) return transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
+    if (match) return await transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
     const accountMatch = pathname.match(/^\/api\/accounts(?:\/([^/]+))?$/)
-    if (accountMatch) return accounts(request, env, accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined)
+    if (accountMatch) return await accounts(request, env, accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined)
     if (request.method !== 'GET') return methodNotAllowed()
     if (pathname === '/api/categories') return success((await listCategories(env.DB, env.DEFAULT_WORKSPACE_ID)).map(categoryToApi))
     if (pathname === '/api/investments') return success((await listInvestments(env.DB, env.DEFAULT_WORKSPACE_ID)).map(investmentToApi))

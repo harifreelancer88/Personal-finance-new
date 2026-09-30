@@ -104,8 +104,34 @@ button:disabled,.primary-button[aria-disabled="true"] { cursor:not-allowed; opac
   .dialog-footer { padding-bottom:calc(14px + env(safe-area-inset-bottom)); }
 }
 .report-empty{min-height:110px;display:grid;place-content:center;margin:12px 0 0;color:var(--muted);font-size:10px;text-align:center}.top-expenses>.report-empty{margin:0;padding:30px}.reports-loading{min-height:360px;display:grid;place-content:center;color:var(--muted);font-size:12px}.reports-refreshing{margin:-12px 0 10px;color:var(--muted);font-size:9px;text-align:right}
-/* SMS ingestion review */
-.source-badge{display:inline-flex;margin-left:.5rem;padding:.15rem .45rem;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:.68rem;font-weight:800;letter-spacing:.05em}
-.status.ignored{background:#f1f5f9;color:#64748b}.needs-review{padding:1.25rem;margin-bottom:1.25rem;border:1px solid #ddd6fe;background:linear-gradient(135deg,#faf5ff,#fff)}
-.needs-review>div:first-child{margin-bottom:.8rem}.needs-review h3,.needs-review p{margin:0}.needs-review p{color:#64748b;margin-top:.2rem}.review-list{display:grid;gap:.6rem}.review-list article{display:flex;align-items:center;gap:1rem;padding:.75rem;background:#fff;border:1px solid #ede9fe;border-radius:.75rem}.review-list article>div:first-child{min-width:0;flex:1}.review-list small{display:block;color:#64748b;margin-top:.2rem}.review-actions{display:flex;gap:.4rem}.review-actions button{padding:.45rem .65rem}
-@media(max-width:760px){.review-list article{align-items:flex-start;flex-wrap:wrap}.review-actions{width:100%;overflow-x:auto}}
+/* Financial consistency and SMS review */
+.summary-explanation { margin:0 0 18px; color:var(--muted); font-size:12px; line-height:1.6; }
+.source-badge { display:inline-flex; width:max-content; margin-top:5px; padding:3px 7px; border-radius:6px; background:rgba(169,145,224,.14); color:#d4c3ff; font-size:10px; font-weight:700; }
+.status.ignored { color:#a7a4b8; }.status.ignored:before { background:#858297; }
+.needs-review { margin-bottom:20px; border-color:rgba(200,238,68,.22); background:linear-gradient(135deg,rgba(200,238,68,.045),var(--panel)); }
+.needs-review>div:first-child { margin-bottom:16px; }
+.needs-review h3 { display:flex; align-items:center; gap:8px; margin:0 0 7px; font-size:17px; }
+.needs-review p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+.review-count { display:inline-flex; align-items:center; justify-content:center; min-width:25px; padding:4px 7px; border-radius:8px; background:rgba(200,238,68,.12); color:var(--lime); font-size:12px; }
+.review-list { display:grid; gap:10px; }
+.review-list article { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:10px 16px; padding:15px; background:rgba(255,255,255,.025); border:1px solid var(--line); border-radius:12px; }
+.review-list article>div:first-child { min-width:0; }
+.review-list strong { color:#f7f7fb; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.review-list small { display:block; color:#aaa7bf; margin-top:5px; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.review-list .review-amount { white-space:nowrap; }
+.review-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:8px; }
+.review-actions button { min-height:44px; padding:9px 13px; font-size:12px; }
+.review-pagination { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:14px; }
+.review-pagination span { flex:1 1 160px; color:var(--muted); font-size:12px; }
+.sms-original { margin:20px; padding:16px; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,.1); }
+.sms-original h3 { margin:0 0 14px; font-size:15px; }
+.sms-original p { color:var(--muted); font-size:12px; line-height:1.6; }
+.sms-original pre { margin:14px 0 0; padding:14px; white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:13px; line-height:1.7; color:#e8e7ed; background:#1c1a2d; border-radius:9px; }
+.sms-metadata { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:0; }
+.sms-metadata div { min-width:0; }.sms-metadata dt { color:var(--muted); font-size:11px; margin-bottom:5px; }.sms-metadata dd { margin:0; font-size:12px; overflow-wrap:anywhere; }
+.sms-review-footer { flex-wrap:wrap; }.sms-review-footer button { min-height:44px; }
+.preview-notice { margin:0 0 20px; padding:15px 17px; border:1px solid rgba(103,182,225,.25); border-radius:12px; background:rgba(103,182,225,.06); }
+.preview-notice strong { color:#98cdea; font-size:13px; }.preview-notice p { margin:6px 0 0; color:#b0adc3; font-size:12px; line-height:1.6; }
+.table-footer.pagination { gap:12px; flex-wrap:wrap; font-size:12px; }.table-footer.pagination div { display:flex; }.table-footer.pagination button { min-height:44px; color:#ddd9ed; font-size:12px; padding:8px 12px; cursor:pointer; }
+.table-footer.pagination button:disabled { opacity:.45; cursor:not-allowed; }
+@media(max-width:560px) { .sms-original { margin:18px; padding:14px; }.sms-metadata { grid-template-columns:1fr; }.review-list article { padding:12px; }.review-list .review-amount { font-size:12px; }.review-actions { display:grid; grid-template-columns:1fr 1fr; }.review-actions button { justify-content:center; }.table-footer.pagination { padding:15px; }.summary-explanation { font-size:11px; }.sms-review-footer button { flex:1 1 40%; }.transaction-card .mobile-amount { flex:0 0 auto; }.transaction-card .amount { white-space:nowrap; } }

@@ -29,7 +29,7 @@ export function TransactionForm({ initial, accounts, categories, saving, request
     const next: Record<string, string> = {}
     const amountMinor = Math.round(Number(amount) * 100)
     if (!description.trim()) next.description = 'Enter a description.'
-    if (!amount || !Number.isInteger(amountMinor) || amountMinor <= 0) next.amount = 'Enter an amount greater than zero with at most two decimal places.'
+    if (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(amount) || !Number.isSafeInteger(amountMinor) || amountMinor <= 0) next.amount = 'Enter an amount greater than zero with at most two decimal places.'
     if (!date) next.date = 'Choose a date.'
     if (!activeAccounts.length) next.account = 'No accounts are available yet. Add an account before creating this transaction.'
     if (type === 'Transfer' && fromAccountId === toAccountId) next.transfer = 'From and to accounts must be different.'

@@ -1,3 +1,5 @@
+import { isExpenseRefund } from './financial-semantics.js'
+
 export const REPORT_PERIODS = ['thisMonth', '3Months', '6Months', '1Year', 'all'] as const
 export type ReportPeriod = typeof REPORT_PERIODS[number]
 
@@ -37,8 +39,7 @@ export function resolveReportPeriod(period: ReportPeriod, now = new Date(), earl
   return { start: iso(startDate), end, previousStart: iso(previousStart), previousEnd: iso(previousEnd) }
 }
 
-export const isQualifiedRefund = (t: ReportTransaction) => t.transaction_type === 'refund' &&
-  (t.original_transaction_type === 'expense' || t.category_kind === 'expense' || t.category_kind === 'both')
+export const isQualifiedRefund = isExpenseRefund
 
 const inRange = (t: ReportTransaction, start: string, end: string) =>
   t.status === 'confirmed' && t.transaction_date >= start && t.transaction_date <= end

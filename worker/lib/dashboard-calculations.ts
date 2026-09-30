@@ -1,3 +1,5 @@
+import { isExpenseRefund } from './financial-semantics.js'
+
 export interface DashboardAccount {
   account_type: 'bank' | 'credit_card' | 'cash' | 'wallet'
   current_balance_minor: number
@@ -15,11 +17,6 @@ export interface DashboardTransaction {
 export interface CashFlowPoint { month: string; incomeMinor: number; expenseMinor: number }
 
 const monthKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
-
-function isExpenseRefund(transaction: DashboardTransaction) {
-  return transaction.transaction_type === 'refund' &&
-    (transaction.original_transaction_type === 'expense' || transaction.category_kind === 'expense' || transaction.category_kind === 'both')
-}
 
 function monthlyTotals(transactions: DashboardTransaction[], month: string) {
   let incomeMinor = 0

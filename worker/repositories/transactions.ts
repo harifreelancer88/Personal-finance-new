@@ -30,20 +30,57 @@ export interface TransactionWrite {
   status: TransactionRow['status']
 }
 
-export async function listTransactions(db: D1Database, workspaceId: string, filters: TransactionFilters): Promise<TransactionRow[]> {
-  const where = ['workspace_id = ?']
+const joins = `FROM transactions t
+  LEFT JOIN categories c ON c.id=t.category_id AND c.workspace_id=t.workspace_id
+  LEFT JOIN accounts fa ON fa.id=t.from_account_id AND fa.workspace_id=t.workspace_id
+  LEFT JOIN accounts ta ON ta.id=t.to_account_id AND ta.workspace_id=t.workspace_id
+  LEFT JOIN transactions original ON original.id=t.original_transaction_id AND original.workspace_id=t.workspace_id`
+const listColumns = columns.split(',').map(column => `t.${column.trim()}`).join(', ')
+
+function listConditions(workspaceId: string, filters: TransactionFilters) {
+  const where = ['t.workspace_id = ?']
   const values: unknown[] = [workspaceId]
-  if (filters.search) { where.push('(description LIKE ? ESCAPE \'\\\' OR notes LIKE ? ESCAPE \'\\\')'); const term = `%${filters.search.replace(/[\\%_]/g, '\\$&')}%`; values.push(term, term) }
-  if (filters.type) { where.push('transaction_type = ?'); values.push(filters.type) }
-  if (filters.categoryId) { where.push('category_id = ?'); values.push(filters.categoryId) }
-  if (filters.accountId) { where.push('(from_account_id = ? OR to_account_id = ?)'); values.push(filters.accountId, filters.accountId) }
-  if (filters.status) { where.push('status = ?'); values.push(filters.status) }
-  if (filters.source) { where.push('source = ?'); values.push(filters.source) }
-  if (filters.fromDate) { where.push('transaction_date >= ?'); values.push(filters.fromDate) }
-  if (filters.toDate) { where.push('transaction_date <= ?'); values.push(filters.toDate) }
-  values.push(filters.limit, filters.offset)
-  const result = await db.prepare(`SELECT ${columns} FROM transactions WHERE ${where.join(' AND ')} ORDER BY transaction_date DESC, created_at DESC LIMIT ? OFFSET ?`).bind(...values).all<TransactionRow>()
+  if (filters.search) {
+    where.push(`(t.description LIKE ? ESCAPE '\\' OR t.notes LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\' OR fa.name LIKE ? ESCAPE '\\' OR ta.name LIKE ? ESCAPE '\\')`)
+    const term = `%${filters.search.replace(/[\\%_]/g, '\\$&')}%`
+    values.push(term, term, term, term, term)
+  }
+  if (filters.type) { where.push('t.transaction_type = ?'); values.push(filters.type) }
+  if (filters.categoryId) { where.push('t.category_id = ?'); values.push(filters.categoryId) }
+  if (filters.accountId) { where.push('(t.from_account_id = ? OR t.to_account_id = ?)'); values.push(filters.accountId, filters.accountId) }
+  if (filters.status) { where.push('t.status = ?'); values.push(filters.status) }
+  if (filters.source) { where.push('t.source = ?'); values.push(filters.source) }
+  if (filters.fromDate) { where.push('t.transaction_date >= ?'); values.push(filters.fromDate) }
+  if (filters.toDate) { where.push('t.transaction_date <= ?'); values.push(filters.toDate) }
+  return { clause: where.join(' AND '), values }
+}
+
+function listStatement(db: D1Database, workspaceId: string, filters: TransactionFilters) {
+  const { clause, values } = listConditions(workspaceId, filters)
+  return db.prepare(`SELECT ${listColumns} ${joins} WHERE ${clause} ORDER BY t.transaction_date DESC, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`).bind(...values, filters.limit, filters.offset)
+}
+
+export async function listTransactions(db: D1Database, workspaceId: string, filters: TransactionFilters): Promise<TransactionRow[]> {
+  const result = await listStatement(db, workspaceId, filters).all<TransactionRow>()
   return result.results
+}
+
+/** Count and money summaries cover every matching record, independent of the page limit. */
+export async function getTransactionPage(db: D1Database, workspaceId: string, filters: TransactionFilters) {
+  const { clause, values } = listConditions(workspaceId, filters)
+  const totals = db.prepare(`SELECT COUNT(*) AS total,
+    COALESCE(SUM(CASE WHEN t.status='confirmed' AND t.transaction_type='income' THEN t.amount_minor ELSE 0 END),0) AS incomeMinor,
+    MAX(0,COALESCE(SUM(CASE WHEN t.status<>'confirmed' THEN 0
+      WHEN t.transaction_type='expense' THEN t.amount_minor
+      WHEN t.transaction_type='refund' AND (original.transaction_type='expense' OR c.kind IN ('expense','both')) THEN -t.amount_minor
+      ELSE 0 END),0)) AS expenseMinor,
+    COALESCE(SUM(CASE WHEN t.status='confirmed' THEN 1 ELSE 0 END),0) AS confirmedCount
+    ${joins} WHERE ${clause}`).bind(...values)
+  const [rows, counts] = await db.batch([listStatement(db, workspaceId, filters), totals])
+  const aggregate = counts.results[0] as { total: number; incomeMinor: number; expenseMinor: number; confirmedCount: number }
+  return { items: rows.results as unknown as TransactionRow[], total: aggregate.total,
+    summary: { incomeMinor: aggregate.incomeMinor, expenseMinor: aggregate.expenseMinor,
+      netCashFlowMinor: aggregate.incomeMinor-aggregate.expenseMinor, confirmedCount: aggregate.confirmedCount } }
 }
 
 export function getTransaction(db: D1Database, workspaceId: string, id: string): Promise<TransactionRow | null> {
