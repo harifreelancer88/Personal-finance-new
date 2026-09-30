@@ -1,6 +1,6 @@
 import { failure, success } from '../lib/http'
 import { ApiError, parseJsonObject } from '../lib/transaction-validation'
-import { parseSms, resolveDirectionalTransaction } from '../lib/sms-parser'
+import { isFinancialSmsCandidate, parseSms, resolveDirectionalTransaction } from '../lib/sms-parser'
 import { mappedCategoryName } from '../lib/sms-category'
 import { getSmsByDedupe } from '../repositories/sms-messages'
 import type { Env } from '../types'
@@ -33,6 +33,10 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   if (typeof receivedAt !== 'string' || !receivedAt.trim() || !Number.isFinite(Date.parse(receivedAt))) throw new ApiError(400, 'VALIDATION_ERROR', 'receivedAt must be a valid ISO date-time.')
   if (sender !== null && (typeof sender !== 'string' || sender.length > 100)) throw new ApiError(400, 'VALIDATION_ERROR', 'sender must be a string of at most 100 characters.')
   if (externalId !== null && (typeof externalId !== 'string' || !externalId.trim() || externalId.length > 255)) throw new ApiError(400, 'VALIDATION_ERROR', 'externalId must be a non-empty string of at most 255 characters.')
+  // Screen before computing dedupe or writing raw text so OTPs and marketing
+  // messages never accumulate in D1. A completed monetary transaction wins
+  // over incidental security advice such as dispute/BLOCK instructions.
+  if (!isFinancialSmsCandidate(message)) return success({ ignored: true, reason: 'non_financial' })
   const workspaceId = env.DEFAULT_WORKSPACE_ID
   const dedupeKey = await smsDedupeKey(externalId, sender, receivedAt, message)
   const existing = await getSmsByDedupe(env.DB, workspaceId, dedupeKey)
@@ -45,14 +49,16 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   if ((inserted.meta.changes ?? 0) === 0) return success(result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), true))
 
   const parsed = parseSms(message, receivedAt, sender)
-  const findAccounts = async (last4: string | null) => {
+  const findAccounts = async (last4: string | null, accountType?: 'credit_card') => {
     if (!last4) return [] as string[]
-    const matches = await env.DB.prepare('SELECT id FROM accounts WHERE workspace_id = ? AND is_active = 1 AND last4 = ? LIMIT 2').bind(workspaceId, last4).all<{ id: string }>()
+    const matches = accountType
+      ? await env.DB.prepare('SELECT id FROM accounts WHERE workspace_id = ? AND is_active = 1 AND last4 = ? AND account_type = ? LIMIT 2').bind(workspaceId, last4, accountType).all<{ id: string }>()
+      : await env.DB.prepare('SELECT id FROM accounts WHERE workspace_id = ? AND is_active = 1 AND last4 = ? LIMIT 2').bind(workspaceId, last4).all<{ id: string }>()
     return matches.results.map(({ id }) => id)
   }
   const directionalPair = !!parsed.sourceAccountLast4 && !!parsed.destinationAccountLast4
-  const sourceMatches = await findAccounts(directionalPair ? parsed.sourceAccountLast4 : parsed.transactionType === 'expense' ? parsed.accountLast4 : null)
-  const destinationMatches = await findAccounts(directionalPair ? parsed.destinationAccountLast4 : parsed.transactionType === 'income' || parsed.transactionType === 'refund' ? parsed.accountLast4 : null)
+  const sourceMatches = await findAccounts(parsed.isCreditCardRepayment ? parsed.sourceAccountLast4 : directionalPair ? parsed.sourceAccountLast4 : parsed.transactionType === 'expense' ? parsed.accountLast4 : null)
+  const destinationMatches = await findAccounts(parsed.isCreditCardRepayment ? parsed.accountLast4 : directionalPair ? parsed.destinationAccountLast4 : parsed.transactionType === 'income' || parsed.transactionType === 'refund' ? parsed.accountLast4 : null, parsed.isCreditCardRepayment ? 'credit_card' : undefined)
   const direction = resolveDirectionalTransaction(sourceMatches, destinationMatches)
   const sourceAccountId = sourceMatches.length === 1 ? sourceMatches[0] : null
   const destinationAccountId = destinationMatches.length === 1 ? destinationMatches[0] : null

@@ -15,7 +15,8 @@ PRAGMA foreign_keys=ON;
 INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES
  ('unique','development-workspace','Unique','Bank','bank','2847'),
  ('duplicate-a','development-workspace','Duplicate A','Bank','bank','99'),
- ('duplicate-b','development-workspace','Duplicate B','Bank','bank','99');
+ ('duplicate-b','development-workspace','Duplicate B','Bank','bank','99'),
+ ('card-0005','development-workspace','ICICI Card','ICICI','credit_card','0005');
 INSERT INTO sms_messages(id,workspace_id,dedupe_key,raw_text,received_at,parse_status) VALUES
  ('sms-1','development-workspace','external:one','INR 650 spent using card xx2847 at AMAZON','2026-09-29T16:30:00+05:30','parsed');
 INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,transaction_date,source,external_id,status)
@@ -30,4 +31,10 @@ sqlite3 "$db" "UPDATE transactions SET from_account_id='unique',status='confirme
 sqlite3 "$db" "INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,transaction_date,source,status) VALUES('ignored','development-workspace','expense','Ignored',99999,'2026-09-29','sms','ignored');"
 balance="$(sqlite3 "$db" "SELECT opening_balance_minor+COALESCE(SUM(CASE WHEN t.status!='confirmed' THEN 0 WHEN t.from_account_id=a.id THEN -t.amount_minor WHEN t.to_account_id=a.id THEN t.amount_minor ELSE 0 END),0) FROM accounts a LEFT JOIN transactions t ON t.from_account_id=a.id OR t.to_account_id=a.id WHERE a.id='unique' GROUP BY a.id")"
 [[ "$balance" = -65000 ]]
+# The transaction schema permits an unresolved-source card repayment to remain
+# pending, but continues to reject confirmation until both sides are selected.
+sqlite3 "$db" "INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,to_account_id,transaction_date,source,external_id,status) VALUES('repayment','development-workspace','transfer','Credit card payment',275765,'card-0005','2026-09-30','sms','external:repayment','pending');"
+if sqlite3 "$db" "UPDATE transactions SET status='confirmed' WHERE id='repayment';" >/dev/null 2>&1; then echo 'Expected incomplete repayment confirmation failure' >&2; exit 1; fi
+sqlite3 "$db" "INSERT INTO sms_messages(id,workspace_id,dedupe_key,raw_text,received_at,parse_status,transaction_id) VALUES('sms-repayment','development-workspace','external:repayment','Payment of INR 2,757.65 received on card 4xxx0005','2026-09-30','parsed','repayment');"
+if sqlite3 "$db" "INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,to_account_id,transaction_date,source,external_id,status) VALUES('repayment-copy','development-workspace','transfer','Credit card payment',275765,'card-0005','2026-09-30','sms','external:repayment','pending');" >/dev/null 2>&1; then echo 'Expected repayment transaction dedupe failure' >&2; exit 1; fi
 echo 'SMS migration, deduplication, pending confirmation, and balance checks passed'
