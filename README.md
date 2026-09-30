@@ -169,3 +169,13 @@ npm run deploy
 ```
 
 Do not run it until the target Cloudflare account, database, and environment configuration have been reviewed.
+
+## Financial summaries and transaction review
+
+Accounts and Dashboard use **Balance after card dues** for bank, cash and wallet balances minus credit-card outstanding. **Liquid balance** is bank + cash + wallets before card dues. Investments are excluded from both.
+
+The transaction list requests `GET /api/transactions?paginated=true&limit=25&offset=0`. Its data is `{ items, total, summary }`; the existing array response remains unchanged when `paginated=true` is omitted. Search (including account/category names), ID-based filters, and summaries cover every matching record, not just the displayed page. Money summaries include confirmed income and confirmed expenses reduced by eligible refunds (floored at zero). Transfers, investments, pending and ignored transactions do not contribute. The record count includes all matching statuses.
+
+The separate SMS review queue paginates all pending SMS records. Opening **Review SMS** loads sender, received time, parse metadata and original text from the individual transaction endpoint. Original SMS text is never added to the bulk transaction response. Transaction dates are displayed without a fabricated time.
+
+Investments and Settings remain explicitly labelled previews: their data and edits are temporary, and they do not update live accounts or transactions.
