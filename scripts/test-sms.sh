@@ -10,6 +10,7 @@ sqlite3 "$db" < migrations/0001_initial_schema.sql
 sqlite3 "$db" < migrations/0002_allow_short_last4.sql
 sqlite3 "$db" < bootstrap.sql
 sqlite3 "$db" < migrations/0003_sms_ingestion.sql
+sqlite3 "$db" < migrations/0004_sms_bank_reference.sql
 sqlite3 "$db" <<'SQL'
 PRAGMA foreign_keys=ON;
 INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES
@@ -24,6 +25,7 @@ INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_min
 UPDATE sms_messages SET transaction_id='pending' WHERE id='sms-1';
 SQL
 [[ "$(sqlite3 "$db" "SELECT count(*) FROM sms_messages WHERE dedupe_key='external:one'")" = 1 ]]
+[[ "$(sqlite3 "$db" "SELECT count(*) FROM pragma_index_list('sms_messages') WHERE name='idx_sms_messages_workspace_bank_reference'")" = 1 ]]
 if sqlite3 "$db" "INSERT INTO sms_messages(id,workspace_id,dedupe_key,raw_text,received_at) VALUES('sms-2','development-workspace','external:one','retry','2026-09-29');" >/dev/null 2>&1; then echo 'Expected SMS dedupe constraint failure' >&2; exit 1; fi
 if sqlite3 "$db" "UPDATE transactions SET status='confirmed' WHERE id='pending';" >/dev/null 2>&1; then echo 'Expected incomplete confirmation failure' >&2; exit 1; fi
 sqlite3 "$db" "UPDATE transactions SET from_account_id='unique',status='confirmed' WHERE id='pending';"

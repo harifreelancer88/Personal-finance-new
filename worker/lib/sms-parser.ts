@@ -14,6 +14,12 @@ export interface ParsedSms {
   notes: string
 }
 
+/** Extract a bank-issued UPI transaction reference, never an unlabelled number. */
+export function extractBankReference(message: string): string | null {
+  const match = message.match(/\bUPI\s*(?:Ref(?:erence)?(?:\s+No\.?)?\s*)?:\s*([0-9]+)\b/i)
+  return match?.[1] ?? null
+}
+
 export function resolveDirectionalTransaction(sourceAccountIds: string[], destinationAccountIds: string[]): {
   transactionType: SmsTransactionType | null; fromAccountId: string | null; toAccountId: string | null
 } {
@@ -113,8 +119,8 @@ export function parseSms(message: string, receivedAt: string, sender?: string | 
   const income = /\b(?:credited|received|deposited|salary credited)\b/i.test(message)
   const directionalPair = !refund && expense && income && !!directional.sourceAccountLast4 && !!directional.destinationAccountLast4
   const matches = [refund, expense, income].filter(Boolean).length
-  const type: SmsTransactionType | null = isCreditCardRepayment ? 'transfer' : refund ? 'refund' : directionalPair ? null : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
-  const desc = isCreditCardRepayment ? { value: 'Credit card payment', merchant: true } : description(message, sender)
+  const type: SmsTransactionType | null = isCreditCardRepayment ? 'transfer' : refund ? 'refund' : directionalPair ? 'transfer' : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
+  const desc = isCreditCardRepayment ? { value: 'Credit card payment', merchant: true } : directionalPair ? { value: 'UPI transfer', merchant: true } : description(message, sender)
   const notes: string[] = []
   if (type) notes.push(`${type} keyword recognized`); else if (directionalPair) notes.push('Linked debit and credit account indicators recognized'); else notes.push(matches > 1 ? 'Conflicting transaction indicators' : 'No supported transaction indicator')
   if (amountMinor) notes.push('INR amount parsed'); else notes.push('No valid positive INR amount')
@@ -122,5 +128,5 @@ export function parseSms(message: string, receivedAt: string, sender?: string | 
   if (accountLast4) notes.push('account suffix recognized')
   const ready = !!amountMinor && (!!type || directionalPair)
   const confidence = ready ? (desc.merchant ? 0.95 : 0.88) : amountMinor || type ? 0.45 : 0.1
-  return { status: type && amountMinor ? 'parsed' : directionalPair && amountMinor ? 'needs_review' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: ready ? desc.value : null, transactionDate: date.date, accountLast4, ...directional, isCreditCardRepayment, confidence, notes: notes.join('; ') + '.' }
+  return { status: type && amountMinor ? 'parsed' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: ready ? desc.value : null, transactionDate: date.date, accountLast4, ...directional, isCreditCardRepayment, confidence, notes: notes.join('; ') + '.' }
 }

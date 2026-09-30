@@ -10,7 +10,7 @@ export interface SmsMessageRow {
   sender: string | null; raw_text: string; received_at: string; parse_status: string
   parse_confidence: number | null; parse_notes: string | null; parsed_transaction_type: string | null
   parsed_amount_minor: number | null; parsed_description: string | null; parsed_transaction_date: string | null
-  parsed_account_last4: string | null; transaction_id: string | null; created_at: string; updated_at: string
+  parsed_account_last4: string | null; bank_reference: string | null; transaction_id: string | null; created_at: string; updated_at: string
 }
 
 export interface AccountRow {

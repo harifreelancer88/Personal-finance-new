@@ -1,8 +1,8 @@
 import { failure, success } from '../lib/http'
 import { ApiError, parseJsonObject } from '../lib/transaction-validation'
-import { isFinancialSmsCandidate, parseSms, resolveDirectionalTransaction } from '../lib/sms-parser'
+import { extractBankReference, isFinancialSmsCandidate, parseSms } from '../lib/sms-parser'
 import { mappedCategoryName } from '../lib/sms-category'
-import { getSmsByDedupe } from '../repositories/sms-messages'
+import { getRecentSmsByBankReference, getSmsByDedupe } from '../repositories/sms-messages'
 import type { Env } from '../types'
 import { isSmsAuthorized, smsDedupeKey } from '../lib/sms-security'
 
@@ -43,9 +43,10 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   if (existing) return success(result(existing, true))
 
   const smsId = crypto.randomUUID()
+  const bankReference = extractBankReference(message)
   const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO sms_messages
-    (id, workspace_id, external_id, dedupe_key, sender, raw_text, received_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(smsId, workspaceId, externalId, dedupeKey, sender, message, receivedAt).run()
+    (id, workspace_id, external_id, dedupe_key, sender, raw_text, received_at, bank_reference)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(smsId, workspaceId, externalId, dedupeKey, sender, message, receivedAt, bankReference).run()
   if ((inserted.meta.changes ?? 0) === 0) return success(result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), true))
 
   const parsed = parseSms(message, receivedAt, sender)
@@ -59,19 +60,38 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   const directionalPair = !!parsed.sourceAccountLast4 && !!parsed.destinationAccountLast4
   const sourceMatches = await findAccounts(parsed.isCreditCardRepayment ? parsed.sourceAccountLast4 : directionalPair ? parsed.sourceAccountLast4 : parsed.transactionType === 'expense' ? parsed.accountLast4 : null)
   const destinationMatches = await findAccounts(parsed.isCreditCardRepayment ? parsed.accountLast4 : directionalPair ? parsed.destinationAccountLast4 : parsed.transactionType === 'income' || parsed.transactionType === 'refund' ? parsed.accountLast4 : null, parsed.isCreditCardRepayment ? 'credit_card' : undefined)
-  const direction = resolveDirectionalTransaction(sourceMatches, destinationMatches)
   const sourceAccountId = sourceMatches.length === 1 ? sourceMatches[0] : null
   const destinationAccountId = destinationMatches.length === 1 ? destinationMatches[0] : null
   let resolvedType = parsed.transactionType
-  let resolvedStatus = parsed.status
-  if (directionalPair && parsed.amountMinor && parsed.description) {
-    resolvedType = direction.transactionType
-    if (resolvedType) resolvedStatus = 'parsed'
-  }
+  let resolvedStatus: string = parsed.status
   let categoryId: string | null = null
   const categoryName = mappedCategoryName(message)
   if (categoryName) categoryId = (await env.DB.prepare('SELECT id FROM categories WHERE workspace_id = ? AND is_active = 1 AND name = ? COLLATE NOCASE').bind(workspaceId, categoryName).first<{ id: string }>())?.id ?? null
   let transactionId: string | null = null
+  let pairingNote = ''
+  const pairedSms = bankReference ? await getRecentSmsByBankReference(env.DB, workspaceId, bankReference, parsed.amountMinor, receivedAt, smsId) : null
+  const pairedTransaction = pairedSms?.transaction_id
+    ? await env.DB.prepare(`SELECT id, transaction_type, status, amount_minor FROM transactions WHERE workspace_id = ? AND id = ?`)
+      .bind(workspaceId, pairedSms.transaction_id).first<{ id: string; transaction_type: string; status: string; amount_minor: number }>()
+    : null
+  const sameAmount = !!pairedTransaction && pairedTransaction.amount_minor === parsed.amountMinor
+  if (pairedTransaction && sameAmount && (pairedTransaction.transaction_type === 'transfer' || directionalPair)) {
+    transactionId = pairedTransaction.id
+    if (directionalPair && pairedTransaction.transaction_type !== 'transfer') {
+      if (pairedTransaction.status === 'pending') {
+        await env.DB.prepare(`UPDATE transactions SET transaction_type = 'transfer', description = 'UPI transfer', category_id = NULL,
+          from_account_id = ?, to_account_id = ?, transaction_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+          .bind(sourceAccountId, destinationAccountId, parsed.transactionDate, transactionId).run()
+        pairingNote = ` Paired using bank_reference ${bankReference}; reconciled the pending SMS transaction into a transfer.`
+      } else {
+        pairingNote = ` Pairing conflict for bank_reference ${bankReference}: the existing transaction is confirmed and was not rewritten.`
+      }
+    } else {
+      pairingNote = ` Paired using bank_reference ${bankReference}; linked to the existing transfer transaction.`
+    }
+    resolvedStatus = pairingNote.includes('conflict') ? 'pairing_conflict' : 'paired'
+    resolvedType = pairedTransaction.transaction_type === 'transfer' || (directionalPair && pairedTransaction.status === 'pending') ? 'transfer' : resolvedType
+  }
   if (resolvedStatus === 'parsed' && resolvedType && parsed.amountMinor && parsed.description) {
     transactionId = crypto.randomUUID()
     const fromAccount = resolvedType === 'expense' || resolvedType === 'transfer' ? sourceAccountId : null
@@ -80,11 +100,18 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
       from_account_id, to_account_id, transaction_date, source, external_id, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sms', ?, 'pending')`)
       .bind(transactionId, workspaceId, resolvedType, parsed.description, parsed.amountMinor, categoryId, fromAccount, toAccount, parsed.transactionDate, dedupeKey).run()
+    if (bankReference) {
+      await env.DB.prepare(`UPDATE sms_messages SET transaction_id = ?, parse_status = 'paired',
+        parse_notes = COALESCE(parse_notes || ' ', '') || ? , updated_at = CURRENT_TIMESTAMP
+        WHERE workspace_id = ? AND bank_reference = ? AND id <> ? AND transaction_id IS NULL
+          AND julianday(received_at) BETWEEN julianday(?) - 3 AND julianday(?) + 3`)
+        .bind(transactionId, `Paired using bank_reference ${bankReference}.`, workspaceId, bankReference, smsId, receivedAt, receivedAt).run()
+    }
   }
   const accountNotes = directionalPair
     ? ` Source account ${sourceAccountId ? 'matched' : sourceMatches.length > 1 ? 'was ambiguous' : 'was not matched'}; destination account ${destinationAccountId ? 'matched' : destinationMatches.length > 1 ? 'was ambiguous' : 'was not matched'}.`
     : parsed.accountLast4 ? ` Account ${sourceAccountId || destinationAccountId ? 'uniquely matched' : sourceMatches.length > 1 || destinationMatches.length > 1 ? 'was ambiguous' : 'was not matched'}.` : ''
-  const notes = `${parsed.notes}${accountNotes ? ` ${accountNotes}` : ''}${categoryName ? categoryId ? ` Category ${categoryName} matched.` : ` Category rule ${categoryName} had no existing category.` : ''}`
+  const notes = `${parsed.notes}${accountNotes ? ` ${accountNotes}` : ''}${categoryName ? categoryId ? ` Category ${categoryName} matched.` : ` Category rule ${categoryName} had no existing category.` : ''}${pairingNote}`
   await env.DB.prepare(`UPDATE sms_messages SET parse_status = ?, parse_confidence = ?, parse_notes = ?, parsed_transaction_type = ?,
     parsed_amount_minor = ?, parsed_description = ?, parsed_transaction_date = ?, parsed_account_last4 = ?, transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
     .bind(resolvedStatus, parsed.confidence, notes, resolvedType, parsed.amountMinor, parsed.description, parsed.transactionDate, parsed.accountLast4, transactionId, smsId).run()
