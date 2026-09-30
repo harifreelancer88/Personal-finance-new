@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { extractAccountLast4, extractDirectionalAccountSuffixes, isFinancialSmsCandidate, parseAmountMinor, parseSms, resolveDirectionalTransaction } from '../.sms-test-dist/sms-parser.js'
+import { extractAccountLast4, extractBankReference, extractDirectionalAccountSuffixes, isFinancialSmsCandidate, parseAmountMinor, parseSms, resolveDirectionalTransaction } from '../.sms-test-dist/sms-parser.js'
 import { mappedCategoryName } from '../.sms-test-dist/sms-category.js'
 
 for (const [text, expected] of [['₹650',65000],['₹650.25',65025],['Rs 650',65000],['Rs.650',65000],['INR1,250.50',125050],['INR 1,250.50',125050]]) test(`parses ${text}`,()=>assert.equal(parseAmountMinor(text),expected))
@@ -24,9 +24,28 @@ test('extracts directional account suffixes without unrelated numbers',()=>{
   assert.equal(parsed.destinationAccountLast4,'973')
   assert.equal(parsed.accountLast4,'981')
   assert.equal(parsed.transactionDate,'2026-09-29')
-  assert.equal(parsed.description,'UPI payment')
+  assert.equal(parsed.description,'UPI transfer')
   assert.equal(parsed.notes.includes('Conflicting'),false)
   assert.deepEqual(extractDirectionalAccountSuffixes(icici),{sourceAccountLast4:'981',destinationAccountLast4:'973'})
+})
+const productionPrimary = 'ICICI Bank Acct XXX981 debited with INR 3.00 on 30-Sep-26. Acct XXX973 credited.UPI:663943782683.Call 18002662 for dispute or SMS BLOCK 981 to 9215676766.'
+const productionSecondary = 'Dear Customer, Acct XX973 is credited with Rs 3.00 on 30-Sep-26 from HARI BHASKARAN . UPI:663943782683-ICICI Bank.'
+test('extracts the same labelled bank reference from both production messages',()=>{
+  assert.equal(extractBankReference(productionPrimary),'663943782683')
+  assert.equal(extractBankReference(productionSecondary),'663943782683')
+})
+test('parses the production combined message as an incomplete-capable transfer',()=>{
+  const parsed = parseSms(productionPrimary,'2026-09-30T12:00:00Z','ICICI Bank')
+  assert.equal(parsed.transactionType,'transfer')
+  assert.equal(parsed.status,'parsed')
+  assert.equal(parsed.amountMinor,300)
+  assert.equal(parsed.description,'UPI transfer')
+  assert.equal(parsed.sourceAccountLast4,'981')
+  assert.equal(parsed.destinationAccountLast4,'973')
+})
+test('supports only explicitly labelled UPI reference forms',()=>{
+  for (const text of ['UPI:663943782683','UPI Ref:663943782683','UPI Ref No: 663943782683','UPI reference:663943782683']) assert.equal(extractBankReference(text),'663943782683')
+  assert.equal(extractBankReference('Call 18002662, account 981, INR 3.00 on 30-Sep-26'),null)
 })
 test('does not treat UPI, phone, or BLOCK numbers as account suffixes',()=>{
   assert.deepEqual(extractDirectionalAccountSuffixes('UPI:663820638117 Call 18002662 or SMS BLOCK 981 to 9215676766'),{sourceAccountLast4:null,destinationAccountLast4:null})
