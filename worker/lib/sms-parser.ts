@@ -9,6 +9,7 @@ export interface ParsedSms {
   accountLast4: string | null
   sourceAccountLast4: string | null
   destinationAccountLast4: string | null
+  isCreditCardRepayment: boolean
   confidence: number
   notes: string
 }
@@ -26,7 +27,20 @@ export function resolveDirectionalTransaction(sourceAccountIds: string[], destin
 }
 
 const amountPattern = /(?:₹|\bINR\s*|\bRs\.?\s*)([0-9][0-9,]*(?:\.[0-9]{1,2})?)(?![\d.])/i
-const nonFinancialPattern = /\b(?:OTP|one[ -]time password|verification code|login|password|KYC|promotional|offer)\b/i
+const privateOrPromotionalPattern = /\b(?:OTP|one[ -]time password|verification code|login code|password reset|promo(?:tional)?|offer|discount|sale)\b/i
+const transactionPattern = /\b(?:debited|credited|spent|payment|paid|received|withdrawn|refund(?:ed)?|reversed|reversal|purchase(?:d)?|transferred)\b/i
+// These words describe a completed movement of money, rather than (for example)
+// an OTP "for a purchase" or an advertisement containing a price.
+const completedTransactionPattern = /\b(?:debited|credited|spent|paid|received|withdrawn|refunded|reversed|transferred)\b/i
+const creditCardRepaymentPattern = /(?:payment(?:\s+of\s+(?:₹|INR|Rs\.?)?\s*[\d,.]+)?\s+(?:has\s+been\s+)?received\s+(?:on|towards)\s+(?:your\s+)?(?:[A-Z][A-Za-z]+\s+Bank\s+)?credit\s+card|credit\s+card\s+payment\s+(?:has\s+been\s+)?received|payment\s+credited\s+to\s+(?:your\s+)?card\s+account|card\s+payment\s+(?:has\s+been\s+)?received)/i
+
+export function isFinancialSmsCandidate(message: string): boolean {
+  const hasAmount = parseAmountMinor(message) !== null
+  const hasTransaction = transactionPattern.test(message)
+  if (!hasAmount || !hasTransaction) return false
+  if (privateOrPromotionalPattern.test(message) && !completedTransactionPattern.test(message) && !creditCardRepaymentPattern.test(message)) return false
+  return true
+}
 
 export function parseAmountMinor(message: string): number | null {
   const match = message.match(amountPattern)
@@ -40,7 +54,12 @@ export function parseAmountMinor(message: string): number | null {
 }
 
 export function extractAccountLast4(message: string): string | null {
-  const match = message.match(/(?:ending(?:\s+in)?|xx+|x{2,}|card(?:\s+(?:no\.?|ending))?|a\/c|acct(?:ount)?)\s*[:#-]?\s*\**x*([0-9]{1,4})\b/i)
+  const match = message.match(/(?:ending(?:\s+in)?|xx+|x{2,}|card(?:\s+(?:no\.?|ending|account))?|a\/c|acct(?:ount)?)\s*[:#-]?\s*(?:\d?x+|\**x*)?([0-9]{1,4})\b/i)
+  return match?.[1] ?? null
+}
+
+function extractCreditCardLast4(message: string): string | null {
+  const match = message.match(/credit\s+card(?:\s+(?:account|no\.?|ending))?\s*[:#-]?\s*(?:\d?x+|\**x*)?([0-9]{1,4})\b/i)
   return match?.[1] ?? null
 }
 
@@ -85,16 +104,17 @@ function description(message: string, sender?: string | null): { value: string; 
 export function parseSms(message: string, receivedAt: string, sender?: string | null): ParsedSms {
   const date = transactionDate(message, receivedAt)
   const directional = extractDirectionalAccountSuffixes(message)
-  const accountLast4 = directional.sourceAccountLast4 ?? directional.destinationAccountLast4 ?? extractAccountLast4(message)
-  if (nonFinancialPattern.test(message)) return { status: 'non_financial', transactionType: null, amountMinor: null, description: null, transactionDate: date.date, accountLast4, ...directional, confidence: 0.98, notes: 'Security, service, or promotional message detected.' }
+  const isCreditCardRepayment = creditCardRepaymentPattern.test(message)
+  const accountLast4 = (isCreditCardRepayment ? extractCreditCardLast4(message) : null) ?? directional.sourceAccountLast4 ?? directional.destinationAccountLast4 ?? extractAccountLast4(message)
   const amountMinor = parseAmountMinor(message)
+  if (!isFinancialSmsCandidate(message)) return { status: 'non_financial', transactionType: null, amountMinor, description: null, transactionDate: date.date, accountLast4, ...directional, isCreditCardRepayment: false, confidence: 0.98, notes: 'No completed financial transaction was detected.' }
   const refund = /\b(?:refund(?:ed)?|reversed|reversal|credited back)\b/i.test(message)
   const expense = /\b(?:spent|debited|purchase(?:d)?|paid|withdrawn)\b/i.test(message)
   const income = /\b(?:credited|received|deposited|salary credited)\b/i.test(message)
   const directionalPair = !refund && expense && income && !!directional.sourceAccountLast4 && !!directional.destinationAccountLast4
   const matches = [refund, expense, income].filter(Boolean).length
-  const type: SmsTransactionType | null = refund ? 'refund' : directionalPair ? null : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
-  const desc = description(message, sender)
+  const type: SmsTransactionType | null = isCreditCardRepayment ? 'transfer' : refund ? 'refund' : directionalPair ? null : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
+  const desc = isCreditCardRepayment ? { value: 'Credit card payment', merchant: true } : description(message, sender)
   const notes: string[] = []
   if (type) notes.push(`${type} keyword recognized`); else if (directionalPair) notes.push('Linked debit and credit account indicators recognized'); else notes.push(matches > 1 ? 'Conflicting transaction indicators' : 'No supported transaction indicator')
   if (amountMinor) notes.push('INR amount parsed'); else notes.push('No valid positive INR amount')
@@ -102,5 +122,5 @@ export function parseSms(message: string, receivedAt: string, sender?: string | 
   if (accountLast4) notes.push('account suffix recognized')
   const ready = !!amountMinor && (!!type || directionalPair)
   const confidence = ready ? (desc.merchant ? 0.95 : 0.88) : amountMinor || type ? 0.45 : 0.1
-  return { status: type && amountMinor ? 'parsed' : directionalPair && amountMinor ? 'needs_review' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: ready ? desc.value : null, transactionDate: date.date, accountLast4, ...directional, confidence, notes: notes.join('; ') + '.' }
+  return { status: type && amountMinor ? 'parsed' : directionalPair && amountMinor ? 'needs_review' : amountMinor || type ? 'needs_review' : 'unparsed', transactionType: type, amountMinor, description: ready ? desc.value : null, transactionDate: date.date, accountLast4, ...directional, isCreditCardRepayment, confidence, notes: notes.join('; ') + '.' }
 }

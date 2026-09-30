@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { extractAccountLast4, extractDirectionalAccountSuffixes, parseAmountMinor, parseSms, resolveDirectionalTransaction } from '../.sms-test-dist/sms-parser.js'
+import { extractAccountLast4, extractDirectionalAccountSuffixes, isFinancialSmsCandidate, parseAmountMinor, parseSms, resolveDirectionalTransaction } from '../.sms-test-dist/sms-parser.js'
 import { mappedCategoryName } from '../.sms-test-dist/sms-category.js'
 
 for (const [text, expected] of [['₹650',65000],['₹650.25',65025],['Rs 650',65000],['Rs.650',65000],['INR1,250.50',125050],['INR 1,250.50',125050]]) test(`parses ${text}`,()=>assert.equal(parseAmountMinor(text),expected))
@@ -9,6 +9,11 @@ test('detects expense',()=>assert.equal(parseSms('INR 650 spent at AMAZON','2026
 test('detects income',()=>assert.equal(parseSms('INR 650 salary credited','2026-09-29T16:30:00+05:30').transactionType,'income'))
 test('refund wins over credited wording',()=>assert.equal(parseSms('INR 650 credited back as refund','2026-09-29T16:30:00+05:30').transactionType,'refund'))
 test('OTP is non-financial',()=>assert.equal(parseSms('OTP 123456 for purchase INR 650','2026-09-29T16:30:00+05:30').status,'non_financial'))
+test('OTP-only and promotional messages fail pre-ingest screening',()=>{
+  assert.equal(isFinancialSmsCandidate('Your login OTP is 123456. Do not share it.'),false)
+  assert.equal(isFinancialSmsCandidate('Special offer: get 20% off your next purchase of INR 2,000'),false)
+})
+test('completed bank transaction with dispute and BLOCK advice passes screening',()=>assert.equal(isFinancialSmsCandidate('INR 650 debited from A/c XX2847. Call for dispute or SMS BLOCK 2847.'),true))
 test('extracts supported account suffixes',()=>{ for(const text of ['ending 2847','xx2847','XXXX2847','card 2847','a/c *2847']) assert.equal(extractAccountLast4(text),'2847') })
 test('uses received calendar date as fallback',()=>assert.equal(parseSms('INR 650 paid to UBER','2026-09-29T23:30:00+05:30').transactionDate,'2026-09-29'))
 test('parses explicit Indian date',()=>assert.equal(parseSms('INR 650 paid to UBER on 28/09/2026','2026-09-29T23:30:00+05:30').transactionDate,'2026-09-28'))
@@ -29,6 +34,16 @@ test('does not treat UPI, phone, or BLOCK numbers as account suffixes',()=>{
 for (const [date, expected] of [['29-Sep-26','2026-09-29'],['29-Sep-2026','2026-09-29'],['29 SEP 26','2026-09-29'],['29 SEP 2026','2026-09-29']]) {
   test(`parses named Indian date ${date}`,()=>assert.equal(parseSms(`INR 1 paid on ${date}`,'2025-01-01T00:00:00Z').transactionDate,expected))
 }
+const repayment = 'Dear Customer, Payment of INR 2,757.65 has been received on your ICICI Bank Credit Card Account 4xxx0005 on 30-SEP-26.'
+test('classifies credit-card repayment as a dated transfer, not income',()=>{
+  const parsed = parseSms(repayment,'2026-09-30T12:00:00Z','ICICI')
+  assert.equal(parsed.transactionType,'transfer')
+  assert.equal(parsed.isCreditCardRepayment,true)
+  assert.equal(parsed.accountLast4,'0005')
+  assert.equal(parsed.description,'Credit card payment')
+  assert.equal(parsed.transactionDate,'2026-09-30')
+  assert.notEqual(parsed.transactionType,'income')
+})
 test('resolves a directional payment with only its source owned as expense',()=>assert.deepEqual(resolveDirectionalTransaction(['source'],[]),{transactionType:'expense',fromAccountId:'source',toAccountId:null}))
 test('resolves two different owned directional accounts as one transfer',()=>assert.deepEqual(resolveDirectionalTransaction(['source'],['destination']),{transactionType:'transfer',fromAccountId:'source',toAccountId:'destination'}))
 test('resolves a directional payment with only its destination owned as income',()=>assert.deepEqual(resolveDirectionalTransaction([],['destination']),{transactionType:'income',fromAccountId:null,toAccountId:'destination'}))
