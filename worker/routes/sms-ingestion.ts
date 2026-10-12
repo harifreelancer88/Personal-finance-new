@@ -83,6 +83,22 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   const pairedSms = bankReference ? await getRecentSmsByBankReference(env.DB, workspaceId, bankReference, parsed.amountMinor, receivedAt, smsId) : null
   let transaction = await env.DB.prepare(`SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'sms' AND external_id = ?`).bind(workspaceId, identity).first<Transaction>()
   if (!transaction && pairedSms?.transaction_id) transaction = await env.DB.prepare(`SELECT ${fields} FROM transactions WHERE workspace_id = ? AND id = ?`).bind(workspaceId, pairedSms.transaction_id).first<Transaction>()
+  // A controlled API recovery can temporarily create a manual record while
+  // production is awaiting the parser deployment. Adopt only an exact recovery
+  // identity with the same amount/date/type/accounts, never ordinary manual rows.
+  if (!transaction && approve && bankReference) {
+    const recoveryNote = `Recovered SMS: ${identity}`
+    const recovered = await env.DB.prepare(`SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'manual'
+      AND notes = ? AND transaction_type = ? AND amount_minor = ? AND transaction_date = ?
+      AND from_account_id IS ? AND to_account_id IS ? LIMIT 2`)
+      .bind(workspaceId, recoveryNote, parsed.transactionType, parsed.amountMinor, parsed.transactionDate, sourceId, destinationId).all<Transaction>()
+    if (recovered.results.length === 1) {
+      await env.DB.prepare(`UPDATE transactions SET source = 'sms', external_id = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE workspace_id = ? AND id = ? AND source = 'manual' AND notes = ?`)
+        .bind(identity, SMS_AUTO_CONFIRM_NOTE, workspaceId, recovered.results[0].id, recoveryNote).run()
+      transaction = await env.DB.prepare(`SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'sms' AND external_id = ?`).bind(workspaceId, identity).first<Transaction>()
+    }
+  }
 
   if (parseStatus === 'parsed' && parsed.transactionType && parsed.amountMinor && parsed.description) {
     if (!transaction) {

@@ -82,3 +82,13 @@ test('same-account transfer stays unresolved without violating database constrai
   const {db,send}=setup();const response=await send(primary.replace('XXX973','XXX981'),'same')
   assert.equal(response.parseStatus,'needs_review');assert.equal(db.prepare('SELECT count(*) AS n FROM transactions').get().n,0)
 })
+test('controlled recovery is linked to SMS without creating a second expense',async()=>{
+  const {db,send}=setup()
+  db.prepare(`INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,from_account_id,transaction_date,source,status,notes)
+    VALUES('recovered','development-workspace','expense','METRO TRANSIT',3000,'source','2026-10-12','manual','confirmed',?)`)
+    .run('Recovered SMS: bankref:123456789012:2026-10-12:3000')
+  const result=await send(debit,'sheets')
+  assert.equal(result.transactionId,'recovered')
+  assert.equal(db.prepare('SELECT count(*) AS n FROM transactions').get().n,1)
+  assert.equal(db.prepare('SELECT source FROM transactions').get().source,'sms')
+})
