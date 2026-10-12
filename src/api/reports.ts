@@ -11,15 +11,15 @@ export interface FinancialInsight { type:string; message:string; value:number }
 export interface ReportsData { summary:ReportSummary; cashFlow:CashFlowPoint[]; categories:CategoryBreakdownItem[]; accounts:AccountBreakdownItem[]; income:IncomeBreakdownItem[]; topExpenses:TopExpense[]; insights:FinancialInsight[] }
 
 const query = (period: ReportPeriod, extra = '') => `?period=${period}${extra}`
-export async function getReports(period: ReportPeriod): Promise<ReportsData> {
+export async function getReports(period: ReportPeriod, signal?:AbortSignal): Promise<ReportsData> {
   const [summary,cashFlow,categories,accounts,income,topExpenses,insights]=await Promise.all([
-    apiRequest<ReportSummary>(`/api/reports/summary${query(period)}`),
-    apiRequest<CashFlowPoint[]>(`/api/reports/cash-flow${query(period)}`),
-    apiRequest<CategoryBreakdownItem[]>(`/api/reports/category-breakdown${query(period)}`),
-    apiRequest<AccountBreakdownItem[]>(`/api/reports/account-breakdown${query(period)}`),
-    apiRequest<IncomeBreakdownItem[]>(`/api/reports/income-breakdown${query(period)}`),
-    apiRequest<TopExpense[]>(`/api/reports/top-expenses${query(period,'&limit=10')}`),
-    apiRequest<FinancialInsight[]>(`/api/reports/insights${query(period)}`),
+    apiRequest<ReportSummary>(`/api/reports/summary${query(period)}`, {signal}),
+    apiRequest<CashFlowPoint[]>(`/api/reports/cash-flow${query(period)}`, {signal}),
+    apiRequest<CategoryBreakdownItem[]>(`/api/reports/category-breakdown${query(period)}`, {signal}),
+    apiRequest<AccountBreakdownItem[]>(`/api/reports/account-breakdown${query(period)}`, {signal}),
+    apiRequest<IncomeBreakdownItem[]>(`/api/reports/income-breakdown${query(period)}`, {signal}),
+    apiRequest<TopExpense[]>(`/api/reports/top-expenses${query(period,'&limit=10')}`, {signal}),
+    apiRequest<FinancialInsight[]>(`/api/reports/insights${query(period)}`, {signal}),
   ])
   return {summary,cashFlow,categories,accounts,income,topExpenses,insights}
 }

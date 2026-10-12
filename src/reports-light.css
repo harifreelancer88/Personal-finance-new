@@ -1,0 +1,89 @@
+.monarch-reports .reports-page{padding:0 32px 36px;max-width:1400px;margin:auto}
+.monarch-reports .reports-refresh{margin-left:auto}
+.monarch-reports .report-toolbar{display:flex;align-items:center;gap:20px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.monarch-reports .report-toolbar .activity-tabs{flex:1;margin:0;border:0;gap:10px}
+.monarch-reports .report-period-select{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:0 10px;min-height:40px}
+.monarch-reports .report-period-select>svg{width:16px;height:16px;color:#737580}
+.monarch-reports .report-period-select select{border:0;background:none;padding:8px 4px;font-size:13px}
+.monarch-reports .report-date-range{font-size:13px;color:#737580;margin:0 0 16px}
+.monarch-reports .reports-status{font-size:13px;color:#737580;margin:12px 0}
+.monarch-reports .report-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.monarch-reports .report-summary article{display:block;padding:20px;background:#fff;border:1px solid var(--line);border-radius:8px;min-width:0}
+.monarch-reports .report-summary p{font-size:13px;color:#737580;margin:0 0 8px}
+.monarch-reports .report-summary strong{display:block;font-size:26px;font-weight:600;letter-spacing:-.5px;line-height:1.3;overflow-wrap:anywhere}
+.monarch-reports .report-summary small{font-size:11px;color:#737580;margin-top:5px;display:block}
+.monarch-reports .reports-main-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:20px;align-items:start;margin-bottom:20px}
+.monarch-reports #report-content>.report-panel{margin-bottom:20px}
+.monarch-reports .report-panel,.monarch-reports .dashboard-cash-flow{padding:20px;min-width:0}
+.monarch-reports .report-section-head{margin:0 0 16px;padding:0;display:flex;align-items:center;justify-content:space-between;border:0}
+.monarch-reports .report-section-head h2{font-size:18px;line-height:1.4;margin:0;font-weight:600;color:#262626}
+.monarch-reports .breakdown-rows{display:grid;gap:0}
+.monarch-reports .breakdown-row{padding:16px 0;border-top:1px solid var(--line)}
+.monarch-reports .breakdown-label{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;color:#262626;font-size:13px;margin-bottom:8px}
+.monarch-reports .breakdown-label>span{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
+.monarch-reports .breakdown-label i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.monarch-reports .breakdown-label strong{font-size:13px;color:#262626;font-weight:550;white-space:nowrap}
+.monarch-reports .breakdown-track{height:7px;background:#eeece9;border-radius:4px;overflow:hidden;margin:0}
+.monarch-reports .breakdown-track>span{display:block;height:100%;background:#f36d32;border-radius:4px}
+.monarch-reports .breakdown-row>small{display:block;color:#737580;font-size:11px;margin-top:6px}
+.monarch-reports .income-breakdown ul{list-style:none;margin:0;padding:0}
+.monarch-reports .income-breakdown li{padding:16px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;color:#262626;font-size:14px}
+.monarch-reports .income-breakdown li span{min-width:0;overflow-wrap:anywhere}
+.monarch-reports .income-breakdown li small{display:block;font-size:12px;color:#737580;margin-top:4px}
+.monarch-reports .income-breakdown li strong{font-size:14px;color:#18824a;white-space:nowrap}
+.monarch-reports .report-empty{font-size:13px;color:#737580;margin:24px 0;line-height:1.5}
+.monarch-reports .insights{padding:20px;background:#fff;border-color:var(--line);border-radius:8px;margin-top:20px}
+.monarch-reports .insights header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.monarch-reports .insights header>span{width:32px;height:32px;background:#fff0df;color:#ca6520;border-radius:50%;display:grid;place-items:center}
+.monarch-reports .insights header svg{width:18px;height:18px}
+.monarch-reports .insights h2{font-size:18px;margin:0;font-weight:600;color:#262626}
+.monarch-reports .insights ul{padding-left:44px;margin:0;color:#62646d;font-size:13px;line-height:1.7;list-style:disc}
+.monarch-reports .insights li{background:none;border:0;padding:0;margin:0;color:#62646d;font-size:13px}
+.monarch-reports .expense-table-wrap{overflow-x:auto}
+.monarch-reports .top-expenses table{width:100%;border-collapse:collapse;min-width:600px}
+.monarch-reports .top-expenses th{padding:12px;text-align:left;color:#737580;font-size:12px;font-weight:500;background:#faf9f7;letter-spacing:0;text-transform:none}
+.monarch-reports .top-expenses td{padding:16px 12px;border-top:1px solid var(--line);font-size:13px;color:#62646d}
+.monarch-reports .top-expenses th:last-child,.monarch-reports .top-expenses td:last-child{text-align:right;white-space:nowrap}
+.monarch-reports .top-expenses a{color:#262626;text-decoration:none;font-size:14px;font-weight:550;overflow-wrap:anywhere}
+.monarch-reports .top-expenses a:hover{text-decoration:underline}
+.monarch-reports .top-expenses .expense-category{background:none;color:#62646d;padding:0;font-size:13px}
+.monarch-reports .expense-cards{display:none}
+.monarch-reports .top-expenses td strong{font-size:14px;color:#262626}
+.monarch-reports .report-footnote{color:#737580;font-size:12px;margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);line-height:1.6}
+.monarch-reports .cash-flow-chart-container{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+@media(min-width:801px) and (max-width:1100px){.monarch-reports .reports-page{padding:0 24px 28px}.monarch-reports .reports-main-grid{grid-template-columns:1fr}.monarch-reports .report-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){
+.monarch-reports .reports-page{padding:0 12px 24px}
+.monarch-reports .activity-header{padding:12px 16px}
+.monarch-reports .reports-refresh{margin-left:0;flex:0 0 40px}
+.monarch-reports .report-toolbar{display:block;border:0;margin-bottom:16px}
+.monarch-reports .report-toolbar .activity-tabs{padding:0;background:transparent;gap:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.monarch-reports .report-toolbar .activity-tabs button{padding:14px 10px;font-size:13px}
+.monarch-reports .report-period-select{width:max-content;padding:0 8px;min-height:36px}
+.monarch-reports .report-period-select select{font-size:16px}
+.monarch-reports .report-date-range{font-size:12px}
+.monarch-reports .report-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.monarch-reports .report-summary article{padding:14px;min-height:80px}
+.monarch-reports .report-summary p{font-size:12px;margin-bottom:5px}
+.monarch-reports .report-summary strong{font-size:21px;letter-spacing:-.3px}
+.monarch-reports .reports-main-grid{grid-template-columns:1fr;gap:12px;margin-bottom:12px}
+.monarch-reports .report-panel,.monarch-reports .dashboard-cash-flow{padding:14px}
+.monarch-reports #report-content>.report-panel{margin-bottom:12px}
+.monarch-reports .report-section-head h2,.monarch-reports .insights h2{font-size:15px}
+.monarch-reports .breakdown-label{font-size:13px}
+.monarch-reports .insights{padding:14px;margin-top:12px}
+.monarch-reports .insights ul{padding-left:24px;font-size:12px}
+.monarch-reports .insights li{font-size:12px}
+.monarch-reports .expense-table-wrap{display:none}
+.monarch-reports .expense-cards{display:grid}
+.monarch-reports .expense-cards article{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line);background:none;border-radius:0}
+.monarch-reports .expense-cards article>div{display:grid;gap:4px;flex:1;min-width:0}
+.monarch-reports .expense-cards a{font-size:13px}
+.monarch-reports .expense-cards span,.monarch-reports .expense-cards small{font-size:11px;color:#737580;overflow-wrap:anywhere}
+.monarch-reports .expense-cards b{font-size:13px;white-space:nowrap;color:#262626}
+}
+.monarch-reports .breakdown-row{display:block}
+.monarch-reports .insights ul{display:block}
+.monarch-reports .insights li{display:list-item;margin:3px 0}
+.monarch-reports .insights li::before{display:none}
+.monarch-reports .cash-flow-hit-area{fill:transparent}
