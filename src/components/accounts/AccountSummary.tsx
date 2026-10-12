@@ -1,12 +1,8 @@
-import { Banknote, Building2, CreditCard, Landmark } from 'lucide-react'
-import { formatSignedCurrency } from '../../lib/format'
+import { formatMinorCurrency } from '../../lib/format'
+import { accountOverview } from '../../lib/account-overview'
 import type { Account } from '../../types/finance'
-
+const signed = (minor:number) => `${minor < 0 ? '−' : ''}${formatMinorCurrency(minor)}`
 export function AccountSummary({ accounts }: { accounts: Account[] }) {
-  const bank = accounts.filter(a => a.type === 'Bank Account').reduce((sum,a) => sum + a.balance, 0)
-  const credit = accounts.filter(a => a.type === 'Credit Card').reduce((sum,a) => sum + Math.max(0, -a.balance), 0)
-  const liquid = accounts.filter(a => a.type === 'Cash' || a.type === 'Wallet / Prepaid').reduce((sum,a) => sum + a.balance, 0)
-  const available = bank + liquid
-  const cards = [{ label:'Balance after card dues', value:available-credit, icon:Landmark, tone:'lime' }, { label:'Liquid balance', value:available, icon:Building2, tone:'blue' }, { label:'Credit card outstanding', value:credit, icon:CreditCard, tone:'expense' }, { label:'Cash / wallet balance', value:liquid, icon:Banknote, tone:'violet' }]
-  return <><section className="account-summary" aria-label="Account summary">{cards.map(({label,value,icon:Icon,tone}, index) => <article className={index === 0 ? 'featured' : ''} key={label}><span className={`summary-mini-icon ${tone}`}><Icon/></span><div><p>{label}</p><strong>{formatSignedCurrency(value)}</strong></div></article>)}</section><p className="summary-explanation">Liquid balance includes bank accounts, cash and wallets. Card dues are deducted from the first figure. Investments are excluded.</p></>
+  const totals = accountOverview(accounts)
+  return <section className="account-overview" aria-label="Active account balances"><div className="account-overview-primary"><p>Net account balance</p><strong className={totals.netMinor < 0 ? 'negative-text' : ''}>{signed(totals.netMinor)}</strong><small title="Opening balances plus confirmed transactions, across active accounts. Investments are excluded.">Recorded balances · investments excluded.{totals.active.length !== accounts.length && ' Inactive balances excluded.'}</small></div><div className="account-overview-secondary"><div><p>Cash &amp; banks</p><strong className={totals.cashBankMinor < 0 ? 'negative-text' : 'positive-text'}>{signed(totals.cashBankMinor)}</strong></div><div><p>Card dues</p><strong className="owed-text">{formatMinorCurrency(totals.cardDuesMinor)}</strong></div></div></section>
 }

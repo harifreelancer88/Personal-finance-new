@@ -1,0 +1,105 @@
+/* Accounts uses the approved light shell and its own compact grouped list. */
+.monarch-accounts .accounts-page{padding:0 32px 36px;max-width:1400px;margin:auto}
+.monarch-accounts .account-overview{display:flex;align-items:center;gap:24px;padding:24px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:20px}
+.monarch-accounts .account-overview-primary{flex:1;min-width:0}
+.monarch-accounts .account-overview p{margin:0 0 6px;color:#686b75;font-size:14px}
+.monarch-accounts .account-overview-primary>strong{display:block;color:#262626;font-size:38px;font-weight:650;letter-spacing:-1px;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.monarch-accounts .account-overview small{display:block;font-size:12px;line-height:1.5;color:#737580;margin-top:8px}
+.monarch-accounts .account-overview-secondary{display:grid;grid-template-columns:1fr 1fr;gap:24px;min-width:360px}
+.monarch-accounts .account-overview-secondary>div{border-left:1px solid var(--line);padding-left:24px}
+.monarch-accounts .account-overview-secondary strong{font-size:26px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.monarch-accounts .owed-text{color:#c94c24}
+.monarch-accounts .account-search{margin-bottom:12px}
+.monarch-accounts .account-search .search-box{max-width:none;display:flex;width:100%;height:44px}
+.monarch-accounts .account-type-filters{display:flex;align-items:center;gap:10px;margin-bottom:20px;overflow-x:auto;padding:2px 2px 4px;scrollbar-width:thin}
+.monarch-accounts .account-type-filters button{display:flex;align-items:center;gap:8px;white-space:nowrap;padding:8px 14px;border:1px solid var(--line);border-radius:6px;background:#fff;color:#62646d;font-weight:500;min-height:40px}
+.monarch-accounts .account-type-filters button[aria-pressed=true]{color:#c64b1d;border-color:#f36d32;background:#fff3ec}
+.monarch-accounts .account-type-filters button>span{padding:0 6px;border-radius:9px;background:#f0eeeb;font-size:11px}
+.monarch-accounts .account-type-filters button[aria-pressed=true]>span{background:#ffe6d9;color:#c64b1d}
+.monarch-accounts .accounts-content{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);gap:20px;align-items:start}
+.monarch-accounts .account-groups{display:grid;gap:16px;min-width:0}
+.monarch-accounts .account-group{padding:0;overflow:visible}
+.monarch-accounts .account-group h2{margin:0;font-size:16px}
+.monarch-accounts .account-group-heading{display:flex;align-items:center;gap:10px;width:100%;padding:16px;border:0;border-radius:8px 8px 0 0;background:#fff;color:#262626;text-align:left;font-weight:600;font-size:15px}
+.monarch-accounts .account-group-heading svg{width:19px;height:19px;flex:0 0 auto;stroke-width:1.7}
+.monarch-accounts .account-group-heading .account-group-total{margin-left:auto;white-space:nowrap;font-size:14px;font-weight:600}
+.monarch-accounts .account-group-heading>svg:last-child{width:16px;height:16px;color:#737580;transform:rotate(180deg)}
+.monarch-accounts .account-group-heading>svg.collapsed{transform:none}
+.monarch-accounts .account-list-row{display:flex;align-items:center;gap:8px;padding:16px;border-top:1px solid var(--line);background:#fff;position:relative;min-width:0}
+.monarch-accounts .account-list-row:last-child{border-radius:0 0 8px 8px}
+.monarch-accounts .account-list-row:hover{background:#fcfbfa}
+.monarch-accounts .account-row-main{display:flex;align-items:center;gap:14px;flex:1;min-width:0;text-align:left;background:none;border:0;color:#262626;padding:0;cursor:pointer}
+.monarch-accounts .account-row-name{flex:1;min-width:0;display:grid;gap:4px}
+.monarch-accounts .account-row-name strong{font-size:14px;font-weight:550;overflow-wrap:anywhere}
+.monarch-accounts .account-row-name small{color:#737580;font-size:12px;overflow-wrap:anywhere}
+.monarch-accounts .account-row-value{display:grid;gap:4px;text-align:right;flex:0 0 auto}
+.monarch-accounts .account-row-value strong{font-size:15px;white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.monarch-accounts .account-row-value small{font-size:11px;color:#737580}
+.monarch-accounts .account-type-icon{width:38px;height:38px;border-radius:50%;background:#eaf2ff;color:#3076bf}
+.monarch-accounts .account-type-icon.violet{color:#7847bb;background:#f0eaff}
+.monarch-accounts .account-type-icon.slate{color:#ca6520;background:#fff0df}
+.monarch-accounts .account-type-icon.blue{color:#18824a;background:#eaf5ef}
+.monarch-accounts .account-type-icon svg{width:20px;height:20px;stroke-width:1.6}
+.monarch-accounts .account-actions{flex:0 0 28px}
+.monarch-accounts .account-actions .action-trigger{width:28px;height:36px}
+.monarch-accounts .account-actions .action-popover{right:0;top:38px;min-width:160px}
+.monarch-accounts .account-breakdown{padding:20px}
+.monarch-accounts .account-breakdown h2{font-size:17px;font-weight:600;margin:0;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.monarch-accounts .balance-breakdown-item{padding:20px 0 0}
+.monarch-accounts .balance-breakdown-item p{color:#737580;font-size:13px;margin:0 0 5px}
+.monarch-accounts .balance-breakdown-item strong{display:block;font-size:21px;font-weight:600}
+.monarch-accounts .balance-comparison-track{height:9px;border-radius:5px;background:#f0eeeb;margin-top:8px;overflow:hidden}
+.monarch-accounts .balance-comparison-track span{display:block;height:100%;border-radius:5px}
+.monarch-accounts .balance-positive-bar{background:#2b9971}
+.monarch-accounts .balance-owed-bar{background:#f36d32}
+.monarch-accounts .active-account-count{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:24px;padding:16px 0;font-size:13px;color:#737580}
+.monarch-accounts .active-account-count strong{color:#262626;font-size:16px}
+.monarch-accounts .account-type-counts{margin:0}
+.monarch-accounts .account-type-counts>div{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--line);font-size:13px}
+.monarch-accounts .account-type-counts dt{display:flex;align-items:center;gap:10px;color:#62646d}
+.monarch-accounts .account-type-counts svg{width:17px;height:17px;stroke-width:1.7}
+.monarch-accounts .account-type-counts dd{margin:0;font-variant-numeric:tabular-nums}
+.monarch-accounts .account-details-hero{background:#fbfaf8;border-color:var(--line);border-radius:8px}
+.monarch-accounts .account-details-hero span{color:#737580;font-size:13px}
+.monarch-accounts .account-details-hero strong{color:#262626;font-size:28px}
+.monarch-accounts .credit-utilization>div:first-child{font-size:13px}
+.monarch-accounts .credit-utilization>div:first-child strong{color:#262626}
+.monarch-accounts .credit-values{font-size:13px;color:#262626}
+.monarch-accounts .credit-values small{font-size:11px;color:#737580}
+.monarch-accounts .utilization-track{background:#ece9e4}
+.monarch-accounts .utilization-track>span{background:#8c65c4}
+.monarch-accounts .details-transactions h3{font-size:15px;color:#262626}
+.monarch-accounts .details-transactions .no-activity{font-size:13px;color:#737580}
+.monarch-accounts .details-transaction strong{font-size:13px;color:#262626}
+.monarch-accounts .details-transaction small{font-size:12px;color:#737580}
+.monarch-accounts .details-transaction>span{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(min-width:801px) and (max-width:1100px){.monarch-accounts .accounts-page{padding:0 24px 28px}.monarch-accounts .account-overview{gap:16px}.monarch-accounts .account-overview-secondary{min-width:280px;gap:16px}.monarch-accounts .account-overview-secondary>div{padding-left:16px}.monarch-accounts .account-overview-primary>strong{font-size:32px}.monarch-accounts .accounts-content{grid-template-columns:minmax(0,1fr)}.monarch-accounts .account-breakdown{display:none}}
+@media(max-width:800px){
+.monarch-accounts .accounts-page{padding:16px 12px 24px}
+.monarch-accounts .account-overview{display:block;padding:18px 0 0;margin-bottom:16px}
+.monarch-accounts .account-overview-primary{padding:0 18px 16px}
+.monarch-accounts .account-overview-primary>strong{font-size:32px;letter-spacing:-.8px}
+.monarch-accounts .account-overview-secondary{min-width:0;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--line);padding:14px 0}
+.monarch-accounts .account-overview-secondary>div{padding:0 18px;border:0}
+.monarch-accounts .account-overview-secondary>div+div{border-left:1px solid var(--line)}
+.monarch-accounts .account-overview-secondary p{font-size:12px}
+.monarch-accounts .account-overview-secondary strong{font-size:21px}
+.monarch-accounts .account-type-filters{gap:8px;margin-bottom:12px}
+.monarch-accounts .account-type-filters button{padding:8px 10px;min-height:36px;font-size:12px;gap:5px}
+.monarch-accounts .account-type-filters span{font-size:10px}
+.monarch-accounts .accounts-content{grid-template-columns:1fr;gap:12px}
+.monarch-accounts .account-groups{gap:12px}
+.monarch-accounts .account-group-heading{padding:14px 12px;gap:8px;font-size:14px}
+.monarch-accounts .account-group-heading .account-group-total{font-size:12px}
+.monarch-accounts .account-list-row{padding:14px 12px;gap:3px}
+.monarch-accounts .account-row-main{gap:10px}
+.monarch-accounts .account-type-icon{width:34px;height:34px}
+.monarch-accounts .account-type-icon svg{width:18px;height:18px}
+.monarch-accounts .account-row-name strong{font-size:13px}
+.monarch-accounts .account-row-name small{font-size:11px}
+.monarch-accounts .account-row-value strong{font-size:13px}
+.monarch-accounts .account-row-value small{font-size:10px}
+.monarch-accounts .account-actions{flex-basis:24px}
+.monarch-accounts .account-actions .action-trigger{width:24px}
+.monarch-accounts .account-breakdown{display:none}
+}
