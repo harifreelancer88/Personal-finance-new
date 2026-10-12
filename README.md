@@ -187,3 +187,26 @@ ICICI account-debit messages that also say a merchant was credited are expenses,
 Auto-confirmed income may be reconciled into a transfer when the corresponding debit alert arrives. A human edit clears the automatic marker, so confirmed human-reviewed records are not rewritten by SMS reconciliation. Incomplete credit-card repayments remain pending until both accounts are known. No schema migration is required for these parsing and approval changes.
 
 Validate ingestion behavior with `npm run test:sms-ingestion`.
+
+### Investments and Settings
+
+The light Investments screen reads saved D1 holdings, supports all eight asset classes, and persists add/edit/delete operations. Allocation uses recorded current values; return is simple value change against invested amount, not annualized performance. Values and prices are entered manually. There is no live market feed or invented performance history. The recorded edit timestamp is not a market valuation timestamp.
+
+Investment activity is a separate log. Recording a contribution, purchase, sale, dividend, interest or adjustment does not change holding values or account balances. Edit the holding to update portfolio totals. Holdings with activity history cannot be deleted.
+
+Settings reads the workspace name and database connection from D1. The SMS token status only reports whether the server secret is configured; the secret itself is never returned, and this status does not verify upstream delivery. Automatic approval rules are informational and reflect the existing SMS ingestion behavior. Currency stays INR and appearance stays light. Category add/edit/archive/restore operations persist in D1; archived categories disappear from new-entry choices while existing transaction references remain intact.
+
+Additional workspace-scoped endpoints:
+
+```text
+GET/POST     /api/investments
+GET/PATCH/DELETE /api/investments/:id
+GET/POST     /api/investments/:id/activity
+GET/POST     /api/categories
+PATCH        /api/categories/:id
+GET          /api/settings/status
+```
+
+Investment write fields follow the existing GET response: `investmentType`, `name`, `institution`, `investedMinor`, `currentValueMinor` and optional type-specific fields. Monetary fields use non-negative integer paise. PATCH preserves omitted fields and clears fields belonging to another asset class when the type changes. Activity writes use `activityType`, `activityDate`, `amountMinor` and `description`. Category writes use `name`, `kind` (`expense`, `income`, `both`) and `isActive`.
+
+These screens use the existing initial-schema tables; no new migration is required. `npm run test:wealth` exercises actual API routes against an isolated in-memory SQLite database and requires a Node release with `node:sqlite` (Node 22.13+). It checks workspace isolation, paise precision, dates, all asset classes, activity history, category references, and secret masking.

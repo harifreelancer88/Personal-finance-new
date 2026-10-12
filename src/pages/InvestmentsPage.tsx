@@ -1,16 +1,449 @@
-import { PreviewNotice } from '../components/ui/PreviewNotice'
-import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import {
+  Menu,
+  Plus,
+  RefreshCw,
+  Search,
+  ChevronDown,
+  Eye,
+  Pencil,
+  Trash2,
+  Layers,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { AssetAllocation } from '../components/investments/AssetAllocation'
-import { InvestmentActivity } from '../components/investments/InvestmentActivity'
-import { InvestmentDetails } from '../components/investments/InvestmentDetails'
+import {
+  getInvestments,
+  investmentTypes,
+  saveInvestment,
+  removeInvestment,
+} from '../api/investments'
 import { InvestmentForm } from '../components/investments/InvestmentForm'
-import { InvestmentSummary } from '../components/investments/InvestmentSummary'
-import { InvestmentTable } from '../components/investments/InvestmentTable'
-import { PortfolioPerformance } from '../components/investments/PortfolioPerformance'
-import { PageHeader } from '../components/layout/PageHeader'
-import { ConfirmDialog } from '../components/transactions/ConfirmDialog'
-import { investments as mockInvestments } from '../data/mockData'
+import { InvestmentDetails } from '../components/investments/InvestmentDetails'
+import { Modal } from '../components/transactions/Modal'
+import { formatCurrency, formatSignedCurrency } from '../lib/format'
 import type { Investment } from '../types/finance'
-export function InvestmentsPage(){const {openMenu}=useOutletContext<{openMenu:()=>void}>();const [investments,setInvestments]=useState<Investment[]>(mockInvestments);const [viewing,setViewing]=useState<Investment>();const [editing,setEditing]=useState<Investment|null>();const [deleting,setDeleting]=useState<Investment>();const save=(item:Investment)=>{setInvestments(old=>old.some(i=>i.id===item.id)?old.map(i=>i.id===item.id?item:i):[item,...old]);setEditing(undefined)};return <><PageHeader title="Investments" eyebrow="Wealth overview" onMenu={openMenu}/><main className="page-body investments-page"><div className="investments-intro"><div><h2>Investments</h2><p>Track your portfolio, performance and long-term wealth.</p></div><button className="primary-button" onClick={()=>setEditing(null)}><Plus/>Add Investment</button></div><PreviewNotice>This portfolio, chart and activity use sample data. Edits are temporary and reset when you leave this page or reload. Your live account balances are not affected.</PreviewNotice><InvestmentSummary investments={investments}/><div className="investment-overview-grid"><PortfolioPerformance/><AssetAllocation investments={investments}/></div><InvestmentTable investments={investments} onView={setViewing} onEdit={setEditing} onDelete={setDeleting}/><InvestmentActivity/></main><button className="mobile-fab investments-mobile-add" onClick={()=>setEditing(null)} aria-label="Add investment"><Plus/></button>{editing!==undefined&&<InvestmentForm initial={editing??undefined} onClose={()=>setEditing(undefined)} onSave={save}/>} {viewing&&<InvestmentDetails investment={viewing} onClose={()=>setViewing(undefined)} onEdit={()=>{setEditing(viewing);setViewing(undefined)}}/>}{deleting&&<ConfirmDialog subject="investment" name={deleting.name} onCancel={()=>setDeleting(undefined)} onConfirm={()=>{setInvestments(old=>old.filter(i=>i.id!==deleting.id));setDeleting(undefined)}}/>}</>}
+const colors = [
+  '#5594bd',
+  '#7d72b1',
+  '#d3aa48',
+  '#67a890',
+  '#ba829d',
+  '#819cab',
+  '#ad8869',
+  '#aaa49b',
+]
+export function InvestmentsPage() {
+  const { openMenu } = useOutletContext<{ openMenu: () => void }>(),
+    [items, setItems] = useState<Investment[]>([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(''),
+    [search, setSearch] = useState(''),
+    [filter, setFilter] = useState('All types'),
+    [editing, setEditing] = useState<Investment | null>(),
+    [viewing, setViewing] = useState<Investment>(),
+    [deleting, setDeleting] = useState<Investment>(),
+    [busy, setBusy] = useState(false),
+    [deleteError, setDeleteError] = useState(''),
+    [collapsed, setCollapsed] = useState<string[]>([])
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      setItems(await getInvestments())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load investments.')
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => {
+    void load()
+  }, [])
+  const invested =
+      items.reduce((sum, i) => sum + Math.round(i.investedAmount * 100), 0) /
+      100,
+    value =
+      items.reduce((sum, i) => sum + Math.round(i.currentValue * 100), 0) / 100,
+    gain = value - invested
+  const groups = investmentTypes
+    .map((type, index) => ({
+      type,
+      color: colors[index],
+      items: items.filter((i) => i.type === type),
+      visible: items.filter(
+        (i) =>
+          i.type === type &&
+          (filter === 'All types' || filter === type) &&
+          `${i.name} ${i.institution}`
+            .toLowerCase()
+            .includes(search.toLowerCase()),
+      ),
+    }))
+    .filter((g) => g.items.length)
+  let cumulative = 0
+  const gradient = groups
+    .filter((g) => g.items.some((i) => i.currentValue > 0))
+    .map((g) => {
+      const begin = cumulative
+      cumulative +=
+        (g.items.reduce((s, i) => s + i.currentValue, 0) / value) * 100
+      return `${g.color} ${begin}% ${cumulative}%`
+    })
+    .join(',')
+  return (
+    <>
+      <header className="activity-header">
+        <button
+          className="activity-menu"
+          onClick={openMenu}
+          aria-label="Open navigation"
+        >
+          <Menu />
+        </button>
+        <h1>Investments</h1>
+        <div className="wealth-header-actions">
+          <button
+            className="wealth-icon"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Refresh investments"
+          >
+            <RefreshCw className={loading ? 'spinning' : ''} />
+          </button>
+          <button
+            className="wealth-add"
+            onClick={() => setEditing(null)}
+            aria-label="Add holding"
+          >
+            <Plus />
+            <span>Add holding</span>
+          </button>
+        </div>
+      </header>
+      <main className="wealth-page">
+        {error && (
+          <p className="wealth-error" role="alert">
+            {error} <button onClick={() => void load()}>Try again</button>
+          </p>
+        )}
+        {loading ? (
+          <p role="status" className="wealth-empty">
+            Loading saved portfolio…
+          </p>
+        ) : (
+          !error && (
+            <>
+              <div className="wealth-metrics">
+                {[
+                  ['Current value', formatCurrency(value)],
+                  ['Invested amount', formatCurrency(invested)],
+                  ['Total gain / loss', formatSignedCurrency(gain)],
+                  [
+                    'Return',
+                    invested > 0
+                      ? `${((gain / invested) * 100).toFixed(1)}%`
+                      : '—',
+                  ],
+                ].map(([label, total], index) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong
+                      className={
+                        index > 1
+                          ? gain >= 0
+                            ? 'wealth-positive'
+                            : 'wealth-negative'
+                          : ''
+                      }
+                    >
+                      {total}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+              <p className="wealth-caption">
+                Recorded values · updated manually. Return is value change
+                against invested amount, not annualized.
+              </p>
+              <div className="wealth-grid">
+                <section className="wealth-holdings">
+                  <div className="wealth-toolbar">
+                    <label className="wealth-search">
+                      <Search />
+                      <input
+                        aria-label="Search holdings"
+                        placeholder="Search holdings…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </label>
+                    <select
+                      aria-label="Filter asset type"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                    >
+                      <option>All types</option>
+                      {investmentTypes.map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {!items.length ? (
+                    <div className="wealth-empty">
+                      <Layers />
+                      <h2>Your portfolio starts here</h2>
+                      <p>
+                        Add a holding and record its invested amount and current
+                        value.
+                      </p>
+                      <button
+                        className="wealth-add"
+                        onClick={() => setEditing(null)}
+                      >
+                        <Plus />
+                        Add your first holding
+                      </button>
+                    </div>
+                  ) : !groups.some((g) => g.visible.length) ? (
+                    <p className="wealth-empty">
+                      No holdings match your search.
+                    </p>
+                  ) : (
+                    groups
+                      .filter((g) => g.visible.length)
+                      .map((g) => (
+                        <section className="wealth-group" key={g.type}>
+                          <button
+                            className="wealth-group-title"
+                            aria-expanded={!collapsed.includes(g.type)}
+                            onClick={() =>
+                              setCollapsed((old) =>
+                                old.includes(g.type)
+                                  ? old.filter((t) => t !== g.type)
+                                  : [...old, g.type],
+                              )
+                            }
+                          >
+                            <span>
+                              <span
+                                className="wealth-dot"
+                                style={{ background: g.color }}
+                              />
+                              {g.type}
+                              <small>{g.visible.length}</small>
+                            </span>
+                            <span>
+                              {formatCurrency(
+                                g.visible.reduce(
+                                  (s, i) => s + i.currentValue,
+                                  0,
+                                ),
+                              )}
+                              <ChevronDown
+                                className={
+                                  collapsed.includes(g.type) ? 'rotated' : ''
+                                }
+                              />
+                            </span>
+                          </button>
+                          {!collapsed.includes(g.type) &&
+                            g.visible.map((i) => (
+                              <div className="wealth-row" key={i.id}>
+                                <button
+                                  className="wealth-holding-title"
+                                  onClick={() => setViewing(i)}
+                                >
+                                  <span
+                                    className="wealth-avatar"
+                                    style={{
+                                      color: g.color,
+                                      background: g.color + '18',
+                                    }}
+                                  >
+                                    <Layers />
+                                  </span>
+                                  <span>
+                                    <strong>{i.name}</strong>
+                                    <small>{i.institution}</small>
+                                  </span>
+                                </button>
+                                <div className="wealth-holding-value">
+                                  <strong>
+                                    {formatCurrency(i.currentValue)}
+                                  </strong>
+                                  <small
+                                    className={
+                                      i.currentValue >= i.investedAmount
+                                        ? 'wealth-positive'
+                                        : 'wealth-negative'
+                                    }
+                                  >
+                                    {formatSignedCurrency(
+                                      i.currentValue - i.investedAmount,
+                                    )}
+                                    {i.investedAmount > 0
+                                      ? ` (${(((i.currentValue - i.investedAmount) / i.investedAmount) * 100).toFixed(1)}%)`
+                                      : ''}
+                                  </small>
+                                </div>
+                                <details className="wealth-row-actions">
+                                  <summary aria-label={`Actions for ${i.name}`}>
+                                    •••
+                                  </summary>
+                                  <div>
+                                    <button onClick={() => setViewing(i)}>
+                                      <Eye />
+                                      View holding
+                                    </button>
+                                    <button onClick={() => setEditing(i)}>
+                                      <Pencil />
+                                      Edit holding
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setDeleteError('')
+                                        setDeleting(i)
+                                      }}
+                                    >
+                                      <Trash2 />
+                                      Delete holding
+                                    </button>
+                                  </div>
+                                </details>
+                              </div>
+                            ))}
+                        </section>
+                      ))
+                  )}
+                </section>
+                <aside className="wealth-allocation wealth-panel">
+                  <h2>Asset allocation</h2>
+                  <p>By recorded current value</p>
+                  {value > 0 ? (
+                    <>
+                      <div
+                        className="wealth-donut"
+                        role="img"
+                        aria-label={`Portfolio allocation. ${groups.map((g) => `${g.type}: ${((g.items.reduce((s, i) => s + i.currentValue, 0) / value) * 100).toFixed(1)} percent`).join('. ')}`}
+                        style={{ background: `conic-gradient(${gradient})` }}
+                      >
+                        <div>
+                          <small>Portfolio value</small>
+                          <strong>{formatCurrency(value, true)}</strong>
+                        </div>
+                      </div>
+                      <ul>
+                        {groups.map((g) => {
+                          const total = g.items.reduce(
+                            (s, i) => s + i.currentValue,
+                            0,
+                          )
+                          return (
+                            <li key={g.type}>
+                              <span>
+                                <span
+                                  className="wealth-dot"
+                                  style={{ background: g.color }}
+                                />
+                                {g.type}
+                              </span>
+                              <strong>
+                                {((total / value) * 100).toFixed(1)}%
+                              </strong>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="wealth-empty">
+                      Allocation appears when a holding has a recorded value
+                      above zero.
+                    </p>
+                  )}
+                </aside>
+              </div>
+            </>
+          )
+        )}
+      </main>
+      {editing !== undefined && (
+        <InvestmentForm
+          initial={editing ?? undefined}
+          onClose={() => setEditing(undefined)}
+          onSave={async (item) => {
+            const saved = await saveInvestment(item, Boolean(editing))
+            setItems((old) =>
+              editing
+                ? old.map((i) => (i.id === saved.id ? saved : i))
+                : [...old, saved],
+            )
+            setEditing(undefined)
+          }}
+        />
+      )}
+      {viewing && (
+        <InvestmentDetails
+          investment={viewing}
+          onClose={() => setViewing(undefined)}
+          onEdit={() => {
+            setEditing(viewing)
+            setViewing(undefined)
+          }}
+        />
+      )}
+      {deleting && (
+        <Modal
+          title="Delete holding"
+          description={deleting.name}
+          onClose={() => {
+            if (!busy) setDeleting(undefined)
+          }}
+        >
+          <div className="wealth-modal-body">
+            <p>
+              This permanently removes the holding. Holdings with activity
+              history cannot be deleted.
+            </p>
+            {deleteError && (
+              <p role="alert" className="wealth-error">
+                {deleteError}
+              </p>
+            )}
+          </div>
+          <footer className="dialog-footer">
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => setDeleting(undefined)}
+            >
+              Cancel
+            </button>
+            <button
+              className="primary-button"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true)
+                try {
+                  await removeInvestment(deleting.id)
+                  setItems((old) => old.filter((i) => i.id !== deleting.id))
+                  setDeleting(undefined)
+                } catch (e) {
+                  setDeleteError(
+                    e instanceof Error
+                      ? e.message
+                      : 'Could not delete holding.',
+                  )
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              {busy ? 'Deleting…' : 'Delete holding'}
+            </button>
+          </footer>
+        </Modal>
+      )}
+    </>
+  )
+}
