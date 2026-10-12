@@ -1,12 +1,12 @@
-import { Plus } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Menu, Plus, RefreshCw, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { createAccount, deleteAccount, getAccounts, updateAccount, type AccountDto, type AccountInput } from '../api/accounts'
 import { AccountDetails } from '../components/accounts/AccountDetails'
 import { AccountForm } from '../components/accounts/AccountForm'
 import { AccountList } from '../components/accounts/AccountList'
 import { AccountSummary } from '../components/accounts/AccountSummary'
-import { PageHeader } from '../components/layout/PageHeader'
+import { AccountBalanceBreakdown } from '../components/accounts/AccountBalanceBreakdown'
 import { ConfirmDialog } from '../components/transactions/ConfirmDialog'
 import type { Account, AccountType } from '../types/finance'
 
@@ -16,15 +16,19 @@ function toView(value: AccountDto): Account { return { id:value.id, name:value.n
 
 export function AccountsPage() {
  const {openMenu}=useOutletContext<{openMenu:()=>void}>(); const [dtos,setDtos]=useState<AccountDto[]>([]); const accounts=useMemo(()=>dtos.map(toView),[dtos]); const [viewingId,setViewingId]=useState<string>(); const [editingId,setEditingId]=useState<string|null>(); const [deletingId,setDeletingId]=useState<string>()
+ const [search,setSearch]=useState(''); const [selectedType,setSelectedType]=useState<AccountType|'All'>('All')
+ const visibleAccounts=useMemo(()=>accounts.filter(account=>(selectedType==='All'||account.type===selectedType)&&`${account.name} ${account.institution} ${account.maskedIdentifier}`.toLowerCase().includes(search.trim().toLowerCase())),[accounts,search,selectedType])
  const [loading,setLoading]=useState(true); const [loadError,setLoadError]=useState<string>(); const [mutationError,setMutationError]=useState<string>(); const [saving,setSaving]=useState(false); const [isDeleting,setIsDeleting]=useState(false)
- const load=async()=>{setLoading(true);try{setDtos(await getAccounts());setLoadError(undefined)}catch(error){setLoadError(error instanceof Error?error.message:'Could not load accounts.')}finally{setLoading(false)}}
- useEffect(()=>{void load()},[])
+ const loadVersion=useRef(0)
+ const load=async()=>{const version=++loadVersion.current;setLoading(true);try{const next=await getAccounts();if(version===loadVersion.current){setDtos(next);setLoadError(undefined)}}catch(error){if(version===loadVersion.current)setLoadError(error instanceof Error?error.message:'Could not load accounts.')}finally{if(version===loadVersion.current)setLoading(false)}}
+ useEffect(()=>{void load();return()=>{loadVersion.current++}},[])
  const editing=editingId?accounts.find(item=>item.id===editingId):undefined; const viewing=viewingId?accounts.find(item=>item.id===viewingId):undefined; const deleting=deletingId?accounts.find(item=>item.id===deletingId):undefined
- const save=async(value:AccountInput)=>{setSaving(true);setMutationError(undefined);try{const saved=editingId?await updateAccount(editingId,value):await createAccount(value);setDtos(old=>editingId?old.map(item=>item.id===saved.id?saved:item):[saved,...old]);setEditingId(undefined)}catch(error){setMutationError(error instanceof Error?error.message:'Could not save the account.')}finally{setSaving(false)}}
- const confirmDelete=async()=>{if(!deletingId)return;setIsDeleting(true);setMutationError(undefined);try{await deleteAccount(deletingId);setDtos(old=>old.filter(item=>item.id!==deletingId));setDeletingId(undefined)}catch(error){setMutationError(error instanceof Error?error.message:'Could not delete the account.')}finally{setIsDeleting(false)}}
+ const save=async(value:AccountInput)=>{setSaving(true);setMutationError(undefined);try{const saved=editingId?await updateAccount(editingId,value):await createAccount(value);loadVersion.current++;setLoading(false);setLoadError(undefined);setDtos(old=>editingId?old.map(item=>item.id===saved.id?saved:item):[saved,...old]);setEditingId(undefined)}catch(error){setMutationError(error instanceof Error?error.message:'Could not save the account.')}finally{setSaving(false)}}
+ const confirmDelete=async()=>{if(!deletingId)return;setIsDeleting(true);setMutationError(undefined);try{await deleteAccount(deletingId);loadVersion.current++;setLoading(false);setLoadError(undefined);setDtos(old=>old.filter(item=>item.id!==deletingId));setDeletingId(undefined)}catch(error){setMutationError(error instanceof Error?error.message:'Could not delete the account.')}finally{setIsDeleting(false)}}
  const add=()=>{setMutationError(undefined);setEditingId(null)}
- return <><PageHeader title="Accounts" eyebrow="Financial overview" onMenu={openMenu}/><main className="page-body accounts-page"><div className="accounts-intro"><div><h2>Accounts</h2><p>Manage your bank accounts, cards and wallets.</p></div><button className="primary-button" onClick={add}><Plus/>Add Account</button></div>
- {loadError&&<div className="api-feedback error" role="alert"><span>{loadError}</span><button className="secondary-button" onClick={()=>void load()}>Try again</button></div>}
- {loading&&!accounts.length?<div className="panel empty-state"><h3>Loading accounts…</h3><p>Your balances will appear in a moment.</p></div>:<><AccountSummary accounts={accounts}/><AccountList accounts={accounts} onAdd={add} onView={account=>setViewingId(account.id)} onEdit={account=>{setMutationError(undefined);setEditingId(account.id)}} onDelete={account=>{setMutationError(undefined);setDeletingId(account.id)}}/></>}</main><button className="mobile-fab accounts-mobile-add" onClick={add} aria-label="Add account"><Plus/></button>
+ const accountTypes: {label:string; type:AccountType|'All'}[] = [{label:'All accounts',type:'All'},{label:'Banks',type:'Bank Account'},{label:'Cards',type:'Credit Card'},{label:'Wallets',type:'Wallet / Prepaid'},{label:'Cash',type:'Cash'}]
+ return <><header className="activity-header"><button className="icon-button activity-menu" onClick={openMenu} aria-label="Open navigation"><Menu/></button><h1>Accounts</h1><button className="icon-button activity-refresh" onClick={()=>void load()} disabled={loading} aria-label="Refresh accounts"><RefreshCw/></button><button className="primary-button activity-add" onClick={add} aria-label="Add account"><Plus/><span>Add account</span></button></header><div className="page-body accounts-page">
+ {loadError&&<div className="api-feedback error" role="alert"><span>{loadError}{accounts.length ? ' Previously loaded balances are shown.' : ''}</span><button className="secondary-button" onClick={()=>void load()}>Try again</button></div>}
+ {loading&&!accounts.length?<div className="panel empty-state"><h3>Loading accounts…</h3><p>Your recorded balances will appear in a moment.</p></div>:loadError&&!accounts.length?<div className="panel empty-state"><h3>Accounts unavailable</h3><p>Try again to load your accounts.</p></div>:<><AccountSummary accounts={accounts}/><div className="account-search"><label className="search-box"><Search/><span className="sr-only">Search accounts</span><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search accounts…"/></label></div><div className="account-type-filters" role="group" aria-label="Filter by account type">{accountTypes.map(({label,type})=><button key={label} aria-pressed={selectedType===type} onClick={()=>setSelectedType(type)}>{label}<span>{type==='All'?accounts.length:accounts.filter(account=>account.type===type).length}</span></button>)}</div><div className="accounts-content" aria-busy={loading}><AccountList accounts={visibleAccounts} filtered={!!search.trim()||selectedType!=='All'} onAdd={add} onView={account=>setViewingId(account.id)} onEdit={account=>{setMutationError(undefined);setEditingId(account.id)}} onDelete={account=>{setMutationError(undefined);setDeletingId(account.id)}}/><AccountBalanceBreakdown accounts={accounts}/></div></>}</div>
  {editingId!==undefined&&<AccountForm initial={editing} saving={saving} requestError={mutationError} onClose={()=>setEditingId(undefined)} onSave={value=>void save(value)}/>} {viewing&&<AccountDetails account={viewing} onClose={()=>setViewingId(undefined)} onEdit={()=>{setEditingId(viewing.id);setViewingId(undefined)}}/>} {deleting&&<ConfirmDialog subject="account" name={deleting.name} busy={isDeleting} error={mutationError} onCancel={()=>setDeletingId(undefined)} onConfirm={()=>void confirmDelete()}/>}</>
 }
