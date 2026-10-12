@@ -5,5 +5,6 @@ import App from './App'
 import './styles.css'
 import './transactions-light.css'
 import './accounts-light.css'
+import './dashboard-light.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App/></BrowserRouter></StrictMode>)

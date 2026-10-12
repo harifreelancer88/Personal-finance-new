@@ -1,6 +1,6 @@
 import { Menu, Plus, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { getAccounts, type AccountDto } from '../api/accounts'
 import { getCategories, type CategoryDto } from '../api/categories'
 import { createTransaction, getTransactionPage, removeTransaction, updateTransaction, updateTransactionStatus, type TransactionDto, type TransactionInput, type TransactionPage, type TransactionQuery } from '../api/transactions'
@@ -37,11 +37,13 @@ function toView(dto: TransactionDto, accounts: AccountDto[], categories: Categor
   return { id:dto.id, date:`${dto.transactionDate}T12:00:00`, description:dto.description, merchant:'', category:categories.find(item => item.id === dto.categoryId)?.name ?? (dto.transactionType === 'transfer' ? 'Transfer' : 'Uncategorised'), account, type:titleCase(dto.transactionType) as Transaction['type'], amount:dto.amountMinor/100, amountMinor:dto.amountMinor, status:titleCase(dto.status) as Transaction['status'], source:dto.source, notes:dto.notes ?? undefined, fromAccount:from, toAccount:to, fromAccountId:dto.fromAccountId, toAccountId:dto.toAccountId, categoryId:dto.categoryId, originalTransactionId:dto.originalTransactionId }
 }
 export function TransactionsPage() {
+  const [searchParams,setSearchParams]=useSearchParams()
   const { openMenu } = useOutletContext<{ openMenu: () => void }>()
   const [accounts,setAccounts] = useState<AccountDto[]>([]), [categories,setCategories] = useState<CategoryDto[]>([])
   const [referenceReady,setReferenceReady] = useState(false), [referenceError,setReferenceError] = useState<string>()
-  const [reviewActive,setReviewActive] = useState(false)
-  const [filters,setFilters] = useState<FilterState>(emptyFilters), [offset,setOffset] = useState(0), [reviewOffset,setReviewOffset] = useState(0)
+  const reviewActive = searchParams.get('tab')==='review'
+  const setReviewActive = (review:boolean) => {const next=new URLSearchParams(searchParams);if(review)next.set('tab','review');else next.delete('tab');setSearchParams(next,{replace:true})}
+  const [filters,setFilters] = useState<FilterState>(()=>({...emptyFilters,search:searchParams.get('search')??''})), [offset,setOffset] = useState(0), [reviewOffset,setReviewOffset] = useState(0)
   const [page,setPage] = useState<TransactionPage>(), [reviewPage,setReviewPage] = useState<TransactionPage>()
   const [loading,setLoading] = useState(true), [loadError,setLoadError] = useState<string>(), [refresh,setRefresh] = useState(0)
   const [form,setForm] = useState<{ mode:'add'|'edit'; item?:Transaction }>(), [viewing,setViewing] = useState<Transaction>(), [deleting,setDeleting] = useState<Transaction>()
@@ -94,6 +96,7 @@ export function TransactionsPage() {
   }
   const edit = (item:Transaction) => { setMutationError(undefined); setForm({mode:'edit',item}) }
   const total = page?.total ?? 0, summary = page?.summary, ready = referenceReady && !referenceError
+  useEffect(()=>{if(ready&&searchParams.get('new')==='1'){setMutationError(undefined);setForm({mode:'add'});const next=new URLSearchParams(searchParams);next.delete('new');setSearchParams(next,{replace:true})}},[ready,searchParams,setSearchParams])
   return <><header className="activity-header"><button className="icon-button activity-menu" onClick={openMenu} aria-label="Open navigation"><Menu/></button><h1>Transactions</h1><button className="icon-button activity-refresh" onClick={refreshData} disabled={loading} aria-label="Refresh transactions"><RefreshCw/></button><button className="primary-button activity-add" disabled={!ready} onClick={() => { setMutationError(undefined); setForm({mode:'add'}) }} aria-label="Add transaction"><Plus/><span>Add transaction</span></button></header><div className="page-body transactions-page">
     {(loadError || referenceError) && <div className="api-feedback error" role="alert"><span>{loadError ?? referenceError}{page ? ' Previously loaded data is shown.' : ''}</span><button className="secondary-button" onClick={refreshData}>Try again</button></div>}
     {mutationError && !form && !deleting && <div className="api-feedback error" role="alert"><span>{mutationError}</span></div>}
