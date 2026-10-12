@@ -29,7 +29,7 @@ curl -X POST \
   https://example.workers.dev/api/ingest/sms
 ```
 
-Retries are safe: `externalId` is the primary deduplication input when present; otherwise a SHA-256 identity is derived from sender, received time, and exact message text. Successful financial parses create one pending SMS transaction. Unrecognized and non-financial messages remain in `sms_messages` for audit and can be inspected through `GET /api/sms-messages`; raw text is returned on the individual transaction API only, never in the bulk transaction list.
+Retries are safe: `externalId` is the primary deduplication input when present; otherwise a SHA-256 identity is derived from sender, received time, and exact message text. Successful financial parses create one SMS transaction. It is automatically confirmed when its required source/destination accounts match uniquely to active saved accounts; incomplete or ambiguous matches remain pending. A transfer requires two different matched accounts. Unrecognized and non-financial messages remain in `sms_messages` for audit and can be inspected through `GET /api/sms-messages`; raw text is returned on the individual transaction API only, never in the bulk transaction list.
 
 ## Dashboard calculation semantics
 
@@ -179,3 +179,11 @@ The transaction list requests `GET /api/transactions?paginated=true&limit=25&off
 The separate SMS review queue paginates all pending SMS records. Opening **Review SMS** loads sender, received time, parse metadata and original text from the individual transaction endpoint. Original SMS text is never added to the bulk transaction response. Transaction dates are displayed without a fabricated time.
 
 Investments and Settings remain explicitly labelled previews: their data and edits are temporary, and they do not update live accounts or transactions.
+
+## SMS account matching and recovery
+
+ICICI account-debit messages that also say a merchant was credited are expenses, not conflicting transactions. Named merchant credit clauses are distinguished from credits to another masked bank account. UPI bank reference, transaction date and amount define the transaction identity across direct phone and Google Sheets delivery. Raw delivery records remain available for audit. Replaying an unparsed SMS with the same original content reprocesses it after a parser fix, without creating another raw record.
+
+Auto-confirmed income may be reconciled into a transfer when the corresponding debit alert arrives. A human edit clears the automatic marker, so confirmed human-reviewed records are not rewritten by SMS reconciliation. Incomplete credit-card repayments remain pending until both accounts are known. No schema migration is required for these parsing and approval changes.
+
+Validate ingestion behavior with `npm run test:sms-ingestion`.

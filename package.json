@@ -14,7 +14,8 @@
     "deploy": "npm run build && wrangler deploy",
     "test:reports": "rm -rf .reports-test-dist && tsc --ignoreConfig worker/lib/report-calculations.ts --module nodenext --target es2022 --outDir .reports-test-dist && node --test tests/report-calculations.test.mjs && rm -rf .reports-test-dist",
     "test:sms": "bash scripts/test-sms.sh",
-    "test:transaction-pages": "rm -rf .transaction-page-test-dist && tsc --ignoreConfig worker/repositories/transactions.ts worker/lib/dashboard-calculations.ts --module esnext --moduleResolution bundler --target es2022 --types @cloudflare/workers-types --skipLibCheck --outDir .transaction-page-test-dist && node --test tests/transaction-pages.test.mjs && rm -rf .transaction-page-test-dist"
+    "test:transaction-pages": "rm -rf .transaction-page-test-dist && tsc --ignoreConfig worker/repositories/transactions.ts worker/lib/dashboard-calculations.ts --module esnext --moduleResolution bundler --target es2022 --types @cloudflare/workers-types --skipLibCheck --outDir .transaction-page-test-dist && node --test tests/transaction-pages.test.mjs && rm -rf .transaction-page-test-dist",
+    "test:sms-ingestion": "bash scripts/test-sms-ingestion.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

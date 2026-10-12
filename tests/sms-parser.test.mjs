@@ -72,3 +72,18 @@ test('does not guess when either account suffix has ambiguous matches',()=>{
   assert.equal(resolveDirectionalTransaction(['one'],['two','three']).transactionType,null)
 })
 test('maps deterministic categories only',()=>{ assert.equal(mappedCategoryName('paid at SWIGGY'),'Food & Dining'); assert.equal(mappedCategoryName('AMAZON purchase'),'Shopping'); assert.equal(mappedCategoryName('INDIAN OIL'),'Transport'); assert.equal(mappedCategoryName('electricity bill'),'Utilities'); assert.equal(mappedCategoryName('UBER'),null) })
+
+for (const [merchant,amount] of [['METRO TRANSIT','30.00'],['SWEETS SHOP','548.00'],['LOCAL MARKET','48.00']]) {
+  test(`account debit with merchant credit is an expense: ${merchant}`,()=>{
+    const text=`ICICI Bank Acct XX981 debited for Rs ${amount} on 12-Oct-26; ${merchant} credited. UPI:123456789012. Call 18002662 for dispute. SMS BLOCK 981 to 9215676766.`
+    const parsed=parseSms(text,'2026-10-12T15:08:20Z','ICICI')
+    assert.equal(parsed.status,'parsed')
+    assert.equal(parsed.transactionType,'expense')
+    assert.equal(parsed.accountLast4,'981')
+    assert.equal(parsed.description,merchant)
+    assert.equal(parsed.destinationAccountLast4,null)
+  })
+}
+test('generic conflicting debit and credit words still need review',()=>{
+  assert.equal(parseSms('Rs 30 debited and credited; investigate','2026-10-12T15:08:20Z').status,'needs_review')
+})
