@@ -1,6 +1,6 @@
 import { Menu, Plus, RefreshCw, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { createAccount, deleteAccount, getAccounts, updateAccount, type AccountDto, type AccountInput } from '../api/accounts'
 import { AccountDetails } from '../components/accounts/AccountDetails'
 import { AccountForm } from '../components/accounts/AccountForm'
@@ -15,8 +15,9 @@ const colors: Record<AccountDto['accountType'], Account['color']> = { bank:'lime
 function toView(value: AccountDto): Account { return { id:value.id, name:value.name, institution:value.institution, type:typeNames[value.accountType], maskedIdentifier:value.last4 ? `•••• ${value.last4}` : (value.accountType==='cash'?'Cash on hand':'Not provided'), balance:value.currentBalanceMinor/100, openingBalanceMinor:value.openingBalanceMinor, openingBalanceDate:value.openingBalanceDate, color:colors[value.accountType], status:value.isActive?'Active':'Inactive', notes:value.notes??undefined, creditLimit:value.creditLimitMinor===null?undefined:value.creditLimitMinor/100, billingDate:value.billingDay??undefined, dueDate:value.dueDay??undefined } }
 
 export function AccountsPage() {
+ const [searchParams]=useSearchParams()
  const {openMenu}=useOutletContext<{openMenu:()=>void}>(); const [dtos,setDtos]=useState<AccountDto[]>([]); const accounts=useMemo(()=>dtos.map(toView),[dtos]); const [viewingId,setViewingId]=useState<string>(); const [editingId,setEditingId]=useState<string|null>(); const [deletingId,setDeletingId]=useState<string>()
- const [search,setSearch]=useState(''); const [selectedType,setSelectedType]=useState<AccountType|'All'>('All')
+ const [search,setSearch]=useState(searchParams.get('search')??''); const [selectedType,setSelectedType]=useState<AccountType|'All'>('All')
  const visibleAccounts=useMemo(()=>accounts.filter(account=>(selectedType==='All'||account.type===selectedType)&&`${account.name} ${account.institution} ${account.maskedIdentifier}`.toLowerCase().includes(search.trim().toLowerCase())),[accounts,search,selectedType])
  const [loading,setLoading]=useState(true); const [loadError,setLoadError]=useState<string>(); const [mutationError,setMutationError]=useState<string>(); const [saving,setSaving]=useState(false); const [isDeleting,setIsDeleting]=useState(false)
  const loadVersion=useRef(0)

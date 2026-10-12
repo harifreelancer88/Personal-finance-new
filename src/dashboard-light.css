@@ -1,0 +1,109 @@
+/* Dashboard shares the approved light shell, with compact monthly metrics and panels. */
+.monarch-dashboard .dashboard-page{padding:0 32px 36px;max-width:1400px;margin:auto}
+.monarch-dashboard .dashboard-period{font-size:14px;margin:0 0 12px;color:#62646d}
+.monarch-dashboard .dashboard-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.monarch-dashboard .dashboard-summary article{display:flex;align-items:center;gap:14px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:8px;min-width:0}
+.monarch-dashboard .dashboard-summary article>div{min-width:0}
+.monarch-dashboard .dashboard-summary p{margin:0 0 5px;font-size:13px;color:#62646d}
+.monarch-dashboard .dashboard-summary strong{display:block;font-size:26px;font-weight:650;letter-spacing:-.6px;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.monarch-dashboard .dashboard-metric-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:#fff0e7;color:#cb5524;flex:0 0 auto}
+.monarch-dashboard .dashboard-metric-icon svg{width:22px;height:22px;stroke-width:1.7}
+.monarch-dashboard .dashboard-metric-icon.income,.monarch-dashboard .dashboard-metric-icon.flow{color:#18824a;background:#eaf5ef}
+.monarch-dashboard .dashboard-review-banner{display:flex;align-items:center;gap:12px;padding:13px 16px;margin-bottom:20px;background:#fff5e8;color:#a84916;border:1px solid #f3d8b7;border-radius:8px;font-size:14px}
+.monarch-dashboard .dashboard-review-banner>svg{width:20px;height:20px;flex:0 0 auto;stroke-width:1.7}
+.monarch-dashboard .dashboard-review-banner a{display:flex;align-items:center;gap:6px;margin-left:auto;white-space:nowrap;color:#b74b17;text-decoration:none;font-size:13px}
+.monarch-dashboard .dashboard-review-banner a svg{width:16px;height:16px}
+.monarch-dashboard .dashboard-content{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:20px;align-items:start}
+.monarch-dashboard .dashboard-primary-column{display:grid;gap:20px;min-width:0}
+.monarch-dashboard .dashboard-secondary-column{min-width:0}
+.monarch-dashboard .dashboard-content .panel{padding:20px}
+.monarch-dashboard .dashboard-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.monarch-dashboard .dashboard-panel-heading h2{font-size:18px;line-height:1.4;font-weight:600;margin:0;letter-spacing:-.2px}
+.monarch-dashboard .dashboard-view-all{display:flex;align-items:center;gap:5px;color:#c54d1e;white-space:nowrap;font-size:13px;text-decoration:none}
+.monarch-dashboard .dashboard-view-all svg{width:16px;height:16px}
+.monarch-dashboard .dashboard-view-all:hover,.monarch-dashboard .dashboard-more-accounts:hover{text-decoration:underline}
+.monarch-dashboard .cash-flow-period{display:flex;flex:0 0 auto;background:#f7f6f4;border:1px solid var(--line);border-radius:6px;padding:2px;gap:2px}
+.monarch-dashboard .cash-flow-period button{background:none;border:1px solid transparent;padding:6px 10px;color:#656772;font-weight:500;font-size:12px;border-radius:4px;min-height:32px}
+.monarch-dashboard .cash-flow-period button[aria-pressed=true]{background:#fff;border-color:#f36d32;color:#c54d1e}
+.monarch-dashboard .dashboard-flow-totals{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:12px;font-size:13px;color:#656772}
+.monarch-dashboard .dashboard-flow-totals>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.monarch-dashboard .dashboard-flow-totals strong{color:#262626;font-size:15px;font-weight:550}
+.monarch-dashboard .cash-flow-key{width:9px;height:9px;border-radius:50%;display:inline-block;background:#248354;flex:0 0 auto}
+.monarch-dashboard .cash-flow-key.spending{background:#f38c67}
+.monarch-dashboard .cash-flow-svg{display:block;width:100%;height:auto;overflow:visible}
+.monarch-dashboard .cash-flow-grid{stroke:#e7e5e1;stroke-width:1;stroke-dasharray:3 3}
+.monarch-dashboard .cash-flow-axis,.monarch-dashboard .cash-flow-month{fill:#737580;font-family:inherit;font-size:12px}
+.monarch-dashboard .cash-flow-income-bar{fill:#298955}
+.monarch-dashboard .cash-flow-spending-bar{fill:#f38c67}
+.monarch-dashboard .cash-flow-svg g[role=button]{cursor:pointer;outline:none}
+.monarch-dashboard .cash-flow-svg g[role=button]:focus-visible .cash-flow-hit-area{stroke:#c54d1e;stroke-width:2}
+.monarch-dashboard .cash-flow-selected{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#737580;border-top:1px solid var(--line);padding:12px 0 0;margin:0;flex-wrap:wrap}
+.monarch-dashboard .cash-flow-selected strong{font-weight:550;color:#62646d}
+.monarch-dashboard .dashboard-recent-list{display:grid}
+.monarch-dashboard .dashboard-recent-row{display:flex;align-items:center;gap:12px;padding:16px 0;border-top:1px solid var(--line);color:#262626;text-decoration:none;min-width:0}
+.monarch-dashboard .dashboard-recent-row>div{flex:1;min-width:0;display:grid;gap:4px}
+.monarch-dashboard .dashboard-recent-row>div strong{font-size:14px;font-weight:550;overflow-wrap:anywhere}
+.monarch-dashboard .dashboard-recent-row small{font-size:12px;color:#737580;overflow-wrap:anywhere}
+.monarch-dashboard .dashboard-recent-row>.amount{font-size:14px;white-space:nowrap;flex:0 0 auto}
+.monarch-dashboard .dashboard-recent-row:hover>div strong{text-decoration:underline}
+.monarch-dashboard .dashboard-account-total{padding-bottom:18px}
+.monarch-dashboard .dashboard-account-total p{margin:0 0 5px;font-size:13px;color:#737580}
+.monarch-dashboard .dashboard-account-total>strong{display:block;font-size:25px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.monarch-dashboard .dashboard-account-total small{display:block;font-size:11px;color:#737580;margin-top:6px}
+.monarch-dashboard .dashboard-account-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:16px 0;color:#262626;text-decoration:none;min-width:0}
+.monarch-dashboard .dashboard-account-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#eaf2ff;color:#3076bf;flex:0 0 auto}
+.monarch-dashboard .dashboard-account-icon svg{width:18px;height:18px;stroke-width:1.7}
+.monarch-dashboard .dashboard-account-icon.credit_card{color:#7847bb;background:#f0eaff}
+.monarch-dashboard .dashboard-account-icon.wallet{color:#ca6520;background:#fff0df}
+.monarch-dashboard .dashboard-account-icon.cash{color:#18824a;background:#eaf5ef}
+.monarch-dashboard .dashboard-account-name{display:grid;gap:4px;min-width:0;flex:1}
+.monarch-dashboard .dashboard-account-name strong{font-size:13px;font-weight:550;overflow-wrap:anywhere}
+.monarch-dashboard .dashboard-account-name small{font-size:11px;color:#737580;overflow-wrap:anywhere}
+.monarch-dashboard .dashboard-account-balance{text-align:right;display:grid;gap:4px;flex:0 0 auto}
+.monarch-dashboard .dashboard-account-balance strong{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.monarch-dashboard .dashboard-account-balance small{font-size:10px;color:#737580}
+.monarch-dashboard .dashboard-account-row:hover .dashboard-account-name strong{text-decoration:underline}
+.monarch-dashboard .dashboard-more-accounts{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:14px;color:#c54d1e;font-size:12px;text-decoration:none}
+.monarch-dashboard .dashboard-more-accounts svg{width:15px;height:15px}
+.monarch-dashboard .dashboard-empty{padding:42px 16px;text-align:center;color:#737580}
+.monarch-dashboard .dashboard-empty h2,.monarch-dashboard .dashboard-empty h3{font-size:16px;margin:0 0 8px;color:#262626;font-weight:550}
+.monarch-dashboard .dashboard-empty p{font-size:13px;margin:0;line-height:1.6}
+@media(min-width:801px) and (max-width:1100px){.monarch-dashboard .dashboard-page{padding:0 24px 28px}.monarch-dashboard .dashboard-summary article{padding:16px;gap:10px}.monarch-dashboard .dashboard-summary strong{font-size:22px}.monarch-dashboard .dashboard-metric-icon{display:none}.monarch-dashboard .dashboard-content{grid-template-columns:1fr}}
+@media(max-width:800px){
+.monarch-dashboard .dashboard-page{padding:16px 12px 24px}
+.monarch-dashboard .activity-add{display:flex;align-items:center;justify-content:center;text-decoration:none}
+.monarch-dashboard .dashboard-period{font-size:13px;margin-bottom:10px;padding-left:2px}
+.monarch-dashboard .dashboard-summary{gap:8px;margin-bottom:12px}
+.monarch-dashboard .dashboard-summary article{display:block;padding:12px 10px}
+.monarch-dashboard .dashboard-metric-icon{width:28px;height:28px;margin-bottom:8px}
+.monarch-dashboard .dashboard-metric-icon svg{width:17px;height:17px}
+.monarch-dashboard .dashboard-summary p{font-size:11px;white-space:nowrap}
+.monarch-dashboard .dashboard-summary strong{font-size:18px;letter-spacing:-.45px;line-height:1.35}
+.monarch-dashboard .dashboard-review-banner{padding:11px 12px;gap:8px;font-size:12px;margin-bottom:12px}
+.monarch-dashboard .dashboard-review-banner a{font-size:12px}
+.monarch-dashboard .dashboard-review-banner>svg{width:17px;height:17px}
+.monarch-dashboard .dashboard-content{grid-template-columns:1fr;gap:12px}
+.monarch-dashboard .dashboard-primary-column{gap:12px}
+.monarch-dashboard .dashboard-content .panel{padding:14px}
+.monarch-dashboard .dashboard-panel-heading{margin-bottom:14px;gap:8px}
+.monarch-dashboard .dashboard-panel-heading h2{font-size:15px;letter-spacing:-.2px}
+.monarch-dashboard .dashboard-view-all{font-size:12px}
+.monarch-dashboard .cash-flow-period button{font-size:11px;padding:4px 8px;min-height:30px}
+.monarch-dashboard .dashboard-flow-totals{gap:8px 14px;font-size:11px}
+.monarch-dashboard .dashboard-flow-totals>div{gap:5px}
+.monarch-dashboard .dashboard-flow-totals strong{font-size:12px}
+.monarch-dashboard .cash-flow-svg{min-height:180px}
+.monarch-dashboard .cash-flow-axis,.monarch-dashboard .cash-flow-month{font-size:15px}
+.monarch-dashboard .cash-flow-selected{font-size:11px;padding-top:10px}
+.monarch-dashboard .dashboard-recent-row{gap:10px;padding:14px 0}
+.monarch-dashboard .dashboard-recent-row>div strong{font-size:13px}
+.monarch-dashboard .dashboard-recent-row small{font-size:11px}
+.monarch-dashboard .dashboard-recent-row>.amount{font-size:13px}
+.monarch-dashboard .dashboard-account-row{padding:14px 0}
+.monarch-dashboard .dashboard-account-name strong{font-size:13px}
+.monarch-dashboard .dashboard-account-balance strong{font-size:13px}
+.monarch-dashboard .dashboard-account-total>strong{font-size:24px}
+}
+.monarch-dashboard .dashboard-summary strong{white-space:nowrap;overflow-wrap:normal}
+@media(max-width:800px){.monarch-dashboard .cash-flow-axis,.monarch-dashboard .cash-flow-month{font-size:11px}.monarch-dashboard .dashboard-summary.wide-values{grid-template-columns:repeat(2,minmax(0,1fr))}.monarch-dashboard .dashboard-summary.wide-values article:last-child{grid-column:1/-1;display:flex;gap:12px}.monarch-dashboard .dashboard-summary.wide-values article:last-child .dashboard-metric-icon{margin-bottom:0}}
+@media(max-width:400px){.monarch-dashboard .dashboard-summary strong{font-size:16px;letter-spacing:-.3px}}

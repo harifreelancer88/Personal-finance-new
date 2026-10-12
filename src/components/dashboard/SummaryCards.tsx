@@ -1,8 +1,7 @@
-import { Landmark, PiggyBank, ReceiptText, Wallet } from 'lucide-react'
+import { ArrowUpRight, ChartNoAxesColumnIncreasing, ShoppingBag } from 'lucide-react'
 import type { DashboardSummary } from '../../api/dashboard'
 import { formatMinorCurrency } from '../../lib/format'
-const icons = [Wallet, ReceiptText, Landmark, PiggyBank]
 export function SummaryCards({ summary }: { summary: DashboardSummary }) {
-  const metrics = [{ label:'Balance after card dues', value:summary.totalBalanceMinor, note:'Bank, cash and wallets less card dues' },{ label:'Monthly spending', value:summary.monthlyExpenseMinor, note:'Confirmed expenses less eligible refunds' },{ label:'Monthly income', value:summary.monthlyIncomeMinor, note:'Confirmed income this month' },{ label:'Net cash flow', value:summary.monthlyNetCashFlowMinor, note:'Income less spending; excludes investing and transfers' }]
-  return <section className="summary-grid" aria-label="Financial summary">{metrics.map((metric,index)=>{const Icon=icons[index];return <article className={`summary-card ${index===0?'featured':''}`} key={metric.label}><div className="summary-top"><span className="summary-icon"><Icon/></span></div><p>{metric.label}</p><h2 className={metric.value<0?'negative-text':''}>{metric.value<0?'−':''}{formatMinorCurrency(metric.value)}</h2><small>{metric.note}</small></article>})}</section>
+  const metrics = [{label:'Spending',value:summary.monthlyExpenseMinor,icon:ShoppingBag,tone:'spending'},{label:'Income',value:summary.monthlyIncomeMinor,icon:ArrowUpRight,tone:'income'},{label:'Net cash flow',value:summary.monthlyNetCashFlowMinor,icon:ChartNoAxesColumnIncreasing,tone:'flow'}]
+  return <section className={`dashboard-summary ${metrics.some(metric=>formatMinorCurrency(metric.value).length+(metric.tone==='flow'&&metric.value!==0?1:0)>=9)?'wide-values':''}`} aria-label="Confirmed monthly totals; eligible refunds reduce spending, transfers and investments are excluded">{metrics.map(({label,value,icon:Icon,tone}) => <article key={label}><span className={`dashboard-metric-icon ${tone}`}><Icon/></span><div><p>{label}</p><strong className={tone === 'flow' ? value < 0 ? 'negative-text' : 'positive-text' : ''}>{value < 0 ? '−' : tone === 'flow' && value > 0 ? '+' : ''}{formatMinorCurrency(value)}</strong></div></article>)}</section>
 }
