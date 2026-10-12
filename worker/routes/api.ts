@@ -1,10 +1,9 @@
 import { failure, methodNotAllowed, notFound, success } from '../lib/http'
-import { accountToApi, categoryToApi, investmentToApi, transactionToApi } from '../lib/api-mappers'
+import { accountToApi, transactionToApi } from '../lib/api-mappers'
 import { ApiError, parseJsonObject, validateReferences, validateTransaction } from '../lib/transaction-validation'
 import { validateAccount } from '../lib/account-validation'
 import { accountInUse, createAccount, deleteAccount, getAccount, listAccounts, updateAccount } from '../repositories/accounts'
-import { listCategories } from '../repositories/categories'
-import { listInvestments } from '../repositories/investments'
+import { investmentsRoute, categoriesRoute, settingsStatus } from './wealth'
 import { createTransaction, deleteTransaction, getTransaction, getTransactionPage, listTransactions, updateTransaction } from '../repositories/transactions'
 import { getDashboardCashFlow, getDashboardSummary } from '../repositories/dashboard'
 import { getReport } from '../repositories/reports'
@@ -135,9 +134,14 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     if (match) return await transactions(request, env, match[1] ? decodeURIComponent(match[1]) : undefined)
     const accountMatch = pathname.match(/^\/api\/accounts(?:\/([^/]+))?$/)
     if (accountMatch) return await accounts(request, env, accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined)
-    if (request.method !== 'GET') return methodNotAllowed()
-    if (pathname === '/api/categories') return success((await listCategories(env.DB, env.DEFAULT_WORKSPACE_ID)).map(categoryToApi))
-    if (pathname === '/api/investments') return success((await listInvestments(env.DB, env.DEFAULT_WORKSPACE_ID)).map(investmentToApi))
+    const holdingMatch = pathname.match(/^\/api\/investments(?:\/([^/]+)(\/activity)?)?$/)
+    if (holdingMatch) return await investmentsRoute(request, env, holdingMatch[1] ? decodeURIComponent(holdingMatch[1]) : undefined, Boolean(holdingMatch[2]))
+    const categoryMatch = pathname.match(/^\/api\/categories(?:\/([^/]+))?$/)
+    if (categoryMatch) return await categoriesRoute(request, env, categoryMatch[1] ? decodeURIComponent(categoryMatch[1]) : undefined)
+    if (pathname === '/api/settings/status') {
+      if (request.method !== 'GET') return methodNotAllowed()
+      return await settingsStatus(env)
+    }
     return notFound()
   } catch (error) {
     if (error instanceof ApiError) return failure(error.code, error.message, error.status)

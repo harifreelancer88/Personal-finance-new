@@ -6,7 +6,7 @@ const mobileLinks = [{ to:'/', label:'Dashboard', icon:LayoutDashboard },{ to:'/
 export function AppLayout() {
   const [open, setOpen] = useState(false)
   const pathname = useLocation().pathname
-  const light = pathname === '/reports' || pathname === '/' || pathname === '/transactions' || pathname === '/accounts'
+  const light = pathname === '/investments' || pathname === '/settings' || pathname === '/reports' || pathname === '/' || pathname === '/transactions' || pathname === '/accounts'
   useEffect(() => { window.scrollTo(0,0) },[pathname])
   useEffect(() => {
     if (!light) return
@@ -15,5 +15,5 @@ export function AppLayout() {
     if (theme) theme.content = '#f7f6f4'
     return () => { if (theme && previous !== undefined) theme.content = previous }
   },[light])
-  return <div className={`app-shell ${light ? 'monarch-transactions' : ''} ${pathname === '/accounts' ? 'monarch-accounts' : ''} ${pathname === '/' || pathname === '/reports' ? 'monarch-dashboard' : ''} ${pathname === '/reports' ? 'monarch-reports' : ''}`}><Sidebar light={light} open={open} onClose={() => setOpen(false)} /><main className="main-content"><Outlet context={{ openMenu: () => setOpen(true) }} /></main>{light && <nav className="mobile-navigation" aria-label="Mobile navigation">{mobileLinks.map(({to,label,icon:Icon}) => <NavLink key={to} to={to} end={to === '/'}><Icon/><span>{label}</span></NavLink>)}<button onClick={() => setOpen(true)} aria-label="More navigation"><MoreHorizontal/><span>More</span></button></nav>}</div>
+  return <div className={`app-shell ${light ? 'monarch-transactions' : ''} ${pathname === '/accounts' ? 'monarch-accounts' : ''} ${pathname === '/' || pathname === '/reports' ? 'monarch-dashboard' : ''} ${pathname === '/reports' ? 'monarch-reports' : ''} ${pathname === '/investments' || pathname === '/settings' ? 'monarch-wealth' : ''}`}><Sidebar light={light} open={open} onClose={() => setOpen(false)} /><main className="main-content"><Outlet context={{ openMenu: () => setOpen(true) }} /></main>{light && <nav className="mobile-navigation" aria-label="Mobile navigation">{mobileLinks.map(({to,label,icon:Icon}) => <NavLink key={to} to={to} end={to === '/'}><Icon/><span>{label}</span></NavLink>)}<button className={pathname === '/investments' || pathname === '/settings' ? 'active' : ''} onClick={() => setOpen(true)} aria-label="More navigation"><MoreHorizontal/><span>More</span></button></nav>}</div>
 }

@@ -49,6 +49,7 @@ export interface CashFlowPoint {
 export type InvestmentType = 'Stocks / Equity' | 'Mutual Funds' | 'Gold' | 'EPF' | 'NPS' | 'Fixed Deposits' | 'Crypto' | 'Other Investments'
 
 export interface Investment {
+  updatedAt?: string
   id: string
   name: string
   type: InvestmentType

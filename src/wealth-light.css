@@ -1,0 +1,790 @@
+.monarch-wealth .wealth-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px 48px;
+}
+.monarch-wealth .activity-header > .wealth-icon,
+.monarch-wealth .wealth-header-actions {
+  margin-left: auto;
+}
+.monarch-wealth .wealth-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.monarch-wealth .wealth-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: #5e6067;
+}
+.monarch-wealth .wealth-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.monarch-wealth .wealth-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f36d32;
+  color: white;
+  border: 1px solid #f36d32;
+  border-radius: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-weight: 550;
+}
+.monarch-wealth .wealth-add svg {
+  width: 18px;
+  height: 18px;
+}
+.monarch-wealth .wealth-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 0;
+  color: #b8471b;
+  background: none;
+  border: 0;
+  font-weight: 550;
+  text-decoration: none;
+}
+.monarch-wealth .wealth-text-button svg {
+  width: 16px;
+  height: 16px;
+}
+.monarch-wealth .wealth-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px 0;
+}
+.monarch-wealth .wealth-metrics > div {
+  padding: 0 22px;
+  min-width: 0;
+}
+.monarch-wealth .wealth-metrics > div + div {
+  border-left: 1px solid var(--line);
+}
+.monarch-wealth .wealth-metrics span {
+  display: block;
+  font-size: 13px;
+  color: #6b6e78;
+  margin-bottom: 7px;
+}
+.monarch-wealth .wealth-metrics strong {
+  font-size: 25px;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.monarch-wealth .wealth-positive {
+  color: #18824a;
+}
+.monarch-wealth .wealth-negative {
+  color: #b94331;
+}
+.monarch-wealth .wealth-caption {
+  font-size: 12px;
+  color: #777980;
+  line-height: 1.6;
+  margin: 12px 0 20px;
+}
+.monarch-wealth .wealth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.monarch-wealth .wealth-holdings {
+  min-width: 0;
+}
+.monarch-wealth .wealth-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.monarch-wealth .wealth-toolbar select {
+  max-width: 170px;
+  height: 44px;
+  font-size: 13px;
+  background: white;
+}
+.monarch-wealth .wealth-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.monarch-wealth .wealth-search svg {
+  width: 18px;
+  flex-shrink: 0;
+  color: #777980;
+}
+.monarch-wealth .wealth-search input {
+  width: 100%;
+  background: none;
+  border: 0;
+  color: #262626;
+  outline-offset: 4px;
+  min-width: 0;
+}
+.monarch-wealth .wealth-group {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.monarch-wealth .wealth-group-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: #fdfcfb;
+  border: 0;
+  border-radius: 8px;
+  padding: 16px;
+  color: #262626;
+  font-weight: 600;
+  text-align: left;
+}
+.monarch-wealth .wealth-group-title > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.monarch-wealth .wealth-group-title small {
+  color: #777980;
+  font-weight: 400;
+}
+.monarch-wealth .wealth-group-title svg {
+  width: 16px;
+  color: #777980;
+}
+.monarch-wealth .rotated {
+  transform: rotate(-90deg);
+}
+.monarch-wealth .wealth-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.monarch-wealth .wealth-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+.monarch-wealth .wealth-holding-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: #262626;
+  padding: 0;
+}
+.monarch-wealth .wealth-holding-title strong {
+  font-weight: 550;
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.monarch-wealth .wealth-holding-title small {
+  color: #777980;
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+.monarch-wealth .wealth-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.monarch-wealth .wealth-avatar svg {
+  width: 18px;
+}
+.monarch-wealth .wealth-holding-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  max-width: 40%;
+}
+.monarch-wealth .wealth-holding-value strong {
+  display: block;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.monarch-wealth .wealth-holding-value small {
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.monarch-wealth .wealth-row-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+.monarch-wealth .wealth-row-actions summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 40px;
+  color: #777980;
+}
+.monarch-wealth .wealth-row-actions summary::-webkit-details-marker {
+  display: none;
+}
+.monarch-wealth .wealth-row-actions[open] {
+  z-index: 3;
+}
+.monarch-wealth .wealth-row-actions > div {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  width: 168px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px #26262615;
+  padding: 5px;
+}
+.monarch-wealth .wealth-row-actions button {
+  background: none;
+  border: 0;
+  color: #4d5058;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+}
+.monarch-wealth .wealth-row-actions button:hover {
+  background: #f7f6f4;
+}
+.monarch-wealth .wealth-row-actions button svg {
+  width: 16px;
+}
+.monarch-wealth .wealth-panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+}
+.monarch-wealth .wealth-panel h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.monarch-wealth .wealth-panel > p {
+  color: #777980;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.monarch-wealth .wealth-donut {
+  width: 184px;
+  height: 184px;
+  margin: 24px auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.monarch-wealth .wealth-donut > div {
+  background: white;
+  border-radius: 50%;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.monarch-wealth .wealth-donut small {
+  font-size: 11px;
+  color: #777980;
+}
+.monarch-wealth .wealth-donut strong {
+  font-size: 23px;
+  margin-top: 4px;
+}
+.monarch-wealth .wealth-allocation ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.monarch-wealth .wealth-allocation li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: 12px;
+}
+.monarch-wealth .wealth-allocation li span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.monarch-wealth .wealth-allocation li strong {
+  font-weight: 500;
+}
+.monarch-wealth .wealth-empty {
+  text-align: center;
+  color: #777980;
+  padding: 36px 20px;
+  line-height: 1.65;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.monarch-wealth .wealth-empty h2 {
+  font-size: 18px;
+  color: #262626;
+}
+.monarch-wealth .wealth-empty > svg {
+  color: #c76a42;
+  margin: auto;
+}
+.monarch-wealth .wealth-allocation .wealth-empty {
+  border: 0;
+  padding: 20px 0;
+}
+.monarch-wealth .wealth-error {
+  padding: 12px 16px;
+  border: 1px solid #e9c2b9;
+  background: #fff6f3;
+  color: #a53d27;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.monarch-wealth .wealth-error button {
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  color: inherit;
+  margin-left: 8px;
+  min-height: 36px;
+}
+.monarch-wealth .wealth-notice {
+  background: #eef7f1;
+  border: 1px solid #cce5d5;
+  color: #22613e;
+  padding: 12px 16px;
+  border-radius: 6px;
+}
+.monarch-wealth .wealth-modal-body {
+  padding: 0 24px 20px;
+}
+.monarch-wealth .wealth-detail-total {
+  background: #faf9f7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.monarch-wealth .wealth-detail-total span,
+.monarch-wealth .wealth-detail-total small {
+  display: block;
+  font-size: 13px;
+}
+.monarch-wealth .wealth-detail-total strong {
+  display: block;
+  font-size: 30px;
+  margin: 6px 0;
+}
+.monarch-wealth .wealth-detail-list {
+  margin: 0;
+}
+.monarch-wealth .wealth-detail-list > div {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.monarch-wealth .wealth-detail-list dt {
+  color: #777980;
+}
+.monarch-wealth .wealth-detail-list dd {
+  color: #262626;
+  margin: 0;
+  max-width: 65%;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: pre-wrap;
+}
+.monarch-wealth .wealth-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 8px;
+}
+.monarch-wealth .wealth-section-heading h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.monarch-wealth .wealth-activity-row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  font-size: 13px;
+}
+.monarch-wealth .wealth-activity-row strong {
+  overflow-wrap: anywhere;
+}
+.monarch-wealth .wealth-activity-row small {
+  display: block;
+  color: #777980;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.monarch-wealth .wealth-activity-form {
+  padding: 12px 0 !important;
+}
+.monarch-wealth .wealth-activity-form > .primary-button {
+  margin-top: 12px;
+}
+.monarch-wealth .settings-live {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.monarch-wealth .wealth-intro {
+  color: #777980;
+  font-size: 14px;
+  margin: 0 0 22px;
+}
+.monarch-wealth .settings-live .wealth-panel {
+  margin-bottom: 20px;
+}
+.monarch-wealth .settings-live-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.monarch-wealth .settings-live-row strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.monarch-wealth .settings-live-row small {
+  display: block;
+  font-size: 12px;
+  color: #777980;
+  margin-top: 3px;
+}
+.monarch-wealth .settings-live-row b {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 500;
+  text-align: right;
+  font-size: 13px;
+  max-width: 45%;
+  overflow-wrap: anywhere;
+}
+.monarch-wealth .settings-live-row svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.monarch-wealth .settings-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.monarch-wealth .settings-rules li {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #777980;
+}
+.monarch-wealth .settings-rules li > svg {
+  width: 18px;
+  height: 18px;
+  color: #18824a;
+  flex-shrink: 0;
+}
+.monarch-wealth .settings-rules strong {
+  display: block;
+  color: #262626;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.monarch-wealth .settings-categories .wealth-section-heading {
+  margin-top: 0;
+}
+.monarch-wealth .settings-category-row {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.monarch-wealth .settings-category-row strong {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.monarch-wealth .settings-category-row small {
+  display: block;
+  color: #777980;
+  font-size: 12px;
+  margin-top: 3px;
+}
+.monarch-wealth .settings-category-row > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.monarch-wealth .settings-category-row .wealth-icon {
+  border: 0;
+}
+@media (max-width: 1100px) {
+  .monarch-wealth .wealth-grid {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+  .monarch-wealth .wealth-metrics strong {
+    font-size: 22px;
+  }
+  .monarch-wealth .wealth-metrics > div {
+    padding: 0 16px;
+  }
+  .monarch-wealth .wealth-row {
+    gap: 8px;
+  }
+  .monarch-wealth .wealth-avatar {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .monarch-wealth .wealth-grid {
+    grid-template-columns: 1fr;
+  }
+  .monarch-wealth .wealth-allocation {
+    order: -1;
+  }
+  .monarch-wealth .wealth-allocation ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  .monarch-wealth .wealth-donut {
+    width: 150px;
+    height: 150px;
+    margin: 20px auto;
+  }
+  .monarch-wealth .wealth-donut > div {
+    width: 112px;
+    height: 112px;
+  }
+  .monarch-wealth .wealth-donut strong {
+    font-size: 20px;
+  }
+}
+@media (max-width: 700px) {
+  .monarch-wealth .wealth-page {
+    padding: 20px 16px 28px;
+  }
+  .monarch-wealth .wealth-header-actions {
+    gap: 8px;
+  }
+  .monarch-wealth .wealth-header-actions .wealth-add {
+    width: 40px;
+    padding: 0;
+  }
+  .monarch-wealth .wealth-header-actions .wealth-add span {
+    display: none;
+  }
+  .monarch-wealth .wealth-metrics {
+    grid-template-columns: 1fr 1fr;
+    padding: 0;
+  }
+  .monarch-wealth .wealth-metrics > div {
+    padding: 18px 16px;
+  }
+  .monarch-wealth .wealth-metrics > div:nth-child(3) {
+    border-left: 0;
+  }
+  .monarch-wealth .wealth-metrics > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .monarch-wealth .wealth-metrics strong {
+    font-size: 24px;
+  }
+  .monarch-wealth .wealth-grid {
+    gap: 4px;
+  }
+  .monarch-wealth .wealth-caption {
+    font-size: 12px;
+  }
+  .monarch-wealth .wealth-allocation {
+    margin-bottom: 16px;
+  }
+  .monarch-wealth .wealth-panel {
+    padding: 18px 16px;
+  }
+  .monarch-wealth .wealth-allocation ul {
+    grid-template-columns: 1fr;
+  }
+  .monarch-wealth .wealth-group-title {
+    padding: 14px;
+    font-size: 13px;
+  }
+  .monarch-wealth .wealth-row {
+    padding: 16px 12px;
+    gap: 8px;
+  }
+  .monarch-wealth .wealth-holding-title strong {
+    font-size: 14px;
+  }
+  .monarch-wealth .wealth-holding-value strong {
+    font-size: 14px;
+  }
+  .monarch-wealth .wealth-holding-value small {
+    font-size: 10px;
+  }
+  .monarch-wealth .wealth-row-actions summary {
+    width: 24px;
+  }
+  .monarch-wealth .wealth-toolbar select {
+    width: 120px;
+    font-size: 12px;
+  }
+  .monarch-wealth .wealth-search input {
+    font-size: 16px;
+  }
+  .monarch-wealth .wealth-modal-body {
+    padding: 0 18px 18px;
+  }
+  .monarch-wealth .settings-live-row {
+    align-items: flex-start;
+  }
+  .monarch-wealth .settings-live-row b {
+    padding-top: 2px;
+  }
+  .monarch-wealth .settings-live-row small {
+    font-size: 12px;
+  }
+  .monarch-wealth .wealth-section-heading h2 {
+    font-size: 16px;
+  }
+  .monarch-wealth .settings-categories .wealth-add {
+    font-size: 12px;
+    padding: 8px;
+  }
+  .monarch-wealth .settings-category-row > span {
+    min-width: 0;
+  }
+  .monarch-wealth .settings-category-row > div {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .monarch-wealth .settings-category-row .wealth-text-button {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .monarch-wealth .spinning {
+    animation: none;
+  }
+}
+/* Keep monetary values intact on narrow phones. */
+@media (max-width: 700px) {
+  .monarch-wealth .wealth-metrics strong {
+    font-size: clamp(16px, 4.5vw, 23px);
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  .monarch-wealth .settings-live-row b {
+    flex-shrink: 0;
+    min-width: 64px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  .monarch-wealth .settings-live-row:first-of-type b {
+    white-space: normal;
+    word-break: normal;
+  }
+  .monarch-wealth .wealth-notice {
+    margin-bottom: 16px;
+  }
+}
+@media (max-width: 700px) {
+  .monarch-wealth .wealth-allocation {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 6px;
+    align-items: center;
+  }
+  .monarch-wealth .wealth-allocation > h2,
+  .monarch-wealth .wealth-allocation > p {
+    grid-column: 1/-1;
+  }
+  .monarch-wealth .wealth-allocation > p {
+    margin-bottom: 6px;
+  }
+  .monarch-wealth .wealth-donut {
+    width: 110px;
+    height: 110px;
+    margin: 10px 0;
+  }
+  .monarch-wealth .wealth-donut > div {
+    width: 82px;
+    height: 82px;
+  }
+  .monarch-wealth .wealth-donut small {
+    font-size: 9px;
+  }
+  .monarch-wealth .wealth-donut strong {
+    font-size: 16px;
+  }
+  .monarch-wealth .wealth-allocation li {
+    font-size: 11px;
+    padding: 6px 0;
+    gap: 8px;
+  }
+  .monarch-wealth .wealth-allocation li > span {
+    gap: 5px;
+  }
+}

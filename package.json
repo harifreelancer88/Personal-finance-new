@@ -16,7 +16,8 @@
     "test:sms": "bash scripts/test-sms.sh",
     "test:transaction-pages": "rm -rf .transaction-page-test-dist && tsc --ignoreConfig worker/repositories/transactions.ts worker/lib/dashboard-calculations.ts --module esnext --moduleResolution bundler --target es2022 --types @cloudflare/workers-types --skipLibCheck --outDir .transaction-page-test-dist && node --test tests/transaction-pages.test.mjs && rm -rf .transaction-page-test-dist",
     "test:sms-ingestion": "bash scripts/test-sms-ingestion.sh",
-    "test:account-overview": "tsc --ignoreConfig src/lib/account-overview.ts --module esnext --moduleResolution bundler --target es2022 --outDir .account-overview-test-dist --rootDir src && node --test tests/account-overview.test.mjs"
+    "test:account-overview": "tsc --ignoreConfig src/lib/account-overview.ts --module esnext --moduleResolution bundler --target es2022 --outDir .account-overview-test-dist --rootDir src && node --test tests/account-overview.test.mjs",
+    "test:wealth": "bash scripts/test-wealth.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

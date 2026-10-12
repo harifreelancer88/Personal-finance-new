@@ -1,0 +1,387 @@
+import { ApiError, parseJsonObject } from '../lib/transaction-validation'
+import { success, methodNotAllowed } from '../lib/http'
+import { investmentToApi, categoryToApi } from '../lib/api-mappers'
+import { listInvestments } from '../repositories/investments'
+import { listCategories } from '../repositories/categories'
+import type { Env, InvestmentRow, CategoryRow } from '../types'
+
+const fields = {
+  investmentType: 'investment_type',
+  name: 'name',
+  institution: 'institution',
+  investedMinor: 'invested_minor',
+  currentValueMinor: 'current_value_minor',
+  startDate: 'start_date',
+  notes: 'notes',
+  quantity: 'quantity',
+  averageCostMinor: 'average_cost_minor',
+  currentPriceMinor: 'current_price_minor',
+  units: 'units',
+  averageNavMinor: 'average_nav_minor',
+  currentNavMinor: 'current_nav_minor',
+  weightGrams: 'weight_grams',
+  monthlyContributionMinor: 'monthly_contribution_minor',
+  interestRate: 'interest_rate',
+  maturityDate: 'maturity_date',
+} as const
+const types = [
+  'equity',
+  'mutual_fund',
+  'gold',
+  'epf',
+  'nps',
+  'fixed_deposit',
+  'crypto',
+  'other',
+]
+const money = new Set([
+  'investedMinor',
+  'currentValueMinor',
+  'averageCostMinor',
+  'currentPriceMinor',
+  'averageNavMinor',
+  'currentNavMinor',
+  'monthlyContributionMinor',
+])
+const real = new Set(['quantity', 'units', 'weightGrams', 'interestRate'])
+function invalid(message: string): never {
+  throw new ApiError(400, 'INVALID_INPUT', message)
+}
+export function validDate(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  )
+}
+async function json(request: Request) {
+  try {
+    return parseJsonObject(await request.json())
+  } catch (e) {
+    if (e instanceof ApiError) throw e
+    return invalid('Enter a valid JSON object.')
+  }
+}
+export function validateHolding(
+  input: Record<string, unknown>,
+  existing?: InvestmentRow,
+) {
+  const result: Record<string, string | number | null> = {}
+  for (const [key, column] of Object.entries(fields)) {
+    const value =
+      key in input
+        ? input[key]
+        : existing
+          ? existing[column as keyof InvestmentRow]
+          : null
+    if (['name', 'institution'].includes(key)) {
+      if (
+        typeof value !== 'string' ||
+        !value.trim() ||
+        value.trim().length > 160
+      )
+        invalid(`${key} must contain 1–160 characters.`)
+      result[column] = (value as string).trim()
+    } else if (key === 'investmentType') {
+      if (!types.includes(value as string))
+        invalid('Choose a valid investment type.')
+      result[column] = value as string
+    } else if (money.has(key) || real.has(key)) {
+      const required = ['investedMinor', 'currentValueMinor'].includes(key)
+      if (value == null && !required) result[column] = null
+      else {
+        if (
+          typeof value !== 'number' ||
+          !Number.isFinite(value) ||
+          value < 0 ||
+          (money.has(key) && !Number.isSafeInteger(value))
+        )
+          invalid(
+            `${key} must be a non-negative ${money.has(key) ? 'safe integer in paise' : 'finite number'}.`,
+          )
+        result[column] = value as number
+      }
+    } else if (key === 'startDate' || key === 'maturityDate') {
+      if (value != null && !validDate(value))
+        invalid(`${key} must be a valid YYYY-MM-DD date.`)
+      result[column] = value as string | null
+    } else {
+      if (value != null && (typeof value !== 'string' || value.length > 4000))
+        invalid('Notes must be at most 4,000 characters.')
+      result[column] = value == null ? null : (value as string).trim() || null
+    }
+  }
+  // Clear fields that belong to another asset class when a holding changes type.
+  const allowed: Record<string, string[]> = {
+    equity: ['quantity', 'average_cost_minor', 'current_price_minor'],
+    crypto: ['quantity', 'average_cost_minor', 'current_price_minor'],
+    mutual_fund: [
+      'units',
+      'average_nav_minor',
+      'current_nav_minor',
+      'monthly_contribution_minor',
+    ],
+    gold: ['weight_grams'],
+    epf: ['monthly_contribution_minor'],
+    nps: ['monthly_contribution_minor'],
+    fixed_deposit: ['interest_rate', 'maturity_date'],
+    other: [],
+  }
+  for (const column of [
+    'quantity',
+    'average_cost_minor',
+    'current_price_minor',
+    'units',
+    'average_nav_minor',
+    'current_nav_minor',
+    'monthly_contribution_minor',
+    'weight_grams',
+    'interest_rate',
+    'maturity_date',
+  ])
+    if (!allowed[result.investment_type as string].includes(column))
+      result[column] = null
+  return result
+}
+export async function investmentsRoute(
+  request: Request,
+  env: Env,
+  id?: string,
+  activity = false,
+): Promise<Response> {
+  const db = env.DB,
+    workspace = env.DEFAULT_WORKSPACE_ID
+  if (!id && request.method === 'GET')
+    return success((await listInvestments(db, workspace)).map(investmentToApi))
+  const existing = id
+    ? await db
+        .prepare('SELECT * FROM investments WHERE workspace_id=? AND id=?')
+        .bind(workspace, id)
+        .first<InvestmentRow>()
+    : null
+  if (id && !existing)
+    throw new ApiError(
+      404,
+      'INVESTMENT_NOT_FOUND',
+      'The holding was not found.',
+    )
+  if (activity) {
+    if (request.method === 'GET')
+      return success(
+        (
+          await db
+            .prepare(
+              'SELECT id, activity_type AS activityType, activity_date AS activityDate, amount_minor AS amountMinor, description FROM investment_activity WHERE investment_id=? ORDER BY activity_date DESC, created_at DESC, id DESC',
+            )
+            .bind(id)
+            .all()
+        ).results,
+      )
+    if (request.method === 'POST') {
+      const v = await json(request)
+      if (
+        ![
+          'contribution',
+          'purchase',
+          'sale',
+          'dividend',
+          'interest',
+          'adjustment',
+        ].includes(v.activityType as string)
+      )
+        invalid('Choose a valid activity type.')
+      if (!validDate(v.activityDate)) invalid('Choose a valid activity date.')
+      if (
+        typeof v.amountMinor !== 'number' ||
+        !Number.isSafeInteger(v.amountMinor) ||
+        v.amountMinor < 0
+      )
+        invalid('Amount must be non-negative paise.')
+      if (
+        typeof v.description !== 'string' ||
+        !v.description.trim() ||
+        v.description.trim().length > 500
+      )
+        invalid('Description must contain 1–500 characters.')
+      const activityId = crypto.randomUUID()
+      await db
+        .prepare(
+          'INSERT INTO investment_activity (id,investment_id,activity_type,activity_date,amount_minor,description) VALUES (?,?,?,?,?,?)',
+        )
+        .bind(
+          activityId,
+          id,
+          v.activityType,
+          v.activityDate,
+          v.amountMinor,
+          v.description.trim(),
+        )
+        .run()
+      return success(
+        { id: activityId, ...v, description: v.description.trim() },
+        { status: 201 },
+      )
+    }
+    return methodNotAllowed()
+  }
+  if (id && request.method === 'GET') return success(investmentToApi(existing!))
+  if (
+    (!id && request.method === 'POST') ||
+    (id && request.method === 'PATCH')
+  ) {
+    const value = validateHolding(await json(request), existing ?? undefined),
+      columns = Object.keys(value),
+      values = Object.values(value),
+      holdingId = id ?? crypto.randomUUID()
+    if (id)
+      await db
+        .prepare(
+          `UPDATE investments SET ${columns.map((c) => `${c}=?`).join(',')},updated_at=CURRENT_TIMESTAMP WHERE workspace_id=? AND id=?`,
+        )
+        .bind(...values, workspace, id)
+        .run()
+    else
+      await db
+        .prepare(
+          `INSERT INTO investments (id,workspace_id,${columns.join(',')}) VALUES (${Array(
+            columns.length + 2,
+          )
+            .fill('?')
+            .join(',')})`,
+        )
+        .bind(holdingId, workspace, ...values)
+        .run()
+    return success(
+      investmentToApi(
+        (await db
+          .prepare('SELECT * FROM investments WHERE workspace_id=? AND id=?')
+          .bind(workspace, holdingId)
+          .first<InvestmentRow>())!,
+      ),
+      { status: id ? 200 : 201 },
+    )
+  }
+  if (id && request.method === 'DELETE') {
+    if (
+      await db
+        .prepare(
+          'SELECT id FROM investment_activity WHERE investment_id=? LIMIT 1',
+        )
+        .bind(id)
+        .first()
+    )
+      throw new ApiError(
+        409,
+        'INVESTMENT_IN_USE',
+        'This holding has activity history and cannot be deleted.',
+      )
+    await db
+      .prepare('DELETE FROM investments WHERE workspace_id=? AND id=?')
+      .bind(workspace, id)
+      .run()
+    return success({ id })
+  }
+  return methodNotAllowed()
+}
+export async function categoriesRoute(
+  request: Request,
+  env: Env,
+  id?: string,
+): Promise<Response> {
+  const db = env.DB,
+    workspace = env.DEFAULT_WORKSPACE_ID
+  if (!id && request.method === 'GET')
+    return success((await listCategories(db, workspace)).map(categoryToApi))
+  const existing = id
+    ? await db
+        .prepare('SELECT * FROM categories WHERE workspace_id=? AND id=?')
+        .bind(workspace, id)
+        .first<CategoryRow>()
+    : null
+  if (id && !existing)
+    throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'The category was not found.')
+  if (
+    (!id && request.method === 'POST') ||
+    (id && request.method === 'PATCH')
+  ) {
+    const v = await json(request),
+      name = 'name' in v ? v.name : existing?.name,
+      kind = 'kind' in v ? v.kind : existing?.kind,
+      active =
+        'isActive' in v
+          ? v.isActive
+          : existing
+            ? Boolean(existing.is_active)
+            : true
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 80)
+      invalid('Category name must contain 1–80 characters.')
+    if (!['expense', 'income', 'both'].includes(kind as string))
+      invalid('Choose expense, income or both.')
+    if (typeof active !== 'boolean') invalid('isActive must be a boolean.')
+    if (
+      await db
+        .prepare(
+          'SELECT id FROM categories WHERE workspace_id=? AND lower(name)=lower(?) AND id<>? LIMIT 1',
+        )
+        .bind(workspace, (name as string).trim(), id ?? '')
+        .first()
+    )
+      throw new ApiError(
+        409,
+        'CATEGORY_EXISTS',
+        'A category with this name already exists. You can restore it if archived.',
+      )
+    const categoryId = id ?? crypto.randomUUID()
+    if (id)
+      await db
+        .prepare(
+          'UPDATE categories SET name=?,kind=?,is_active=?,updated_at=CURRENT_TIMESTAMP WHERE workspace_id=? AND id=?',
+        )
+        .bind((name as string).trim(), kind, active ? 1 : 0, workspace, id)
+        .run()
+    else
+      await db
+        .prepare(
+          'INSERT INTO categories (id,workspace_id,name,kind,is_active) VALUES (?,?,?,?,?)',
+        )
+        .bind(
+          categoryId,
+          workspace,
+          (name as string).trim(),
+          kind,
+          active ? 1 : 0,
+        )
+        .run()
+    return success(
+      categoryToApi(
+        (await db
+          .prepare('SELECT * FROM categories WHERE workspace_id=? AND id=?')
+          .bind(workspace, categoryId)
+          .first<CategoryRow>())!,
+      ),
+      { status: id ? 200 : 201 },
+    )
+  }
+  return methodNotAllowed()
+}
+export async function settingsStatus(env: Env) {
+  const workspace = await env.DB.prepare(
+    'SELECT name FROM workspaces WHERE id=?',
+  )
+    .bind(env.DEFAULT_WORKSPACE_ID)
+    .first<{ name: string }>()
+  if (!workspace)
+    throw new ApiError(
+      404,
+      'WORKSPACE_NOT_FOUND',
+      'The workspace was not found.',
+    )
+  return success({
+    workspaceName: workspace.name,
+    database: 'connected',
+    smsTokenConfigured: Boolean(env.SMS_INGEST_TOKEN?.trim()),
+    currency: 'INR',
+    appearance: 'light',
+  })
+}
