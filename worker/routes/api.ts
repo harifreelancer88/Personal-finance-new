@@ -12,6 +12,7 @@ import { REPORT_PERIODS, type ReportPeriod } from '../lib/report-calculations'
 import type { Env } from '../types'
 import { ingestSms } from './sms-ingestion'
 import { getSmsForTransaction, listSmsMessages } from '../repositories/sms-messages'
+import { SMS_AUTO_CONFIRM_NOTE } from '../lib/sms-approval'
 
 const transactionTypes = new Set(['expense', 'income', 'transfer', 'investment', 'refund'])
 const statuses = new Set(['pending', 'confirmed', 'ignored'])
@@ -65,6 +66,8 @@ async function transactions(request: Request, env: Env, id?: string): Promise<Re
   }
   if (request.method === 'PATCH') {
     const value = validateTransaction(await body(request), existing); await validateReferences(env.DB, workspaceId, value, id)
+    // A human edit ends automatic reconciliation ownership of this record.
+    if (value.notes === SMS_AUTO_CONFIRM_NOTE) value.notes = null
     return success(transactionToApi(await updateTransaction(env.DB, workspaceId, id, value)))
   }
   if (request.method === 'DELETE') {

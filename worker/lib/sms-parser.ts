@@ -100,6 +100,8 @@ function transactionDate(message: string, receivedAt: string): { date: string; e
 }
 
 function description(message: string, sender?: string | null): { value: string; merchant: boolean } {
+  const creditedMerchant = message.match(/;\s*([A-Z0-9][A-Z0-9 .&'_-]{1,60}?)\s+credited\s*[.;]/i)
+  if (creditedMerchant && !/^(?:acct|account|a\/c)\b/i.test(creditedMerchant[1])) return { value: creditedMerchant[1].trim(), merchant: true }
   const match = message.match(/\b(?:UPI\s+to|at|to)\s+([A-Z0-9][A-Z0-9 .&'_-]{1,40}?)(?=\s+(?:on|using|via|ref|txn|transaction|avl|available|balance|for)\b|[,.]|$)/i)
   if (match && /[a-z]/i.test(match[1])) return { value: match[1].trim().replace(/\s+/g, ' '), merchant: true }
   if (/\bUPI\b/i.test(message)) return { value: 'UPI payment', merchant: false }
@@ -119,7 +121,11 @@ export function parseSms(message: string, receivedAt: string, sender?: string | 
   const income = /\b(?:credited|received|deposited|salary credited)\b/i.test(message)
   const directionalPair = !refund && expense && income && !!directional.sourceAccountLast4 && !!directional.destinationAccountLast4
   const matches = [refund, expense, income].filter(Boolean).length
-  const type: SmsTransactionType | null = isCreditCardRepayment ? 'transfer' : refund ? 'refund' : directionalPair ? 'transfer' : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
+  // A merchant being credited does not make a debit from the named account
+  // ambiguous. Require the debit to be attached to a masked account, and an
+  // explicit merchant-credit clause; generic conflicting wording stays in review.
+  const merchantDebit = !!directional.sourceAccountLast4 && !directional.destinationAccountLast4 && /;\s*(?!acct\b|account\b|a\/c\b)[A-Z0-9][A-Z0-9 .&'_-]{1,60}?\s+credited\s*[.;]/i.test(message)
+  const type: SmsTransactionType | null = isCreditCardRepayment ? 'transfer' : refund ? 'refund' : directionalPair ? 'transfer' : merchantDebit ? 'expense' : matches === 1 && expense ? 'expense' : matches === 1 && income ? 'income' : null
   const desc = isCreditCardRepayment ? { value: 'Credit card payment', merchant: true } : directionalPair ? { value: 'UPI transfer', merchant: true } : description(message, sender)
   const notes: string[] = []
   if (type) notes.push(`${type} keyword recognized`); else if (directionalPair) notes.push('Linked debit and credit account indicators recognized'); else notes.push(matches > 1 ? 'Conflicting transaction indicators' : 'No supported transaction indicator')
