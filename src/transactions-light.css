@@ -1,0 +1,176 @@
+/* Transactions design system: warm canvas, white surfaces, orange actions.
+   Scoped to this route while the remaining screens are redesigned individually. */
+.monarch-transactions{--bg:#f7f6f4;--panel:#fff;--panel-2:#f5f4f2;--line:#e9e7e3;--muted:#6b6e78;--lime:#f36d32;--ink:#262626;color:#262626;background:var(--bg);min-height:100dvh;font-size:14px;line-height:1.5;color-scheme:light}
+.monarch-transactions *, .monarch-transactions *::before,.monarch-transactions *::after{box-sizing:border-box}
+.monarch-transactions [hidden]{display:none!important}
+.monarch-transactions button,.monarch-transactions input,.monarch-transactions select,.monarch-transactions textarea{font-family:inherit;font-size:14px}
+.monarch-transactions button:focus-visible,.monarch-transactions a:focus-visible,.monarch-transactions input:focus-visible,.monarch-transactions select:focus-visible{outline:2px solid #cf4b12;outline-offset:3px}
+.monarch-transactions .sidebar{width:216px;background:#faf9f7;border-color:var(--line);padding:28px 16px}
+.monarch-transactions .logo{color:#262626;font-size:16px}
+.monarch-transactions .logo-icon{background:#fff0e8;color:#d84e17}
+.monarch-transactions .nav-label,.monarch-transactions .sidebar-family{display:none}
+.monarch-transactions .nav-list{margin-top:28px;gap:5px}
+.monarch-transactions .nav-item{font-size:14px;padding:12px;color:#55565e;border-radius:6px;gap:12px}
+.monarch-transactions .nav-item.active{color:#cb4813;background:#fff0e8;box-shadow:inset 2px 0 #f36d32}
+.monarch-transactions .nav-item:hover{background:#f0eeeb}
+.monarch-transactions .sidebar-footer{margin-top:auto;color:#777;font-size:12px}
+.monarch-transactions .main-content{margin-left:216px;background:var(--bg);min-height:100dvh}
+.monarch-transactions .activity-header{display:flex;align-items:center;gap:12px;padding:28px 32px 20px;max-width:1400px;margin:auto}
+.monarch-transactions .activity-header h1{margin:0;font-size:28px;line-height:1.25;letter-spacing:-.6px;font-weight:650}
+.monarch-transactions .icon-button{background:transparent;border:0;color:#656772;border-radius:6px;width:40px;height:40px;display:grid;place-items:center}
+.monarch-transactions .icon-button svg{width:20px;height:20px}
+.monarch-transactions .activity-menu{display:none}
+.monarch-transactions .activity-add{margin-left:auto}
+.monarch-transactions .primary-button{background:#f36d32;color:white;border:1px solid #f36d32;border-radius:6px;min-height:40px;padding:9px 14px;box-shadow:none;font-weight:550;font-size:14px}
+.monarch-transactions .primary-button:hover{background:#d95019}
+.monarch-transactions .primary-button svg{width:18px;height:18px}
+.monarch-transactions button:disabled{opacity:.45;cursor:not-allowed}
+.monarch-transactions .secondary-button{background:white;color:#454750;border:1px solid var(--line);border-radius:6px;min-height:40px;font-size:14px;padding:8px 12px}
+.monarch-transactions .transactions-page{padding:0 32px 36px;max-width:1400px;margin:auto}
+.monarch-transactions .transaction-summary{display:grid;grid-template-columns:repeat(3,1fr);background:white;border:1px solid var(--line);border-radius:8px;margin:0 0 20px;padding:20px 0;gap:0}
+.monarch-transactions .transaction-summary article{display:block;background:none;border:0;border-radius:0;padding:0 20px;min-height:0}
+.monarch-transactions .transaction-summary article+article{border-left:1px solid var(--line)}
+.monarch-transactions .transaction-summary p{font-size:14px;color:var(--muted);margin:0 0 5px}
+.monarch-transactions .transaction-summary strong{font-size:24px;letter-spacing:-.5px;font-weight:650}
+.monarch-transactions .positive-text,.monarch-transactions .amount.positive{color:#18824a}
+.monarch-transactions .negative-text{color:#bc422d}
+.monarch-transactions .amount,.monarch-transactions .amount.neutral{color:#262626;font-variant-numeric:tabular-nums}
+.monarch-transactions .filters-area{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:0;margin-bottom:12px}
+.monarch-transactions .search-box{background:white;border:1px solid var(--line);border-radius:6px;height:44px;min-width:0;padding:0 14px;gap:12px}
+.monarch-transactions .search-box svg{color:#737580;width:18px;height:18px}
+.monarch-transactions .search-box input{color:#262626;width:100%;font-size:14px}
+.monarch-transactions .search-box input::placeholder{color:#80838d}
+.monarch-transactions .filter-toggle{display:flex;align-items:center;gap:8px}
+.monarch-transactions .filter-toggle svg{width:18px;height:18px}
+.monarch-transactions .filter-selects{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:16px;background:white;border:1px solid var(--line);border-radius:8px;gap:12px}
+.monarch-transactions .filter-selects label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12px;color:#686b75}
+.monarch-transactions select,.monarch-transactions textarea,.monarch-transactions .form-field input{background:#fff;color:#262626;border:1px solid #dcdad5;border-radius:6px;padding:9px;min-width:0}
+.monarch-transactions .clear-filters{color:#bd4415;border:0;background:none;display:flex;align-items:center;gap:6px;justify-self:start}
+.monarch-transactions .activity-tabs{display:flex;border-bottom:1px solid var(--line);gap:16px;margin-bottom:20px}
+.monarch-transactions .activity-tabs button{background:none;border:0;border-bottom:2px solid transparent;color:#60636e;padding:13px 16px;font-weight:500;display:flex;gap:8px;align-items:center}
+.monarch-transactions .activity-tabs button[aria-selected=true]{color:#c74815;border-bottom-color:#f36d32}
+.monarch-transactions .activity-tabs span{background:#e8e7e5;color:#575963;border-radius:12px;padding:0 7px;font-size:12px}
+.monarch-transactions .panel{background:white;border:1px solid var(--line);border-radius:8px;box-shadow:none}
+.monarch-transactions .transaction-table{min-width:0;width:100%;table-layout:auto}
+.monarch-transactions .transaction-table th{font-size:13px;text-transform:none;letter-spacing:0;color:#545660;background:#faf9f7;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:500}
+.monarch-transactions .transaction-table td{font-size:14px;padding:18px;border-bottom:1px solid #eeece9;color:#62646d}
+.monarch-transactions .transaction-table tbody tr:hover{background:#fcfbfa}
+.monarch-transactions .transaction-table .date-group th{background:#fbfaf8;color:#262626;font-weight:600;padding:14px 18px;text-align:left}
+.monarch-transactions .transaction-table th.amount-heading,.monarch-transactions .amount-cell{text-align:right;white-space:nowrap}
+.monarch-transactions .account-cell{max-width:220px;font-size:13px!important}
+.monarch-transactions .description-cell{display:flex;align-items:center;gap:12px;min-width:0}
+.monarch-transactions .merchant-link{background:none;border:0;text-align:left;color:#262626;padding:0;font-weight:550;line-height:1.5;cursor:pointer;overflow-wrap:anywhere}
+.monarch-transactions .merchant-link:hover{text-decoration:underline}
+.monarch-transactions .transaction-icon{flex:0 0 36px;width:36px;height:36px;border-radius:50%;color:#ce501f;background:#fff0e7}
+.monarch-transactions .transaction-icon svg{width:18px;height:18px}
+.monarch-transactions .transaction-icon.transfer{color:#724bc8;background:#f0eaff}
+.monarch-transactions .transaction-icon.income,.monarch-transactions .transaction-icon.refund{color:#18824a;background:#eaf5ef}
+.monarch-transactions .status{font-size:11px;font-weight:500;border-radius:6px;padding:4px 7px;background:#f1f0ed;color:#62646d;white-space:nowrap}
+.monarch-transactions .status.confirmed{color:#17693d;background:#e9f4ed}
+.monarch-transactions .status.pending{color:#875f11;background:#fff5df}
+.monarch-transactions .action-trigger{color:#737580;background:transparent;border:0;width:32px;height:32px}
+.monarch-transactions .action-popover{background:white;border:1px solid var(--line);box-shadow:0 6px 24px #26262615;color:#262626;z-index:20}
+.monarch-transactions .action-popover button{color:#454750;font-size:13px}
+.monarch-transactions .action-popover button:hover{background:#f5f3ef}
+.monarch-transactions .action-popover button.danger{color:#bd3e2f}
+.monarch-transactions .table-footer{border:0;color:#6b6e78;font-size:13px;padding:18px}
+.monarch-transactions .pagination button{background:white;color:#555;border:1px solid var(--line);border-radius:6px;min-height:36px;padding:6px 12px;font-size:13px}
+.monarch-transactions .empty-state{padding:56px 20px;color:var(--muted);text-align:center}
+.monarch-transactions .empty-state h3{color:#262626;font-size:18px;margin-bottom:8px}
+.monarch-transactions .empty-state p{font-size:14px}
+.monarch-transactions .app-dialog{background:white;color:#262626;border:1px solid var(--line);border-radius:12px;max-height:90dvh}
+.monarch-transactions .app-dialog::backdrop{background:#24262d66}
+.monarch-transactions .dialog-header,.monarch-transactions .dialog-footer{background:#fff;color:#262626;border-color:var(--line)}
+.monarch-transactions .dialog-header p,.monarch-transactions .form-field>span,.monarch-transactions .details-grid dt,.monarch-transactions .details-grid small{color:#6b6e78}
+.monarch-transactions .dialog-close{color:#555;background:#f5f3ef}
+.monarch-transactions .detail-notes,.monarch-transactions .sms-original{background:#f7f6f4;color:#454750;border-color:var(--line)}
+.monarch-transactions .api-feedback.error{background:#fff1ed;color:#a63820;border-color:#f2d3c9}
+.monarch-transactions .needs-review{padding:20px;margin-bottom:20px}
+.monarch-transactions .needs-review h3{font-size:18px;color:#262626}
+.monarch-transactions .needs-review p{font-size:14px;color:var(--muted)}
+.monarch-transactions .review-list article{background:#fff;border-color:var(--line);border-radius:6px}
+.monarch-transactions .review-list small{color:var(--muted)}
+.monarch-transactions .review-count{background:#fff0e7;color:#c74815}
+.mobile-navigation{display:none}
+@media(max-width:1050px) and (min-width:801px){.monarch-transactions .activity-header{padding-left:24px;padding-right:24px}.monarch-transactions .transactions-page{padding-left:24px;padding-right:24px}.monarch-transactions .transaction-table td,.monarch-transactions .transaction-table th{padding:14px 10px}.monarch-transactions .account-cell{max-width:150px}.monarch-transactions .transaction-icon{display:none}}
+@media(max-width:800px){
+.monarch-transactions .sidebar{width:260px;z-index:60}
+.monarch-transactions .sidebar-backdrop{z-index:59}
+.monarch-transactions .main-content{margin-left:0;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+.monarch-transactions .activity-header{padding:12px 16px;gap:8px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;min-height:64px}
+.monarch-transactions .activity-header h1{font-size:20px;font-weight:600;text-align:center;flex:1;letter-spacing:-.3px}
+.monarch-transactions .activity-menu{display:grid}
+.monarch-transactions .activity-refresh{display:none}
+.monarch-transactions .activity-add{padding:0;width:36px;min-height:36px;color:#d64e17;background:white;margin-left:0;border-color:#f36d32}
+.monarch-transactions .activity-add span{display:none}
+.monarch-transactions .transactions-page{padding:0}
+.monarch-transactions .transaction-summary{grid-template-columns:1fr 1fr;border:0;border-bottom:1px solid var(--line);border-radius:0;margin-bottom:0;padding:20px 0;background:#fff}
+.monarch-transactions .transaction-summary article{padding:0 20px}
+.monarch-transactions .transaction-summary strong{font-size:23px}
+.monarch-transactions .transaction-summary .net-flow{display:none}
+.monarch-transactions .filters-area{padding:16px 16px 0;background:#fff;gap:8px;margin:0}
+.monarch-transactions .filter-toggle{width:44px;justify-content:center;padding:0}
+.monarch-transactions .filter-toggle span{display:none}
+.monarch-transactions .filter-selects{grid-template-columns:1fr 1fr;padding:12px;gap:12px}
+.monarch-transactions .activity-tabs{background:#fff;margin-bottom:0;padding:8px 16px 0;gap:8px}
+.monarch-transactions .activity-tabs button{padding:13px 8px}
+.monarch-transactions .transactions-panel{border:0;border-radius:0}
+.monarch-transactions .transaction-table-wrap{display:none}
+.monarch-transactions .transaction-cards{display:block;gap:0;padding:0}
+.monarch-transactions .mobile-date-group h3{background:#f7f6f4;font-size:13px;font-weight:600;padding:14px 20px;margin:0;border-bottom:1px solid var(--line)}
+.monarch-transactions .transaction-card{display:flex;align-items:flex-start;gap:12px;background:#fff;border:0;border-bottom:1px solid #eeece9;border-radius:0;padding:18px 16px;min-width:0;position:relative}
+.monarch-transactions .transaction-card .transaction-icon{margin-top:2px}
+.monarch-transactions .mobile-transaction-body{flex:1;min-width:0}
+.monarch-transactions .mobile-transaction-top{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.monarch-transactions .mobile-transaction-top .merchant-link{font-size:14px;font-weight:600;min-width:0}
+.monarch-transactions .mobile-transaction-top .amount{font-size:14px;white-space:nowrap;padding-top:1px}
+.monarch-transactions .mobile-transaction-meta{margin-top:5px;display:flex;align-items:flex-start;gap:6px;justify-content:space-between;font-size:12px;color:#737580}
+.monarch-transactions .mobile-transaction-meta>span:first-child{min-width:0;overflow-wrap:anywhere}
+.monarch-transactions .transaction-card>.action-menu{position:absolute;right:8px;bottom:2px}
+.monarch-transactions .transaction-card .action-trigger{width:28px;height:24px}
+.monarch-transactions .transaction-card .status{margin-right:20px;font-size:10px;padding:2px 5px}
+.monarch-transactions .table-footer{padding:18px 16px;gap:12px;flex-wrap:wrap}
+.monarch-transactions .mobile-navigation{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;justify-content:space-around;background:white;border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));min-height:70px}
+.monarch-transactions .mobile-navigation a,.monarch-transactions .mobile-navigation button{display:flex;flex:1;flex-direction:column;align-items:center;gap:4px;background:none;border:0;color:#747681;text-decoration:none;font-size:10px;padding:4px 0}
+.monarch-transactions .mobile-navigation svg{width:21px;height:21px;stroke-width:1.7}
+.monarch-transactions .mobile-navigation .active{color:#ca4814}
+.monarch-transactions .needs-review{margin:16px;border-radius:8px}
+.monarch-transactions .review-list{gap:12px}
+.monarch-transactions .app-dialog{max-width:calc(100vw - 24px);width:calc(100vw - 24px);max-height:calc(100dvh - 24px)}
+.monarch-transactions .api-feedback{margin:12px}
+}
+.monarch-transactions .form-grid label{color:#555;font-size:13px}
+.monarch-transactions .form-grid input,.monarch-transactions .form-grid textarea,.monarch-transactions .form-grid select{background:white;color:#262626;border:1px solid #dcdad5;font-size:14px}
+.monarch-transactions .details-list dt,.monarch-transactions .sms-metadata dt{font-size:12px;color:#737580}
+.monarch-transactions .details-list dd,.monarch-transactions .sms-metadata dd{font-size:14px;color:#262626;overflow-wrap:anywhere}
+.monarch-transactions .details-hero span{color:#262626;font-size:16px}
+.monarch-transactions .type-badge{background:#f3f1ee;color:#62646d}
+.monarch-transactions .sms-original pre{background:#f7f6f4;color:#454750;font-size:13px}
+.monarch-transactions .brand{font-size:16px;color:#262626;letter-spacing:-.2px;gap:8px}
+.monarch-transactions .brand>span>span{color:#262626}
+.monarch-transactions .brand-mark{background:#fff0e8;color:#cf501b;border-radius:6px;width:30px;height:30px}
+.monarch-transactions .transactions-panel{overflow:visible}
+.monarch-transactions .transaction-table-wrap{overflow:visible}
+.monarch-transactions .transaction-table thead th:first-child{border-radius:8px 0 0 0}
+.monarch-transactions .transaction-table thead th:last-child{border-radius:0 8px 0 0}
+.monarch-transactions .filter-toggle[aria-expanded=true]{border-color:#f36d32;color:#c74815}
+.monarch-transactions .mobile-transaction-meta>span:first-child{flex:1}
+@media(max-width:800px){.monarch-transactions .search-box input,.monarch-transactions .form-grid input,.monarch-transactions .form-grid textarea,.monarch-transactions .form-grid select{font-size:16px}}
+.monarch-transactions .nav-item{font-weight:500}
+.monarch-transactions .transaction-summary strong.positive-text{color:#18824a}
+.monarch-transactions .transaction-summary strong.negative-text{color:#bc422d}
+.monarch-transactions .transaction-table .amount{font-size:14px}
+.monarch-transactions .status::before{display:none}
+@media(min-width:801px){.monarch-transactions .sidebar-close{display:none}}
+.monarch-transactions .brand{font-size:15px;font-weight:650;white-space:nowrap}
+/* The shared legacy stylesheet marks these semantic colors important. */
+.monarch-transactions .positive-text{color:#18824a!important}
+.monarch-transactions .negative-text{color:#bc422d!important}
+.monarch-transactions .transactions-panel{padding:0}
+.monarch-transactions .transaction-icon.transport{color:#3076bf;background:#eaf2ff}
+.monarch-transactions .sidebar-head{padding:0 0 24px}
+@media(prefers-reduced-motion:reduce){.monarch-transactions .sidebar{transition:none}}
+.monarch-transactions .review-list strong,.monarch-transactions .confirm-content strong{color:#262626}
+.monarch-transactions .review-list .review-amount{font-size:16px}
+.monarch-transactions .confirm-content p{color:#666973;font-size:14px}
+html:has(.monarch-transactions),body:has(.monarch-transactions){background:#f7f6f4}

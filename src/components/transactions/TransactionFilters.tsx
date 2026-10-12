@@ -1,12 +1,15 @@
-import { Search, X } from 'lucide-react'
+import { useState } from 'react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import type { TransactionType } from '../../types/finance'
 export type FilterState = { search: string; type: 'All' | TransactionType; category: string; account: string; range: 'All' | '7' | '30' | '90'; source: 'All' | 'SMS' | 'Manual'; status: 'All' | 'Pending' | 'Confirmed' | 'Ignored' }
 export const emptyFilters: FilterState = { search: '', type: 'All', category: 'All', account: 'All', range: 'All', source: 'All', status: 'All' }
 const types: FilterState['type'][] = ['All', 'Expense', 'Income', 'Transfer', 'Investment', 'Refund']
 export function TransactionFilters({ value, onChange, categories, accounts }: { value: FilterState; onChange: (next: FilterState) => void; categories: { id: string; name: string }[]; accounts: { id: string; name: string }[] }) {
   const set = <K extends keyof FilterState>(key: K, next: FilterState[K]) => onChange({ ...value, [key]: next })
+  const [expanded,setExpanded] = useState(false)
+  const activeCount = Object.entries(value).filter(([key,val]) => key !== 'search' && val !== 'All').length
   const dirty = JSON.stringify(value) !== JSON.stringify(emptyFilters)
-  return <div className="filters-area"><label className="search-box"><Search/><span className="sr-only">Search transactions</span><input value={value.search} onChange={e => set('search', e.target.value)} placeholder="Search merchant, category or account…"/></label><div className="filter-selects">
+  return <div className="filters-area"><label className="search-box"><Search/><span className="sr-only">Search transactions</span><input value={value.search} onChange={e => set('search', e.target.value)} placeholder="Search transactions…"/></label><button className="secondary-button filter-toggle" aria-expanded={expanded} aria-controls="transaction-filter-options" onClick={() => setExpanded(!expanded)}><SlidersHorizontal/><span>Filters{activeCount ? ` (${activeCount})` : ''}</span></button><div id="transaction-filter-options" className="filter-selects" hidden={!expanded}>
     <label><span>Type</span><select value={value.type} onChange={e => set('type', e.target.value as FilterState['type'])}>{types.map(item => <option key={item}>{item}</option>)}</select></label>
     <label><span>Category</span><select value={value.category} onChange={e => set('category', e.target.value)}><option>All</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
     <label><span>Account</span><select value={value.account} onChange={e => set('account', e.target.value)}><option>All</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

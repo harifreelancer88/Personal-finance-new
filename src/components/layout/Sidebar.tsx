@@ -12,9 +12,10 @@ const items = [
   { label: 'Settings', icon: Settings, to: '/settings' },
 ]
 
-interface SidebarProps { open: boolean; onClose: () => void }
+interface SidebarProps { open: boolean; onClose: () => void; light?: boolean }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, light = false }: SidebarProps) {
+  const orderedItems = light ? ['Dashboard','Accounts','Transactions','Reports','Investments','Settings'].map(label => items.find(item => item.label === label)!) : items
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return
@@ -31,7 +32,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <div className="sidebar-head"><Logo /><button ref={closeButton} className="icon-button sidebar-close" onClick={onClose} aria-label="Close menu"><X /></button></div>
       <nav aria-label="Primary navigation">
         <p className="nav-label">Menu</p>
-        <ul className="nav-list">{items.map(({ label, icon: Icon, to }) => <li key={label}>
+        <ul className="nav-list">{orderedItems.map(({ label, icon: Icon, to }) => <li key={label}>
           {to ? <NavLink end={to === '/'} to={to} onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><Icon size={19} /><span>{label}</span></NavLink>
             : <button className="nav-item disabled" disabled title="Coming soon"><Icon size={19} /><span>{label}</span><small>Soon</small></button>}
         </li>)}</ul>
