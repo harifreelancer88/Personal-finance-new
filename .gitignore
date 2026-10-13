@@ -6,3 +6,5 @@ dist
 .DS_Store
 *.tsbuildinfo
 .account-overview-test-dist/
+
+.transaction-controls-test-dist/
