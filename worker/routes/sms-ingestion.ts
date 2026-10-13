@@ -5,7 +5,7 @@ import {
   isFinancialSmsCandidate,
   parseSms,
 } from '../lib/sms-parser'
-import { mappedCategoryName } from '../lib/sms-category'
+import { assignCategory } from '../repositories/category-rules'
 import {
   getRecentSmsByBankReference,
   getSmsByDedupe,
@@ -203,17 +203,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     sourceId,
     destinationId,
   )
-  let categoryId: string | null = null
-  const categoryName = mappedCategoryName(message)
-  if (categoryName)
-    categoryId =
-      (
-        await env.DB.prepare(
-          'SELECT id FROM categories WHERE workspace_id = ? AND is_active = 1 AND name = ? COLLATE NOCASE',
-        )
-          .bind(workspaceId, categoryName)
-          .first<{ id: string }>()
-      )?.id ?? null
+  const categoryId = await assignCategory(env.DB, workspaceId, parsed.transactionType, `${parsed.description ?? ''} ${message}`)
   let parseStatus: string =
     sourceId && sourceId === destinationId ? 'needs_review' : parsed.status
   let transactionId: string | null = null

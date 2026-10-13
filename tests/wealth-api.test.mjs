@@ -9,7 +9,7 @@ function setup() {
     '0001_initial_schema.sql',
     '0002_allow_short_last4.sql',
     '0003_sms_ingestion.sql',
-    '0004_sms_bank_reference.sql','0005_income_accounting_date.sql',
+    '0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql',
   ])
     sqlite.exec(readFileSync('migrations/' + file, 'utf8'))
   sqlite.exec(

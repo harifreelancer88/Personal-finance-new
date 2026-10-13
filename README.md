@@ -234,3 +234,27 @@ Apply `migrations/0005_income_accounting_date.sql` to D1 **before deploying** th
 version. The migration only adds a nullable column, so existing records keep
 using their original dates. Review -> Edit transaction and the usual Edit form
 both expose the field for Money In; Use transaction date removes the override.
+
+## Automatic category rules
+
+Apply `migrations/0006_category_rules.sql` before deploying this version. In
+Settings → Automatic categories, Learn from categorised history builds scoped
+merchant keyword rules from confirmed transactions with active categories.
+Uncategorised, ignored and pending history does not create guesses. Conflicting
+categories for an identical keyword/type produce a paused rule. Explicit rule
+edits and feedback from category changes are preserved when history is refreshed.
+
+New SMS transactions and newly created transactions without a chosen category
+use active keyword rules. Matching is case/punctuation insensitive, uses whole
+words, and selects the longest matching phrase; equally specific conflicting
+matches stay uncategorised. Archived/incompatible categories cannot match.
+Transfers and investments are not automatically categorised. Existing records
+are never recategorised by learning or editing a rule.
+
+An individual or bulk category change teaches the current merchant description
+for that transaction type. Clearing a category pauses that learned rule. Generic
+phrases (UPI/payment/bank names) and descriptions with long reference numbers
+are not learned. Rules can be added, edited or paused in Settings.
+
+`npm run test:category-rules` covers matcher boundaries, ambiguity, history,
+manual feedback, workspace isolation and new SMS assignment using real SQLite.
