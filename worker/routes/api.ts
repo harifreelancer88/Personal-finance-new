@@ -1,3 +1,5 @@
+import { categoryRulesRoute } from './category-rules'
+import { assignCategory,learnManualCategory } from '../repositories/category-rules'
 import { failure, methodNotAllowed, notFound, success } from '../lib/http'
 import { accountToApi, transactionToApi } from '../lib/api-mappers'
 import {
@@ -130,7 +132,9 @@ async function transactions(
     )
   }
   if (!id && request.method === 'POST') {
-    const value = validateTransaction(await body(request))
+    const input = await body(request)
+    const value = validateTransaction(input)
+    if (!value.categoryId) value.categoryId = await assignCategory(env.DB, workspaceId, value.transactionType, value.description)
     await validateReferences(env.DB, workspaceId, value)
     return success(
       transactionToApi(await createTransaction(env.DB, workspaceId, value)),
@@ -163,13 +167,14 @@ async function transactions(
     })
   }
   if (request.method === 'PATCH') {
-    const value = validateTransaction(await body(request), existing)
+    const input = await body(request)
+    const value = validateTransaction(input, existing)
     await validateReferences(env.DB, workspaceId, value, id)
     // A human edit ends automatic reconciliation ownership of this record.
     if (value.notes === SMS_AUTO_CONFIRM_NOTE) value.notes = null
-    return success(
-      transactionToApi(await updateTransaction(env.DB, workspaceId, id, value)),
-    )
+    const saved = await updateTransaction(env.DB, workspaceId, id, value)
+    if ('categoryId' in input) await learnManualCategory(env.DB,workspaceId,value.transactionType,value.description,value.categoryId)
+    return success(transactionToApi(saved))
   }
   if (request.method === 'DELETE') {
     if (
@@ -255,6 +260,8 @@ async function assignCategories(request: Request, env: Env): Promise<Response> {
       'SELECTION_CHANGED',
       'Some selected transactions are no longer available. Refresh and select again. No categories were changed.',
     )
+  const selectedRows = (await env.DB.prepare('SELECT description,transaction_type FROM transactions WHERE workspace_id=? AND id IN (SELECT value FROM json_each(?))').bind(env.DEFAULT_WORKSPACE_ID,JSON.stringify(ids)).all<{description:string;transaction_type:string}>()).results
+  for (const row of selectedRows) await learnManualCategory(env.DB,env.DEFAULT_WORKSPACE_ID,row.transaction_type,row.description,categoryId as string|null)
   return success({ updatedCount: ids.length })
 }
 
@@ -448,6 +455,8 @@ export async function handleApiRequest(
         env,
         categoryMatch[1] ? decodeURIComponent(categoryMatch[1]) : undefined,
       )
+    const rulesMatch = pathname.match(/^\/api\/category-rules(?:\/([^/]+))?$/)
+    if (rulesMatch) return await categoryRulesRoute(request,env,rulesMatch[1])
     if (pathname === '/api/settings/status') {
       if (request.method !== 'GET') return methodNotAllowed()
       return await settingsStatus(env)

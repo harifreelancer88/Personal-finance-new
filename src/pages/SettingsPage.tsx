@@ -1,3 +1,4 @@
+import { CategoryRules } from '../components/settings/CategoryRules'
 import {
   Menu,
   RefreshCw,
@@ -256,6 +257,7 @@ export function SettingsPage() {
             Check connection
           </button>
         </section>
+        <CategoryRules categories={categories}/>
         <section className="wealth-panel settings-categories">
           <div className="wealth-section-heading">
             <h2>Categories</h2>

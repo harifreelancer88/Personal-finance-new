@@ -18,7 +18,7 @@ export function TransactionForm({ initial, accounts, categories, saving, request
   const [description, setDescription] = useState(initial?.description ?? '')
   const [amount, setAmount] = useState(initial ? (Math.abs(initial.amountMinor ?? initial.amount * 100) / 100).toFixed(2) : '')
   const [accountId, setAccountId] = useState(initial?.fromAccountId ?? initial?.toAccountId ?? accounts[0]?.id ?? '')
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? '')
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [fromAccountId, setFrom] = useState(initial?.fromAccountId ?? accounts[0]?.id ?? '')
   const [toAccountId, setTo] = useState(initial?.toAccountId ?? accounts.find(item => item.id !== (initial?.fromAccountId ?? accounts[0]?.id))?.id ?? '')
