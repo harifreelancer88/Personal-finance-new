@@ -15,7 +15,7 @@ function setup() {
     '0001_initial_schema.sql',
     '0002_allow_short_last4.sql',
     '0003_sms_ingestion.sql',
-    '0004_sms_bank_reference.sql',
+    '0004_sms_bank_reference.sql','0005_income_accounting_date.sql',
   ])
     db.exec(readFileSync('migrations/' + file, 'utf8'))
   db.exec(
@@ -211,4 +211,44 @@ test('month periods handle February leap years and previous/next across year bou
   assert.equal(monthLabel('2026-10'), "Oct '26")
   assert.equal(validMonthKey('2026-13'), false)
   assert.equal(validMonthKey('2026-00'), false)
+})
+
+test('income accounting date saves independently, survives status/category edits and clears on type change', async () => {
+  const {api, db} = setup()
+  const made = await api('/transactions','POST',{transactionType:'income',description:'Salary',amountMinor:100000,toAccountId:'bank',fromAccountId:null,transactionDate:'2026-09-29',accountingDate:'2026-10-01',categoryId:null,notes:null})
+  assert.equal(made.status,201)
+  const id=made.data.id
+  assert.equal(made.data.transactionDate,'2026-09-29')
+  assert.equal(made.data.accountingDate,'2026-10-01')
+  assert.equal((await api('/transactions/'+id,'PATCH',{status:'pending'})).data.accountingDate,'2026-10-01')
+  assert.equal((await api('/transactions/'+id,'PATCH',{status:'confirmed'})).data.accountingDate,'2026-10-01')
+  const balance=()=>db.prepare("SELECT SUM(amount_minor) AS n FROM transactions WHERE to_account_id='bank' AND status='confirmed'").get().n
+  assert.equal(balance(),100000)
+  assert.equal((await api('/transactions/'+id,'PATCH',{accountingDate:null})).data.accountingDate,null)
+  assert.equal(balance(),100000)
+  await api('/transactions/'+id,'PATCH',{accountingDate:'2026-10-01'})
+  const changed=await api('/transactions/'+id,'PATCH',{transactionType:'refund'})
+  assert.equal(changed.status,200);assert.equal(changed.data.accountingDate,null)
+})
+test('accounting date rejects impossible dates and non-income overrides',async()=>{
+  const {api}=setup()
+  const body={transactionType:'income',description:'Salary',amountMinor:100000,toAccountId:'bank',transactionDate:'2026-09-29'}
+  for(const date of ['2026-02-29','2026-13-01','2026-04-31','tomorrow',20261001]) assert.equal((await api('/transactions','POST',{...body,accountingDate:date})).status,400)
+  assert.equal((await api('/transactions','POST',{...body,transactionType:'refund',accountingDate:'2026-10-01'})).status,400)
+  const normal=await api('/transactions','POST',body)
+  assert.equal(normal.data.accountingDate,null)
+})
+
+test('SMS retry preserves a user-set accounting date and original receipt date',async()=>{
+  const {api,db}=setup()
+  const message='ICICI Bank Acct XX981 credited for Rs 50000.00 on 29-Sep-26; Salary credited. UPI:123456789012.'
+  const delivered=await send(api,message,'salary-sms')
+  const id=delivered.data.transactionId
+  assert.ok(id)
+  const changed=await api('/transactions/'+id,'PATCH',{accountingDate:'2026-10-01'})
+  assert.equal(changed.status,200)
+  await send(api,message,'salary-sms')
+  const row=db.prepare('SELECT * FROM transactions WHERE id=?').get(id)
+  assert.equal(row.transaction_date,'2026-09-29');assert.equal(row.accounting_date,'2026-10-01')
+  assert.equal(db.prepare('SELECT count(*) AS n FROM transactions').get().n,1)
 })

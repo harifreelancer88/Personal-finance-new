@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../lib/format'
+import { formatCurrency, formatDate } from '../../lib/format'
 import type { Transaction } from '../../types/finance'
 import { TransactionActions } from './TransactionActions'
 import { TransactionIcon } from './TransactionIcon'
@@ -60,7 +60,7 @@ export function TransactionCard({
         </div>
         <div className="mobile-transaction-meta">
           <span>
-            {item.category} · {item.account}
+            {item.category} · {item.account}{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small> · Received {formatDate(item.date)}</small>}
           </span>
           <span className={`status ${item.status.toLowerCase()}`}>
             {item.status}

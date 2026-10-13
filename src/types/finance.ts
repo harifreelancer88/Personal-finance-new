@@ -22,6 +22,7 @@ export interface Account {
 export interface Transaction {
   id: string
   date: string
+  accountingDate?: string | null
   description: string
   merchant: string
   category: Category

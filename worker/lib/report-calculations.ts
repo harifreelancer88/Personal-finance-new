@@ -1,4 +1,4 @@
-import { isExpenseRefund } from './financial-semantics.js'
+import { isExpenseRefund, effectiveTransactionDate } from './financial-semantics.js'
 
 export const REPORT_PERIODS = ['thisMonth', '3Months', '6Months', '1Year', 'all'] as const
 export type ReportPeriod = typeof REPORT_PERIODS[number]
@@ -9,6 +9,7 @@ export interface ReportTransaction {
   description: string
   amount_minor: number
   transaction_date: string
+  accounting_date?: string | null
   status: 'pending' | 'confirmed' | 'ignored'
   category_id: string | null
   category_name: string | null
@@ -42,7 +43,7 @@ export function resolveReportPeriod(period: ReportPeriod, now = new Date(), earl
 export const isQualifiedRefund = isExpenseRefund
 
 const inRange = (t: ReportTransaction, start: string, end: string) =>
-  t.status === 'confirmed' && t.transaction_date >= start && t.transaction_date <= end
+  t.status === 'confirmed' && effectiveTransactionDate(t) >= start && effectiveTransactionDate(t) <= end
 
 export function reportTotals(transactions: ReportTransaction[], start: string, end: string) {
   let totalIncomeMinor = 0, totalExpenseMinor = 0, transactionCount = 0

@@ -1,7 +1,8 @@
+import { effectiveTransactionDate } from '../lib/financial-semantics'
 import { accountBreakdown, categoryBreakdown, incomeBreakdown, reportCashFlow, reportInsights, reportTotals, resolveReportPeriod, topExpenses, type ReportPeriod, type ReportTransaction } from '../lib/report-calculations'
 
 async function data(db: D1Database, workspaceId: string) {
-  const rows = await db.prepare(`SELECT t.id, t.transaction_type, t.description, t.amount_minor, t.transaction_date, t.status,
+  const rows = await db.prepare(`SELECT t.id, t.transaction_type, t.description, t.amount_minor, t.transaction_date, t.accounting_date, t.status,
     t.category_id, c.name AS category_name, c.kind AS category_kind,
     t.from_account_id, fa.name AS from_account_name, t.to_account_id,
     original.transaction_type AS original_transaction_type, original.category_id AS original_category_id,
@@ -19,7 +20,7 @@ async function data(db: D1Database, workspaceId: string) {
 
 export async function getReport(db: D1Database, workspaceId: string, period: ReportPeriod, kind: string, limit = 10, now = new Date()) {
   const transactions = await data(db, workspaceId)
-  const earliest = transactions.filter(t => t.status === 'confirmed').map(t => t.transaction_date).sort()[0]
+  const earliest = transactions.filter(t => t.status === 'confirmed').map(effectiveTransactionDate).sort()[0]
   const range = resolveReportPeriod(period, now, earliest)
   if (kind === 'summary') return { ...reportTotals(transactions, range.start, range.end), periodStart: range.start, periodEnd: range.end }
   if (kind === 'cash-flow') return reportCashFlow(transactions, range.start, range.end)

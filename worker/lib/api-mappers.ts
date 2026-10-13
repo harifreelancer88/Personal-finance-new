@@ -43,6 +43,7 @@ export function transactionToApi(row: TransactionRow) {
     fromAccountId: row.from_account_id,
     toAccountId: row.to_account_id,
     transactionDate: row.transaction_date,
+    accountingDate: row.accounting_date ?? null,
     notes: row.notes,
     source: row.source,
     externalId: row.external_id,

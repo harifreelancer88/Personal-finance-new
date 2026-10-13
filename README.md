@@ -221,3 +221,16 @@ Choose **Select transactions**, select individual rows or the current page, and 
 Delete is available in every transaction menu, including SMS and ignored entries, with a confirmation dialog. The transaction is removed and balances/totals recalculate. Raw SMS records are retained with `parse_status='deleted'` and no transaction link, so an exact replay or a matching bank-reference counterpart cannot recreate the deleted transaction. Linked refunds must be deleted before their original transaction. No new migration is required.
 
 `npm run test:transaction-controls` covers manual/SMS deletion, replay suppression, linked refunds, 100-row atomic category updates, workspace isolation, inactive categories and month/year/leap-day boundaries. It uses isolated SQLite and requires Node with `node:sqlite`.
+
+## Money In accounting date
+
+Money In transactions can optionally set `accountingDate` independently of the
+original `transactionDate`. Monthly transaction lists, Money In totals, dashboard
+cash flow and income reports use the accounting date; unset dates fall back to
+the transaction date. Account balances, raw SMS and SMS matching retain the
+original transaction date. Other transaction types cannot override this date.
+
+Apply `migrations/0005_income_accounting_date.sql` to D1 **before deploying** this
+version. The migration only adds a nullable column, so existing records keep
+using their original dates. Review -> Edit transaction and the usual Edit form
+both expose the field for Money In; Use transaction date removes the override.

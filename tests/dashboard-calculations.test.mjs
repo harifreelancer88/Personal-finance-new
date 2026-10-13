@@ -9,3 +9,15 @@ test('pending and ignored transactions are excluded',()=>{const r=calculateDashb
 test('credit liability reduces combined account balance',()=>{const r=calculateDashboard([{account_type:'bank',current_balance_minor:100000},{account_type:'cash',current_balance_minor:10000},{account_type:'wallet',current_balance_minor:5000},{account_type:'credit_card',current_balance_minor:-20000}],[],now);assert.equal(r.bankBalanceMinor,100000);assert.equal(r.cashWalletBalanceMinor,15000);assert.equal(r.creditCardOutstandingMinor,20000);assert.equal(r.totalBalanceMinor,95000);assert.equal(r.accountCount,4)})
 test('only current month contributes to summary',()=>{const r=calculateDashboard([], [txn('income',10000),txn('income',99000,{transaction_date:'2026-08-31'})],now);assert.equal(r.monthlyIncomeMinor,10000)})
 test('cash flow groups six months and fills empty months',()=>{const p=calculateCashFlow([txn('income',100000),txn('expense',20000),txn('transfer',5000),txn('investment',8000),txn('refund',2000,{original_transaction_type:'expense'}),txn('income',50000,{transaction_date:'2026-04-02'})],now);assert.deepEqual(p.map(x=>x.month),['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09']);assert.deepEqual(p[0],{month:'2026-04',incomeMinor:50000,expenseMinor:0});assert.deepEqual(p[5],{month:'2026-09',incomeMinor:100000,expenseMinor:18000});assert.deepEqual(p[1],{month:'2026-05',incomeMinor:0,expenseMinor:0})})
+
+test('salary uses accounting month while account balances and other transaction types retain actual dates',()=>{
+ const salary=txn('income',100000,{transaction_date:'2026-09-29',accounting_date:'2026-10-01'})
+ const accounts=[{account_type:'bank',current_balance_minor:120000}]
+ const sep=calculateDashboard(accounts,[salary],new Date('2026-09-30T12:00:00Z'))
+ const oct=calculateDashboard(accounts,[salary],new Date('2026-10-13T12:00:00Z'))
+ assert.equal(sep.monthlyIncomeMinor,0);assert.equal(oct.monthlyIncomeMinor,100000)
+ assert.equal(sep.bankBalanceMinor,oct.bankBalanceMinor)
+ const flow=calculateCashFlow([salary],new Date('2026-10-13T12:00:00Z'))
+ assert.equal(flow.at(-2).incomeMinor,0);assert.equal(flow.at(-1).incomeMinor,100000)
+ assert.equal(calculateDashboard([], [txn('expense',500,{transaction_date:'2026-09-29',accounting_date:'2026-10-01'})],new Date('2026-09-30T12:00:00Z')).monthlyExpenseMinor,500)
+})

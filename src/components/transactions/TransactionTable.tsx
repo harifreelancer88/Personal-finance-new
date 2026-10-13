@@ -38,7 +38,7 @@ export function TransactionTable({
     )
   const groups = new Map<string, Transaction[]>()
   for (const item of items) {
-    const key = item.date.slice(0, 10)
+    const key = item.type === 'Income' ? item.accountingDate ?? item.date.slice(0, 10) : item.date.slice(0, 10)
     const group = groups.get(key) ?? []
     group.push(item)
     groups.set(key, group)
@@ -115,7 +115,7 @@ export function TransactionTable({
                             onClick={() => onView(item)}
                           >
                             {item.description}
-                          </button>
+                          </button>{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small>Received {formatDate(item.date)}</small>}
                         </div>
                       </td>
                       <td>{item.category}</td>

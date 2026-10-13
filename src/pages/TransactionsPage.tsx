@@ -88,6 +88,7 @@ function toView(
   return {
     id: dto.id,
     date: `${dto.transactionDate}T12:00:00`,
+    accountingDate: dto.accountingDate,
     description: dto.description,
     merchant: '',
     category:

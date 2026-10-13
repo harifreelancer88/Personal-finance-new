@@ -38,6 +38,10 @@ export function validateTransaction(value: Record<string, unknown>, current?: Tr
   if (!Number.isInteger(amountMinor) || (amountMinor as number) <= 0) throw new ApiError(400, 'INVALID_AMOUNT', 'amountMinor must be a positive integer number of paise.')
   const transactionDate = read('transactionDate', current?.transaction_date)
   if (!isDate(transactionDate)) throw new ApiError(400, 'INVALID_DATE', 'transactionDate must be a valid YYYY-MM-DD date.')
+  const accountingValue = read('accountingDate', current?.accounting_date)
+  const accountingDate = accountingValue === undefined || accountingValue === null || accountingValue === '' ? null : accountingValue
+  if (accountingDate !== null && !isDate(accountingDate)) throw new ApiError(400, 'INVALID_ACCOUNTING_DATE', 'accountingDate must be a valid YYYY-MM-DD date.')
+  if (transactionType !== 'income' && 'accountingDate' in value && accountingDate !== null) throw new ApiError(400, 'INVALID_ACCOUNTING_DATE', 'Only Money In transactions can have an accounting date.')
   const status = read('status', current?.status ?? 'confirmed')
   if (!statuses.includes(status as typeof statuses[number])) throw new ApiError(400, 'INVALID_STATUS', 'status is invalid.')
   const categoryId = nullableString(read('categoryId', current?.category_id), 'categoryId')
@@ -50,7 +54,7 @@ export function validateTransaction(value: Record<string, unknown>, current?: Tr
   if (status === 'confirmed' && (transactionType === 'income' || transactionType === 'refund') && (!toAccountId || fromAccountId)) throw new ApiError(400, 'INCOMPLETE_TRANSACTION', `${transactionType} must have a to account before it can be confirmed.`)
   if (status === 'confirmed' && transactionType === 'transfer' && (!fromAccountId || !toAccountId)) throw new ApiError(400, 'INCOMPLETE_TRANSACTION', 'transfer must have both accounts before it can be confirmed.')
   if (fromAccountId && fromAccountId === toAccountId) throw new ApiError(409, 'SAME_TRANSFER_ACCOUNT', 'Transfer accounts must be different.')
-  return { transactionType: transactionType as TransactionWrite['transactionType'], description: descriptionValue.trim(), amountMinor: amountMinor as number, categoryId, fromAccountId, toAccountId, transactionDate, notes, originalTransactionId, status: status as TransactionWrite['status'] }
+  return { transactionType: transactionType as TransactionWrite['transactionType'], description: descriptionValue.trim(), amountMinor: amountMinor as number, categoryId, fromAccountId, toAccountId, transactionDate, accountingDate: transactionType === 'income' ? accountingDate as string | null : null, notes, originalTransactionId, status: status as TransactionWrite['status'] }
 }
 
 export async function validateReferences(db: D1Database, workspaceId: string, value: TransactionWrite, ownId?: string): Promise<void> {

@@ -7,7 +7,7 @@ import { calculateDashboard } from '../.transaction-page-test-dist/lib/dashboard
 
 function fixture() {
   const sql = new DatabaseSync(':memory:')
-  for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql','0003_sms_ingestion.sql','0004_sms_bank_reference.sql']) sql.exec(readFileSync(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+  for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql','0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql']) sql.exec(readFileSync(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
   sql.exec(readFileSync(new URL('../bootstrap.sql',import.meta.url),'utf8'))
   sql.exec(`INSERT INTO workspaces(id,name) VALUES ('other','Other');
     INSERT INTO accounts(id,workspace_id,name,institution,account_type) VALUES ('bank','development-workspace','Family Bank','Bank','bank'),('wallet','development-workspace','Meal Wallet','Wallet','wallet'),('other-bank','other','Other Bank','Bank','bank');`)
@@ -68,4 +68,18 @@ test('refund-only filter cannot produce negative spending or positive income',as
     const result=await getTransactionPage(db,'development-workspace',{...defaults,type:'refund'})
     assert.equal(result.total,3);assert.equal(result.summary.incomeMinor,0);assert.equal(result.summary.expenseMinor,0)
   }finally{sql.close()}
+})
+
+test('September salary recognised in October is filtered, ordered and totalled once by accounting date',async()=>{
+ const {sql,db}=fixture()
+ try {
+  sql.prepare("UPDATE transactions SET transaction_date='2026-09-29',accounting_date='2026-10-01' WHERE id='salary'").run()
+  const sep=await getTransactionPage(db,'development-workspace',{...defaults,fromDate:'2026-09-01',toDate:'2026-09-30'})
+  const oct=await getTransactionPage(db,'development-workspace',{...defaults,fromDate:'2026-10-01',toDate:'2026-10-31'})
+  assert.equal(sep.summary.incomeMinor,0);assert.equal(oct.summary.incomeMinor,100000)
+  assert.equal(oct.total,1);assert.equal(oct.items[0].transaction_date,'2026-09-29')
+  assert.equal(oct.items[0].accounting_date,'2026-10-01')
+  sql.prepare("UPDATE transactions SET accounting_date=NULL WHERE id='salary'").run()
+  assert.equal((await getTransactionPage(db,'development-workspace',{...defaults,fromDate:'2026-10-01',toDate:'2026-10-31'})).total,0)
+ }finally{sql.close()}
 })

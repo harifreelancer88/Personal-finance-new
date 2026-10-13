@@ -13,3 +13,12 @@ test('top expenses sort descending and exclude refunds',()=>{const rows=[tx({id:
 test('periods are calendar aligned',()=>{const now=new Date('2026-09-29T12:00:00Z');assert.deepEqual(resolveReportPeriod('thisMonth',now),{start:'2026-09-01',end:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-31'});assert.equal(resolveReportPeriod('3Months',now).start,'2026-07-01');assert.equal(resolveReportPeriod('6Months',now).start,'2026-04-01');assert.equal(resolveReportPeriod('1Year',now).start,'2025-10-01')})
 test('comparison insight uses previous comparable period',()=>{const range=resolveReportPeriod('thisMonth',new Date('2026-09-29T00:00:00Z'));const insights=reportInsights([tx({amount_minor:9000}),tx({amount_minor:10000,transaction_date:'2026-08-10'})],range);const change=insights.find(x=>x.type==='expense_change');assert.equal(change.value,-10);assert.match(change.message,/decreased 10.0%/)})
 test('cash flow zero-fills missing months',()=>{const result=reportCashFlow([tx({transaction_date:'2026-07-03'}),tx({transaction_date:'2026-09-03'})],'2026-07-01','2026-09-29');assert.deepEqual(result.map(x=>[x.month,x.expenseMinor]),[['2026-07',10000],['2026-08',0],['2026-09',10000]])})
+
+test('accounting date moves income between report months and income breakdown without duplicating it',()=>{
+ const salary=tx({transaction_type:'income',transaction_date:'2026-09-29',accounting_date:'2026-10-01',category_id:'salary',category_name:'Salary'})
+ assert.equal(reportTotals([salary],'2026-09-01','2026-09-30').totalIncomeMinor,0)
+ assert.equal(reportTotals([salary],'2026-10-01','2026-10-31').totalIncomeMinor,10000)
+ assert.equal(incomeBreakdown([salary],'2026-09-01','2026-09-30').length,0)
+ assert.equal(incomeBreakdown([salary],'2026-10-01','2026-10-31')[0].amountMinor,10000)
+ assert.deepEqual(reportCashFlow([salary],'2026-09-01','2026-10-31').map(p=>p.incomeMinor),[0,10000])
+})

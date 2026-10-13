@@ -51,6 +51,7 @@ export interface TransactionRow {
   from_account_id: string | null
   to_account_id: string | null
   transaction_date: string
+  accounting_date?: string | null
   notes: string | null
   source: string
   external_id: string | null
