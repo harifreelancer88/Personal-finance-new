@@ -35,6 +35,7 @@ export interface Transaction {
   fromAccount?: string
   toAccount?: string
   amountMinor?: number
+  categoryOrigin?: 'manual' | 'rule' | 'ai' | null
   categoryId?: string | null
   fromAccountId?: string | null
   toAccountId?: string | null

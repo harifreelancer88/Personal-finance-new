@@ -60,7 +60,7 @@ export function TransactionCard({
         </div>
         <div className="mobile-transaction-meta">
           <span>
-            {item.category} · {item.account}{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small> · Received {formatDate(item.date)}</small>}
+            {item.category}{item.categoryOrigin === 'ai' && <small className="ai-category-badge"> · AI categorised</small>} · {item.account}{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small> · Received {formatDate(item.date)}</small>}
           </span>
           <span className={`status ${item.status.toLowerCase()}`}>
             {item.status}

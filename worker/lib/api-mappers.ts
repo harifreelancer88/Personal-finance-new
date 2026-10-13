@@ -40,6 +40,7 @@ export function transactionToApi(row: TransactionRow) {
     description: row.description,
     amountMinor: row.amount_minor,
     categoryId: row.category_id,
+    categoryOrigin: row.category_origin ?? null,
     fromAccountId: row.from_account_id,
     toAccountId: row.to_account_id,
     transactionDate: row.transaction_date,

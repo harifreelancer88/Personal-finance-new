@@ -8,7 +8,7 @@ function setup() {
   const db = new DatabaseSync(':memory:')
   for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
   db.exec(readFileSync(new URL('../bootstrap.sql',import.meta.url),'utf8'))
-  for (const file of ['0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
+  for (const file of ['0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql','0008_ai_categories.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
   db.exec(`INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES
     ('source','development-workspace','Source','ICICI','bank','981'),
     ('destination','development-workspace','Destination','ICICI','bank','973'),

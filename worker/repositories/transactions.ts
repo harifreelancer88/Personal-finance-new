@@ -2,7 +2,7 @@ import type { TransactionRow } from '../types'
 import { accountingDateSql } from '../lib/financial-semantics.js'
 
 const columns = `id, workspace_id, transaction_type, description, amount_minor,
-  category_id, from_account_id, to_account_id, transaction_date, accounting_date, notes,
+  category_id, category_origin, from_account_id, to_account_id, transaction_date, accounting_date, notes,
   source, external_id, original_transaction_id, status, created_at, updated_at`
 
 export interface TransactionFilters {
@@ -203,7 +203,7 @@ export async function updateTransaction(
 ): Promise<TransactionRow> {
   await db
     .prepare(
-      `UPDATE transactions SET transaction_type = ?, description = ?, amount_minor = ?, category_id = ?, from_account_id = ?, to_account_id = ?, transaction_date = ?, accounting_date = ?, notes = ?, original_transaction_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND id = ?`,
+      `UPDATE transactions SET transaction_type = ?, description = ?, amount_minor = ?, category_id = ?, from_account_id = ?, to_account_id = ?, transaction_date = ?, accounting_date = ?, notes = ?, original_transaction_id = ?, status = ?, category_revision=category_revision+1, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND id = ?`,
     )
     .bind(
       value.transactionType,
