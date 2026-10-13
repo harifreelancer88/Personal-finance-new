@@ -8,10 +8,11 @@ import {
 import { assignCategory } from '../repositories/category-rules'
 import {
   getRecentSmsByBankReference,
+  getLinkedSmsByContent,
   getSmsByDedupe,
 } from '../repositories/sms-messages'
 import type { Env } from '../types'
-import { isSmsAuthorized, smsDedupeKey } from '../lib/sms-security'
+import { isSmsAuthorized, smsDedupeKey, smsContentKey } from '../lib/sms-security'
 import {
   canAutoConfirmSms,
   mayReconcileSms,
@@ -224,7 +225,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   const identity =
     bankReference && parsed.amountMinor
       ? `bankref:${bankReference}:${parsed.transactionDate}:${parsed.amountMinor}`
-      : dedupeKey
+      : await smsContentKey(sender, receivedAt, message)
   if (bankReference && parsed.amountMinor) {
     const deletedReference = await env.DB.prepare(
       "SELECT * FROM sms_messages WHERE workspace_id=? AND parse_status='deleted' AND bank_reference=? AND parsed_amount_minor=? AND parsed_transaction_date=? LIMIT 1",
@@ -253,6 +254,9 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
       )
     }
   }
+  const contentSms = !bankReference
+    ? await getLinkedSmsByContent(env.DB,workspaceId,sender,message,receivedAt,smsId)
+    : null
   const pairedSms = bankReference
     ? await getRecentSmsByBankReference(
         env.DB,
@@ -262,7 +266,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
         receivedAt,
         smsId,
       )
-    : null
+    : contentSms
   let transaction = await env.DB.prepare(
     `SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'sms' AND external_id = ?`,
   )
@@ -439,7 +443,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     )
     .run()
   return success(
-    result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), !!existing),
+    result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), !!existing || !!contentSms),
     { status: existing ? 200 : 201 },
   )
 }

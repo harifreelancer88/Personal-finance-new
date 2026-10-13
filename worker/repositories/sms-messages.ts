@@ -1,4 +1,5 @@
 import type { SmsMessageRow } from '../types'
+import { canonicalSmsTime } from '../lib/sms-security'
 
 const columns = `id, workspace_id, external_id, dedupe_key, sender, raw_text, received_at,
   parse_status, parse_confidence, parse_notes, parsed_transaction_type, parsed_amount_minor,
@@ -10,6 +11,18 @@ export function getSmsByDedupe(db: D1Database, workspaceId: string, dedupeKey: s
 
 export function getSmsForTransaction(db: D1Database, workspaceId: string, transactionId: string) {
   return db.prepare(`SELECT ${columns} FROM sms_messages WHERE workspace_id = ? AND transaction_id = ?`).bind(workspaceId, transactionId).first<SmsMessageRow>()
+}
+
+export async function getLinkedSmsByContent(db: D1Database, workspaceId: string, sender: string | null, message: string, receivedAt: string, smsId: string) {
+  // Recover pre-v2 identities without rewriting raw delivery IDs or human edits.
+  // Exact text + sender + receipt instant avoids merging separate equal payments.
+  const rows = await db.prepare(`SELECT ${columns} FROM sms_messages
+    WHERE workspace_id=? AND sender IS ? AND raw_text=? AND id<>? AND transaction_id IS NOT NULL
+    ORDER BY created_at ASC,id ASC`).bind(workspaceId,sender,message,smsId).all<SmsMessageRow>()
+  const timestamp = canonicalSmsTime(receivedAt)
+  return rows.results.find(row => {
+    try { return canonicalSmsTime(row.received_at) === timestamp } catch { return false }
+  }) ?? null
 }
 
 export function getRecentSmsByBankReference(db: D1Database, workspaceId: string, bankReference: string, amountMinor: number | null, receivedAt: string, smsId: string) {

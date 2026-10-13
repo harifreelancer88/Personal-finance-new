@@ -259,6 +259,17 @@ are not learned. Rules can be added, edited or paused in Settings.
 `npm run test:category-rules` covers matcher boundaries, ambiguity, history,
 manual feedback, workspace isolation and new SMS assignment using real SQLite.
 
+## SMS payment deduplication
+
+SMS deliveries without a bank reference use a payment identity derived from the
+exact sender, exact message and original receipt timestamp, independently of a
+forwarder's external delivery ID. Receipt times without an offset are interpreted
+as IST (+05:30), and equivalent UTC/IST timestamps match to second precision.
+Forwarders must preserve the original SMS receipt time, rather than replacing it
+with the forwarding time. Distinct timestamps, senders or message bodies remain
+separate. Existing pre-fix SMS identities are reused without changing categories,
+ignored status or raw delivery records. This change needs no D1 migration.
+
 ## Linked salary breakdown and retirement reconciliation
 
 Apply **`migrations/0007_payroll.sql` before deploying** this version. It creates
