@@ -17,6 +17,7 @@ import {
   saveInvestment,
   removeInvestment,
 } from '../api/investments'
+import { RetirementNotice } from '../components/payroll/RetirementNotice'
 import { InvestmentForm } from '../components/investments/InvestmentForm'
 import { InvestmentDetails } from '../components/investments/InvestmentDetails'
 import { Modal } from '../components/transactions/Modal'
@@ -121,6 +122,7 @@ export function InvestmentsPage() {
         </div>
       </header>
       <main className="wealth-page">
+        <RetirementNotice/>
         {error && (
           <p className="wealth-error" role="alert">
             {error} <button onClick={() => void load()}>Try again</button>

@@ -353,13 +353,15 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     }
     transactionId = transaction.id
     if (directionalPair && transaction.transaction_type !== 'transfer') {
-      if (mayReconcileSms(transaction.status, transaction.notes)) {
+      const payrollLinked = await env.DB.prepare('SELECT id FROM payroll_records WHERE workspace_id=? AND transaction_id=?').bind(workspaceId,transaction.id).first()
+      if (mayReconcileSms(transaction.status, transaction.notes) && !payrollLinked) {
         // A credit alert may arrive first and be auto-confirmed. Reconcile only
         // pending or untouched automatic records, never a human-reviewed record.
         await env.DB.prepare(
           `UPDATE transactions SET transaction_type = 'transfer', description = 'UPI transfer', category_id = NULL,
           from_account_id = ?, to_account_id = ?, transaction_date = ?, status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE workspace_id = ? AND id = ? AND (status = 'pending' OR (status = 'confirmed' AND notes = ?))`,
+          WHERE workspace_id = ? AND id = ? AND (status = 'pending' OR (status = 'confirmed' AND notes = ?))
+          AND NOT EXISTS(SELECT 1 FROM payroll_records WHERE transaction_id=transactions.id)`,
         )
           .bind(
             sourceId,

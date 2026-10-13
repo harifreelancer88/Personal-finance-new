@@ -258,3 +258,44 @@ are not learned. Rules can be added, edited or paused in Settings.
 
 `npm run test:category-rules` covers matcher boundaries, ambiguity, history,
 manual feedback, workspace isolation and new SMS assignment using real SQLite.
+
+## Linked salary breakdown and retirement reconciliation
+
+Apply **`migrations/0007_payroll.sql` before deploying** this version. It creates
+two explanatory-history tables and integrity triggers; it does not import or
+change any existing transactions or investment values. Run the migration once
+using the production D1 SQL console or the normal Wrangler migration workflow.
+Do not merge/deploy until this database step has succeeded.
+
+Open a Money In transaction → View → Add salary breakdown. Choose the payroll
+month, employer, gross salary and payroll deductions. Gross minus deductions
+must exactly equal the existing bank receipt in paise. Received and budget dates
+remain properties of the original bank transaction. The Salary page is available
+from navigation; Investments links to awaiting retirement credits.
+
+Employee PF and NPS deductions automatically create awaiting-credit allocations.
+Record employer EPF/NPS/pension separately using verified allocations. Confirm a
+credit using a matching EPF/NPS holding and a statement reference, optionally
+linking an existing investment contribution with the exact same amount and date.
+Pension (EPS) uses statement evidence without an investment holding. References
+should identify the individual allocation, including wage month where needed.
+Combined employee/employer investment activity must use statement-only evidence
+for each individual allocation, rather than matching the combined activity twice.
+
+Saving, matching and resetting payroll records **never** create bank transactions,
+create investment activity or increment investment values. The cash dashboard and
+cash-flow reports continue using take-home income. Taxes and purchases in the
+breakdown are explanatory payroll deductions, not automatically posted expenses.
+When entering a statement valuation, use its total recorded value; do not add
+already included contributions a second time. No investment valuation is inferred
+from the uploaded older passbooks.
+
+Payroll matches protect against duplicate evidence, stale writes, cross-workspace
+links, incompatible investment types and automatic SMS transfer reclassification.
+Reset affected matches before changing confirmed deductions or payroll month.
+Remove the breakdown before deleting its salary transaction or changing the bank
+amount/type. Unmatched employer allocations can be removed and corrected. Ignored
+receipts stay in payroll history but are excluded from awaiting-credit totals.
+
+`npm run test:payroll` exercises actual SQLite migrations, triggers, API validation,
+cash/portfolio invariance, contribution matching, replay protection and removal.
