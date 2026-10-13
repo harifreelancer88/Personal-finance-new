@@ -219,3 +219,12 @@ test('pension statement evidence cannot be reused across payrolls within a works
   assert.equal((await s.api('/payroll/contributions/'+second.id,'PATCH',{...m,expectedRevision:second.revision})).status,409)
   assert.equal((await record(s,'salary2')).contributions.find(c=>c.scheme==='eps').creditedDate,null)
 })
+
+test('payroll setup can resume after partial creation and can be rerun without losing data',async()=>{
+  const s=await salarySetup();await save(s)
+  const before=await record(s)
+  s.sqlite.exec("DROP TRIGGER payroll_sync_insert")
+  s.sqlite.exec(readFileSync('migrations/0007_payroll.sql','utf8'))
+  assert.deepEqual(await record(s),before)
+  assert.equal(s.sqlite.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='trigger' AND name LIKE 'payroll_%'").get().n,8)
+})
