@@ -12,5 +12,18 @@ export async function isSmsAuthorized(request: Request, secret?: string): Promis
 }
 
 export async function smsDedupeKey(externalId: string | null, sender: string | null, receivedAt: string, message: string): Promise<string> {
-  return externalId ? `external:${await sha256(externalId)}` : `content:${await sha256(`${sender ?? ''}\n${receivedAt}\n${message}`)}`
+  return externalId ? `external:${await sha256(externalId)}` : smsContentKey(sender, receivedAt, message)
+}
+
+// Forwarded phone timestamps without an offset are Indian local time. Compare
+// the original receipt to second precision across ISO/UTC/IST representations.
+export function canonicalSmsTime(receivedAt: string): string {
+  let value = receivedAt.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) value += 'T00:00:00'
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) value += '+05:30'
+  return new Date(value).toISOString().slice(0, 19) + 'Z'
+}
+
+export async function smsContentKey(sender: string | null, receivedAt: string, message: string): Promise<string> {
+  return `content:v2:${await sha256(`${sender ?? ''}\n${canonicalSmsTime(receivedAt)}\n${message}`)}`
 }

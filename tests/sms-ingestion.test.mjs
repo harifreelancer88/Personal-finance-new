@@ -15,15 +15,17 @@ function setup() {
     ('card','development-workspace','Card','ICICI','credit_card','0005');`)
   const adapter = {prepare(sql) {let args=[];return {bind(...values){args=values;return this},async first(){return db.prepare(sql).get(...args)??null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){const info=db.prepare(sql).run(...args);return {meta:{changes:Number(info.changes)}}}}}}
   const env={DB:adapter,DEFAULT_WORKSPACE_ID:'development-workspace',SMS_INGEST_TOKEN:'local-test-only'}
-  const send=async(message,externalId,receivedAt='2026-10-12T15:00:00Z')=>{
-    const response=await ingestSms(new Request('https://test.invalid/api/ingest/sms',{method:'POST',headers:{Authorization:'Bearer local-test-only','Content-Type':'application/json'},body:JSON.stringify({message,externalId,receivedAt,sender:'ICICI'})}),env)
+  const send=async(message,externalId,receivedAt='2026-10-12T15:00:00Z',sender='ICICI')=>{
+    const response=await ingestSms(new Request('https://test.invalid/api/ingest/sms',{method:'POST',headers:{Authorization:'Bearer local-test-only','Content-Type':'application/json'},body:JSON.stringify({message,externalId,receivedAt,sender})}),env)
     assert.ok(response.ok);return (await response.json()).data
   }
-  return {db,send}
+  return {db,send,env}
 }
 const debit='ICICI Bank Acct XX981 debited for Rs 30.00 on 12-Oct-26; METRO TRANSIT credited. UPI:123456789012. Call 18002662 for dispute.'
 const primary='ICICI Bank Acct XXX981 debited with INR 1.10 on 12-Oct-26. Acct XXX973 credited.UPI:987654321012.'
 const secondary='Dear Customer, Acct XX973 is credited with Rs 1.10 on 12-Oct-26 from OTHER PERSON. UPI:987654321012-ICICI Bank.'
+const noReference='Rs. 69.00 spent from Pluxee Meal Card wallet, card no.xx8888 on 13-10-2026 13:54:5 at SAMPLE SHOP . Avl bal Rs.900.00. Not you call 18002106919'
+function addWallet(db) {db.exec("INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES ('meal','development-workspace','Meal wallet','Pluxee','wallet','8888')")}
 
 test('merchant expense is confirmed and repeated direct/Sheets delivery creates one transaction',async()=>{
   const {db,send}=setup()
@@ -34,6 +36,48 @@ test('merchant expense is confirmed and repeated direct/Sheets delivery creates 
   const rows=db.prepare('SELECT * FROM transactions').all();assert.equal(rows.length,1)
   assert.equal(rows[0].status,'confirmed');assert.equal(rows[0].transaction_type,'expense');assert.equal(rows[0].from_account_id,'source');assert.equal(rows[0].amount_minor,3000)
   assert.equal(db.prepare('SELECT count(*) AS n FROM sms_messages').get().n,2)
+})
+test('no-reference SMS deduplicates across external-ID and content delivery in either order, UTC and naive IST, including simultaneous delivery',async()=>{
+  for (const mode of ['content-first','external-first','simultaneous']) {
+    const {db,send}=setup();addWallet(db)
+    const content=()=>send(noReference,undefined,'2026-10-13T13:54:09','VD-Pluxee-S')
+    const external=()=>send(noReference,'phone-copy','2026-10-13T08:24:09.000Z','VD-Pluxee-S')
+    const results=mode==='simultaneous'?await Promise.all([content(),external()]):mode==='content-first'?[await content(),await external()]:[await external(),await content()]
+    assert.equal(results[0].transactionId,results[1].transactionId,mode)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n,1)
+    assert.equal(db.prepare("SELECT amount_minor FROM transactions").get().amount_minor,6900)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sms_messages').get().n,2)
+    const replay=await send(noReference,'new-delivery-id','2026-10-13T13:54:09+05:30','VD-Pluxee-S')
+    assert.equal(replay.transactionId,results[0].transactionId)
+  }
+})
+test('separate equal payments, changed SMS contents and different senders remain separate',async()=>{
+  const {db,send}=setup();addWallet(db)
+  await send(noReference,'one','2026-10-13T08:24:09Z','VD-Pluxee-S')
+  await send(noReference,'two','2026-10-13T08:25:09Z','VD-Pluxee-S')
+  await send(noReference.replace('900.00','831.00'),'three','2026-10-13T08:24:09Z','VD-Pluxee-S')
+  await send(noReference,'four','2026-10-13T08:24:09Z','VM-Pluxee-S')
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n,4)
+})
+test('pre-fix content and external identities are reused without changing a human category or ignored status',async()=>{
+  for(const legacy of ['content:legacy-hash','external:legacy-hash']) {
+    const {db,send}=setup();addWallet(db)
+    const first=await send(noReference,'original','2026-10-13T13:54:09','VD-Pluxee-S')
+    db.prepare("UPDATE transactions SET external_id=?,status='ignored',notes='Human decision',category_id='cat-groceries' WHERE id=?").run(legacy,first.transactionId)
+    const next=await send(noReference,'other-route','2026-10-13T08:24:09Z','VD-Pluxee-S')
+    assert.equal(next.transactionId,first.transactionId);assert.equal(next.duplicate,true)
+    const row=db.prepare('SELECT * FROM transactions').get()
+    assert.equal(row.status,'ignored');assert.equal(row.notes,'Human decision');assert.equal(row.category_id,'cat-groceries')
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n,1)
+  }
+})
+test('content match is workspace scoped even with identical sender, text and receipt instant',async()=>{
+  const {db,send,env}=setup();addWallet(db)
+  await send(noReference,'one','2026-10-13T08:24:09Z','VD-Pluxee-S')
+  db.exec("INSERT INTO workspaces(id,name) VALUES ('other','Other'); INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES ('other-meal','other','Meal wallet','Pluxee','wallet','8888')")
+  const response=await ingestSms(new Request('https://test.invalid/api/ingest/sms',{method:'POST',headers:{Authorization:'Bearer local-test-only','Content-Type':'application/json'},body:JSON.stringify({message:noReference,externalId:'one',receivedAt:'2026-10-13T08:24:09Z',sender:'VD-Pluxee-S'})}),{...env,DEFAULT_WORKSPACE_ID:'other'})
+  assert.equal(response.status,201)
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n,2)
 })
 test('credit arriving first is reconciled from automatic income into one confirmed transfer',async()=>{
   const {db,send}=setup()
