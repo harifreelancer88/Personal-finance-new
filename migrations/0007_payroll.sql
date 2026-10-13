@@ -41,20 +41,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_payroll_evidence ON payroll_contributions(
   WHERE credited_date IS NOT NULL AND investment_id IS NOT NULL;
 
 CREATE TRIGGER IF NOT EXISTS payroll_link_insert BEFORE INSERT ON payroll_records BEGIN
-  SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM transactions WHERE id=NEW.transaction_id AND workspace_id=NEW.workspace_id
+  SELECT (CASE WHEN NOT EXISTS(SELECT 1 FROM transactions WHERE id=NEW.transaction_id AND workspace_id=NEW.workspace_id
     AND transaction_type='income' AND status<>'ignored' AND amount_minor=NEW.net_minor)
-    THEN RAISE(ABORT,'PAYROLL_TRANSACTION_MISMATCH') END;
+    THEN RAISE(ABORT,'PAYROLL_TRANSACTION_MISMATCH') END);
 END;
 CREATE TRIGGER IF NOT EXISTS payroll_link_update BEFORE UPDATE ON payroll_records BEGIN
-  SELECT CASE WHEN NEW.payroll_month<>OLD.payroll_month AND EXISTS(SELECT 1 FROM payroll_contributions WHERE payroll_id=OLD.id AND credited_date IS NOT NULL)
-    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END;
-  SELECT CASE WHEN NEW.transaction_id<>OLD.transaction_id OR NEW.workspace_id<>OLD.workspace_id
+  SELECT (CASE WHEN NEW.payroll_month<>OLD.payroll_month AND EXISTS(SELECT 1 FROM payroll_contributions WHERE payroll_id=OLD.id AND credited_date IS NOT NULL)
+    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END);
+  SELECT (CASE WHEN NEW.transaction_id<>OLD.transaction_id OR NEW.workspace_id<>OLD.workspace_id
     OR NOT EXISTS(SELECT 1 FROM transactions WHERE id=NEW.transaction_id AND workspace_id=NEW.workspace_id
     AND transaction_type='income' AND amount_minor=NEW.net_minor)
-    THEN RAISE(ABORT,'PAYROLL_TRANSACTION_MISMATCH') END;
-  SELECT CASE WHEN EXISTS(SELECT 1 FROM payroll_contributions WHERE payroll_id=OLD.id AND credited_date IS NOT NULL
+    THEN RAISE(ABORT,'PAYROLL_TRANSACTION_MISMATCH') END);
+  SELECT (CASE WHEN EXISTS(SELECT 1 FROM payroll_contributions WHERE payroll_id=OLD.id AND credited_date IS NOT NULL
     AND contributor='employee' AND ((scheme='epf' AND amount_minor<>NEW.employee_pf_minor) OR (scheme='nps' AND amount_minor<>NEW.nps_minor)))
-    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END;
+    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END);
 END;
 CREATE TRIGGER IF NOT EXISTS payroll_transaction_guard BEFORE UPDATE OF transaction_type,amount_minor ON transactions
 WHEN EXISTS(SELECT 1 FROM payroll_records WHERE transaction_id=OLD.id AND (NEW.transaction_type<>'income' OR net_minor<>NEW.amount_minor)) BEGIN
@@ -77,32 +77,32 @@ CREATE TRIGGER IF NOT EXISTS payroll_sync_update AFTER UPDATE ON payroll_records
     ON CONFLICT(payroll_id,scheme,contributor) DO UPDATE SET amount_minor=excluded.amount_minor,revision=revision+1,updated_at=CURRENT_TIMESTAMP;
 END;
 CREATE TRIGGER IF NOT EXISTS payroll_contribution_insert BEFORE INSERT ON payroll_contributions BEGIN
-  SELECT CASE WHEN NEW.scheme='eps' AND NEW.credited_date IS NOT NULL AND EXISTS(
+  SELECT (CASE WHEN NEW.scheme='eps' AND NEW.credited_date IS NOT NULL AND EXISTS(
     SELECT 1 FROM payroll_contributions c JOIN payroll_records p ON p.id=c.payroll_id
     WHERE c.scheme='eps' AND c.credited_date=NEW.credited_date AND c.statement_reference=NEW.statement_reference
     AND p.workspace_id=(SELECT workspace_id FROM payroll_records WHERE id=NEW.payroll_id))
-    THEN RAISE(ABORT,'PAYROLL_EVIDENCE_USED') END;
-  SELECT CASE WHEN NEW.investment_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investments i JOIN payroll_records p ON p.id=NEW.payroll_id
+    THEN RAISE(ABORT,'PAYROLL_EVIDENCE_USED') END);
+  SELECT (CASE WHEN NEW.investment_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investments i JOIN payroll_records p ON p.id=NEW.payroll_id
     WHERE i.id=NEW.investment_id AND i.workspace_id=p.workspace_id AND i.investment_type=NEW.scheme)
-    THEN RAISE(ABORT,'PAYROLL_HOLDING_MISMATCH') END;
-  SELECT CASE WHEN NEW.activity_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investment_activity WHERE id=NEW.activity_id
+    THEN RAISE(ABORT,'PAYROLL_HOLDING_MISMATCH') END);
+  SELECT (CASE WHEN NEW.activity_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investment_activity WHERE id=NEW.activity_id
     AND investment_id=NEW.investment_id AND activity_type='contribution' AND amount_minor=NEW.amount_minor AND activity_date=NEW.credited_date)
-    THEN RAISE(ABORT,'PAYROLL_ACTIVITY_MISMATCH') END;
+    THEN RAISE(ABORT,'PAYROLL_ACTIVITY_MISMATCH') END);
 END;
 CREATE TRIGGER IF NOT EXISTS payroll_contribution_update BEFORE UPDATE ON payroll_contributions BEGIN
-  SELECT CASE WHEN NEW.scheme='eps' AND NEW.credited_date IS NOT NULL AND EXISTS(
+  SELECT (CASE WHEN NEW.scheme='eps' AND NEW.credited_date IS NOT NULL AND EXISTS(
     SELECT 1 FROM payroll_contributions c JOIN payroll_records p ON p.id=c.payroll_id
     WHERE c.id<>NEW.id AND c.scheme='eps' AND c.credited_date=NEW.credited_date AND c.statement_reference=NEW.statement_reference
     AND p.workspace_id=(SELECT workspace_id FROM payroll_records WHERE id=NEW.payroll_id))
-    THEN RAISE(ABORT,'PAYROLL_EVIDENCE_USED') END;
-  SELECT CASE WHEN NEW.payroll_id<>OLD.payroll_id OR NEW.scheme<>OLD.scheme OR NEW.contributor<>OLD.contributor
-    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END;
-  SELECT CASE WHEN NEW.investment_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investments i JOIN payroll_records p ON p.id=NEW.payroll_id
+    THEN RAISE(ABORT,'PAYROLL_EVIDENCE_USED') END);
+  SELECT (CASE WHEN NEW.payroll_id<>OLD.payroll_id OR NEW.scheme<>OLD.scheme OR NEW.contributor<>OLD.contributor
+    THEN RAISE(ABORT,'PAYROLL_MATCH_LOCKED') END);
+  SELECT (CASE WHEN NEW.investment_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investments i JOIN payroll_records p ON p.id=NEW.payroll_id
     WHERE i.id=NEW.investment_id AND i.workspace_id=p.workspace_id AND i.investment_type=NEW.scheme)
-    THEN RAISE(ABORT,'PAYROLL_HOLDING_MISMATCH') END;
-  SELECT CASE WHEN NEW.activity_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investment_activity WHERE id=NEW.activity_id
+    THEN RAISE(ABORT,'PAYROLL_HOLDING_MISMATCH') END);
+  SELECT (CASE WHEN NEW.activity_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM investment_activity WHERE id=NEW.activity_id
     AND investment_id=NEW.investment_id AND activity_type='contribution' AND amount_minor=NEW.amount_minor AND activity_date=NEW.credited_date)
-    THEN RAISE(ABORT,'PAYROLL_ACTIVITY_MISMATCH') END;
+    THEN RAISE(ABORT,'PAYROLL_ACTIVITY_MISMATCH') END);
 END;
 CREATE TRIGGER IF NOT EXISTS payroll_holding_type_guard BEFORE UPDATE OF investment_type ON investments
 WHEN EXISTS(SELECT 1 FROM payroll_contributions WHERE investment_id=OLD.id AND scheme<>NEW.investment_type) BEGIN
