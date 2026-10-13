@@ -118,7 +118,7 @@ export function TransactionTable({
                           </button>{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small>Received {formatDate(item.date)}</small>}
                         </div>
                       </td>
-                      <td>{item.category}</td>
+                      <td>{item.category}{item.categoryOrigin === 'ai' && <small className="ai-category-badge"> · AI categorised</small>}</td>
                       <td className="account-cell">{item.account}</td>
                       <td className="amount-cell">
                         <strong

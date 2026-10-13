@@ -1,3 +1,4 @@
+import { enqueueAi } from '../repositories/ai-categories'
 import { failure, success } from '../lib/http'
 import { ApiError, parseJsonObject } from '../lib/transaction-validation'
 import {
@@ -442,6 +443,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
       smsId,
     )
     .run()
+  if (transactionId && !categoryId) try { await enqueueAi(env,transactionId) } catch { /* SMS persistence is independent of AI availability. */ }
   return success(
     result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), !!existing || !!contentSms),
     { status: existing ? 200 : 201 },

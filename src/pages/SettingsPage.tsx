@@ -1,3 +1,4 @@
+import { AiCategories } from '../components/settings/AiCategories'
 import { CategoryRules } from '../components/settings/CategoryRules'
 import {
   Menu,
@@ -40,7 +41,8 @@ export function SettingsPage() {
     [busy, setBusy] = useState(false),
     [saveError, setSaveError] = useState(''),
     [notice, setNotice] = useState(''),
-    [actionError, setActionError] = useState('')
+    [actionError, setActionError] = useState(''),
+    [rulesVersion,setRulesVersion] = useState(0)
   const load = async () => {
     setLoading(true)
     setError('')
@@ -257,7 +259,8 @@ export function SettingsPage() {
             Check connection
           </button>
         </section>
-        <CategoryRules categories={categories}/>
+        <AiCategories categories={categories} onRulesChanged={()=>setRulesVersion(version=>version+1)}/>
+        <CategoryRules key={rulesVersion} categories={categories}/>
         <section className="wealth-panel settings-categories">
           <div className="wealth-section-heading">
             <h2>Categories</h2>

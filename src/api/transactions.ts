@@ -7,6 +7,7 @@ export interface TransactionDto {
   transactionType: ApiTransactionType
   description: string
   amountMinor: number
+  categoryOrigin?: 'manual' | 'rule' | 'ai' | null
   categoryId: string | null
   fromAccountId: string | null
   toAccountId: string | null

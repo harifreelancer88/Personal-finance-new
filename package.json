@@ -21,7 +21,8 @@
     "test:transaction-controls": "bash scripts/test-transaction-controls.sh",
     "test:payroll": "bash scripts/test-payroll.sh",
     "test:category-rules": "bash scripts/test-category-rules.sh",
-    "test:sankey-layout": "rm -rf .sankey-test-dist && tsc --ignoreConfig src/lib/sankey-layout.ts --module esnext --moduleResolution bundler --target es2022 --types vite/client --outDir .sankey-test-dist && node --test tests/sankey-layout.test.mjs && rm -rf .sankey-test-dist"
+    "test:sankey-layout": "rm -rf .sankey-test-dist && tsc --ignoreConfig src/lib/sankey-layout.ts --module esnext --moduleResolution bundler --target es2022 --types vite/client --outDir .sankey-test-dist && node --test tests/sankey-layout.test.mjs && rm -rf .sankey-test-dist",
+    "test:ai-categories": "bash scripts/test-ai-categories.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

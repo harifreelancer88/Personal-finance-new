@@ -7,9 +7,12 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "triggers": { "crons": ["*/5 * * * *"] },
   "observability": { "enabled": true },
   "vars": {
-    "DEFAULT_WORKSPACE_ID": "development-workspace"
+    "DEFAULT_WORKSPACE_ID": "development-workspace",
+    "AI_CATEGORIZATION_ENABLED": "true",
+    "AI_DAILY_REQUEST_LIMIT": "20"
   },
   "d1_databases": [
     {

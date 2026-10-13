@@ -1,3 +1,5 @@
+import { aiCategoriesRoute } from './ai-categories'
+import { enqueueAi, markManualCategory } from '../repositories/ai-categories'
 import { categoryRulesRoute } from './category-rules'
 import { payrollList, payrollTransactions, payrollMatch, guardPayrollTransaction } from './payroll'
 import { assignCategory,learnManualCategory } from '../repositories/category-rules'
@@ -137,10 +139,11 @@ async function transactions(
     const value = validateTransaction(input)
     if (!value.categoryId) value.categoryId = await assignCategory(env.DB, workspaceId, value.transactionType, value.description)
     await validateReferences(env.DB, workspaceId, value)
-    return success(
-      transactionToApi(await createTransaction(env.DB, workspaceId, value)),
-      { status: 201 },
-    )
+    const created = await createTransaction(env.DB, workspaceId, value)
+    if (input.categoryId) await env.DB.prepare("UPDATE transactions SET category_origin='manual' WHERE id=? AND workspace_id=?").bind(created.id,workspaceId).run()
+    else if (value.categoryId) await env.DB.prepare("UPDATE transactions SET category_origin='rule' WHERE id=? AND workspace_id=?").bind(created.id,workspaceId).run()
+    else try { await enqueueAi(env, created.id) } catch { /* Capture must succeed even if AI setup is incomplete. */ }
+    return success(transactionToApi(await getTransaction(env.DB,workspaceId,created.id) ?? created),{status:201})
   }
   if (!id) return methodNotAllowed()
   const existing = await getTransaction(env.DB, workspaceId, id)
@@ -175,8 +178,11 @@ async function transactions(
     // A human edit ends automatic reconciliation ownership of this record.
     if (value.notes === SMS_AUTO_CONFIRM_NOTE) value.notes = null
     const saved = await updateTransaction(env.DB, workspaceId, id, value)
-    if ('categoryId' in input) await learnManualCategory(env.DB,workspaceId,value.transactionType,value.description,value.categoryId)
-    return success(transactionToApi(saved))
+    if ('categoryId' in input) {
+      await markManualCategory(env,id,value.categoryId)
+      await learnManualCategory(env.DB,workspaceId,value.transactionType,value.description,value.categoryId)
+    }
+    return success(transactionToApi(await getTransaction(env.DB,workspaceId,id) ?? saved))
   }
   if (request.method === 'DELETE') {
     await guardPayrollTransaction(env, id)
@@ -240,7 +246,7 @@ async function assignCategories(request: Request, env: Env): Promise<Response> {
   // The count guard and category guard run inside the same UPDATE. If any selected ID
   // vanished or belongs to another workspace, no selected row is changed.
   const updated = await env.DB.prepare(
-    `WITH selected AS (SELECT value AS id FROM json_each(?)) UPDATE transactions SET category_id=?, notes=CASE WHEN notes=? THEN NULL ELSE notes END, updated_at=CURRENT_TIMESTAMP
+    `WITH selected AS (SELECT value AS id FROM json_each(?)) UPDATE transactions SET category_id=?, category_origin='manual',category_revision=category_revision+1, notes=CASE WHEN notes=? THEN NULL ELSE notes END, updated_at=CURRENT_TIMESTAMP
     WHERE workspace_id=? AND id IN (SELECT id FROM selected)
     AND (SELECT COUNT(*) FROM transactions WHERE workspace_id=? AND id IN (SELECT id FROM selected))=?
     AND (? IS NULL OR EXISTS(SELECT 1 FROM categories WHERE workspace_id=? AND id=? AND is_active=1))`,
@@ -263,8 +269,8 @@ async function assignCategories(request: Request, env: Env): Promise<Response> {
       'SELECTION_CHANGED',
       'Some selected transactions are no longer available. Refresh and select again. No categories were changed.',
     )
-  const selectedRows = (await env.DB.prepare('SELECT description,transaction_type FROM transactions WHERE workspace_id=? AND id IN (SELECT value FROM json_each(?))').bind(env.DEFAULT_WORKSPACE_ID,JSON.stringify(ids)).all<{description:string;transaction_type:string}>()).results
-  for (const row of selectedRows) await learnManualCategory(env.DB,env.DEFAULT_WORKSPACE_ID,row.transaction_type,row.description,categoryId as string|null)
+  const selectedRows = (await env.DB.prepare('SELECT id,description,transaction_type FROM transactions WHERE workspace_id=? AND id IN (SELECT value FROM json_each(?))').bind(env.DEFAULT_WORKSPACE_ID,JSON.stringify(ids)).all<{id:string;description:string;transaction_type:string}>()).results
+  for (const row of selectedRows) { await markManualCategory(env,row.id,categoryId as string|null); await learnManualCategory(env.DB,env.DEFAULT_WORKSPACE_ID,row.transaction_type,row.description,categoryId as string|null) }
   return success({ updatedCount: ids.length })
 }
 
@@ -322,6 +328,7 @@ export async function handleApiRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url)
   try {
+    if (pathname === '/api/ai-categories') return await aiCategoriesRoute(request,env)
     if (pathname === '/api/ingest/sms') {
       if (request.method !== 'POST') return methodNotAllowed()
       return await ingestSms(request, env)

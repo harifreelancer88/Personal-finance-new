@@ -106,6 +106,7 @@ function toView(
     fromAccountId: dto.fromAccountId,
     toAccountId: dto.toAccountId,
     categoryId: dto.categoryId,
+    categoryOrigin: dto.categoryOrigin,
     originalTransactionId: dto.originalTransactionId,
   }
 }

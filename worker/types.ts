@@ -2,6 +2,9 @@ export interface Env {
   ASSETS: Fetcher
   DB: D1Database
   DEFAULT_WORKSPACE_ID: string
+  OPENAI_API_KEY?: string
+  AI_CATEGORIZATION_ENABLED?: string
+  AI_DAILY_REQUEST_LIMIT?: string
   SMS_INGEST_TOKEN?: string
 }
 
@@ -48,6 +51,7 @@ export interface TransactionRow {
   description: string
   amount_minor: number
   category_id: string | null
+  category_origin?: 'manual' | 'rule' | 'ai' | null
   from_account_id: string | null
   to_account_id: string | null
   transaction_date: string
