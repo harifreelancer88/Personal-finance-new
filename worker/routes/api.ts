@@ -395,7 +395,7 @@ export async function handleApiRequest(
       )
     }
     const reportMatch = pathname.match(
-      /^\/api\/reports\/(summary|cash-flow|category-breakdown|account-breakdown|income-breakdown|top-expenses|insights)$/,
+      /^\/api\/reports\/(summary|cash-flow|category-breakdown|account-breakdown|income-breakdown|top-expenses|insights|sankey)$/,
     )
     if (reportMatch) {
       if (request.method !== 'GET') return methodNotAllowed()
