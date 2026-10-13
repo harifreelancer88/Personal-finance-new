@@ -120,6 +120,7 @@ export async function getTransactionPage(
     .prepare(
       `SELECT COUNT(*) AS total,
     COALESCE(SUM(CASE WHEN t.status='confirmed' AND t.transaction_type='income' THEN t.amount_minor ELSE 0 END),0) AS incomeMinor,
+    COALESCE(SUM(CASE WHEN t.status='confirmed' AND t.transaction_type='investment' THEN t.amount_minor ELSE 0 END),0) AS investedMinor,
     MAX(0,COALESCE(SUM(CASE WHEN t.status<>'confirmed' THEN 0
       WHEN t.transaction_type='expense' THEN t.amount_minor
       WHEN t.transaction_type='refund' AND (original.transaction_type='expense' OR c.kind IN ('expense','both')) THEN -t.amount_minor
@@ -135,6 +136,7 @@ export async function getTransactionPage(
   const aggregate = counts.results[0] as {
     total: number
     incomeMinor: number
+    investedMinor: number
     expenseMinor: number
     confirmedCount: number
   }
@@ -143,6 +145,7 @@ export async function getTransactionPage(
     total: aggregate.total,
     summary: {
       incomeMinor: aggregate.incomeMinor,
+      investedMinor: aggregate.investedMinor,
       expenseMinor: aggregate.expenseMinor,
       netCashFlowMinor: aggregate.incomeMinor - aggregate.expenseMinor,
       confirmedCount: aggregate.confirmedCount,

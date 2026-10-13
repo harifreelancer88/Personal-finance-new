@@ -507,7 +507,7 @@ export function TransactionsPage() {
         {summary && !loading && (
           <section
             className="transaction-summary"
-            aria-label="Confirmed totals for the selected month, excluding transfers and investments"
+            aria-label="Confirmed income, spending and investment totals for the selected month, excluding transfers"
           >
             <article>
               <p>Money Out</p>
@@ -531,6 +531,22 @@ export function TransactionsPage() {
                 {summary.netCashFlowMinor < 0 ? '−' : ''}
                 {formatMinorCurrency(summary.netCashFlowMinor)}
               </strong>
+            </article>
+            <article className="invested-summary">
+              <p>Invested</p>
+              <div className="invested-total">
+                <strong>{formatMinorCurrency(summary.investedMinor)}</strong>
+                <span
+                  className="invested-percentage"
+                  aria-label={summary.incomeMinor > 0
+                    ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}% of Money In`
+                    : 'Percentage unavailable because Money In is zero'}
+                >
+                  ({summary.incomeMinor > 0
+                    ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}%`
+                    : '—'})
+                </span>
+              </div>
             </article>
           </section>
         )}

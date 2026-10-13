@@ -226,3 +226,10 @@ html:has(.monarch-transactions),body:has(.monarch-transactions){background:#f7f6
   .monarch-transactions .filter-selects{grid-template-columns:minmax(0,1fr)}
   .monarch-transactions .transaction-card{padding-inline:12px;gap:8px}
 }
+
+/* Investment contributions occupy their own row below the monthly cash totals. */
+.monarch-transactions .transaction-summary .invested-summary{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);margin-top:16px;padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.monarch-transactions .invested-summary p{margin:0}
+.monarch-transactions .invested-total{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0;max-width:100%}
+.monarch-transactions .invested-total strong{color:#724bc8;font-size:clamp(16px,5cqi,22px)}
+.monarch-transactions .invested-percentage{font-size:14px;color:var(--muted);white-space:nowrap}
