@@ -8,7 +8,7 @@ function setup() {
   const db = new DatabaseSync(':memory:')
   for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
   db.exec(readFileSync(new URL('../bootstrap.sql',import.meta.url),'utf8'))
-  for (const file of ['0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
+  for (const file of ['0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
   db.exec(`INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES
     ('source','development-workspace','Source','ICICI','bank','981'),
     ('destination','development-workspace','Destination','ICICI','bank','973'),
@@ -53,6 +53,13 @@ test('human-reviewed income is not automatically rewritten by a later transfer a
   const next=await send(primary,'debit');assert.equal(next.parseStatus,'pairing_conflict')
   assert.equal(db.prepare('SELECT transaction_type FROM transactions').get().transaction_type,'income')
   assert.equal(db.prepare('SELECT count(*) AS n FROM transactions').get().n,1)
+})
+test('linking a payslip protects automatic income from later transfer reconciliation',async()=>{
+  const {db,send}=setup();const first=await send(secondary,'credit')
+  db.prepare("INSERT INTO payroll_records(id,workspace_id,transaction_id,payroll_month,employer,gross_minor,net_minor) VALUES ('payroll','development-workspace',?,'2026-10','Synthetic',110,110)").run(first.transactionId)
+  const next=await send(primary,'debit');assert.equal(next.parseStatus,'pairing_conflict')
+  assert.equal(db.prepare('SELECT transaction_type FROM transactions').get().transaction_type,'income')
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n,1)
 })
 test('ambiguous account and incomplete card repayment remain pending',async()=>{
   const {db,send}=setup();db.exec("INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES('duplicate','development-workspace','Duplicate','ICICI','bank','981')")

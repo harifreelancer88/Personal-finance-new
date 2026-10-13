@@ -1,4 +1,4 @@
-import { BarChart3, CreditCard, FileChartColumn, LayoutDashboard, Settings, TrendingUp, X } from 'lucide-react'
+import { BarChart3, CreditCard, FileChartColumn, LayoutDashboard, Settings, TrendingUp, FileText, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Logo } from '../ui/Logo'
@@ -9,13 +9,14 @@ const items = [
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
   { label: 'Reports', icon: FileChartColumn, to: '/reports' },
+  { label: 'Salary', icon: FileText, to: '/salary' },
   { label: 'Settings', icon: Settings, to: '/settings' },
 ]
 
 interface SidebarProps { open: boolean; onClose: () => void; light?: boolean }
 
 export function Sidebar({ open, onClose, light = false }: SidebarProps) {
-  const orderedItems = light ? ['Dashboard','Accounts','Transactions','Reports','Investments','Settings'].map(label => items.find(item => item.label === label)!) : items
+  const orderedItems = light ? ['Dashboard','Accounts','Transactions','Reports','Investments','Salary','Settings'].map(label => items.find(item => item.label === label)!) : items
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return

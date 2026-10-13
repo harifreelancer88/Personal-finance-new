@@ -8,5 +8,6 @@ import './accounts-light.css'
 import './dashboard-light.css'
 import './reports-light.css'
 import './wealth-light.css'
+import './payroll-light.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App/></BrowserRouter></StrictMode>)

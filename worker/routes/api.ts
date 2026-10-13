@@ -1,4 +1,5 @@
 import { categoryRulesRoute } from './category-rules'
+import { payrollList, payrollTransactions, payrollMatch, guardPayrollTransaction } from './payroll'
 import { assignCategory,learnManualCategory } from '../repositories/category-rules'
 import { failure, methodNotAllowed, notFound, success } from '../lib/http'
 import { accountToApi, transactionToApi } from '../lib/api-mappers'
@@ -169,6 +170,7 @@ async function transactions(
   if (request.method === 'PATCH') {
     const input = await body(request)
     const value = validateTransaction(input, existing)
+    await guardPayrollTransaction(env, id, value.transactionType, value.amountMinor)
     await validateReferences(env.DB, workspaceId, value, id)
     // A human edit ends automatic reconciliation ownership of this record.
     if (value.notes === SMS_AUTO_CONFIRM_NOTE) value.notes = null
@@ -177,6 +179,7 @@ async function transactions(
     return success(transactionToApi(saved))
   }
   if (request.method === 'DELETE') {
+    await guardPayrollTransaction(env, id)
     if (
       await env.DB.prepare(
         'SELECT id FROM transactions WHERE workspace_id=? AND original_transaction_id=? LIMIT 1',
@@ -424,6 +427,14 @@ export async function handleApiRequest(
     }
     if (pathname === '/api/transactions/categories')
       return await assignCategories(request, env)
+    if (pathname === '/api/payroll') {
+      if (request.method !== 'GET') return methodNotAllowed()
+      return success(await payrollList(env))
+    }
+    const payrollTransaction = pathname.match(/^\/api\/payroll\/transactions\/([^/]+)(\/employer)?$/)
+    if (payrollTransaction) return await payrollTransactions(request, env, decodeURIComponent(payrollTransaction[1]), Boolean(payrollTransaction[2]))
+    const payrollContribution = pathname.match(/^\/api\/payroll\/contributions\/([^/]+)$/)
+    if (payrollContribution) return await payrollMatch(request, env, decodeURIComponent(payrollContribution[1]))
     const match = pathname.match(/^\/api\/transactions(?:\/([^/]+))?$/)
     if (match)
       return await transactions(
@@ -465,6 +476,9 @@ export async function handleApiRequest(
   } catch (error) {
     if (error instanceof ApiError)
       return failure(error.code, error.message, error.status)
+    const detail = error instanceof Error ? error.message : ''
+    if (/PAYROLL_|UNIQUE constraint failed: payroll_/.test(detail))
+      return failure('PAYROLL_CONFLICT', 'The salary record or statement match changed or is already in use. Reload and check the linked records.', 409)
     console.error('API request failed', { pathname, error })
     return failure(
       'DATABASE_ERROR',

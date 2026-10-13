@@ -12,5 +12,5 @@
     "noUnusedParameters": true,
     "skipLibCheck": true
   },
-  "include": ["worker"]
+  "include": ["worker", "shared"]
 }

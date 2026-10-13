@@ -263,6 +263,8 @@ export async function investmentsRoute(
     )
   }
   if (id && request.method === 'DELETE') {
+    if (await db.prepare('SELECT id FROM payroll_contributions WHERE investment_id=? LIMIT 1').bind(id).first())
+      throw new ApiError(409, 'INVESTMENT_IN_USE', 'This holding is matched to payroll history. Reset its retirement matches before deleting it.')
     if (
       await db
         .prepare(
