@@ -11,6 +11,7 @@ export interface TransactionDto {
   fromAccountId: string | null
   toAccountId: string | null
   transactionDate: string
+  accountingDate?: string | null
   notes: string | null
   source: 'sms' | 'manual' | string
   originalTransactionId: string | null
@@ -67,6 +68,7 @@ export interface TransactionInput {
   fromAccountId: string | null
   toAccountId: string | null
   transactionDate: string
+  accountingDate?: string | null
   notes: string | null
 }
 export const getTransactions = (filters?: {

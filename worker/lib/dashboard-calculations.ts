@@ -1,4 +1,4 @@
-import { isExpenseRefund } from './financial-semantics.js'
+import { isExpenseRefund, effectiveTransactionDate } from './financial-semantics.js'
 
 export interface DashboardAccount {
   account_type: 'bank' | 'credit_card' | 'cash' | 'wallet'
@@ -9,6 +9,7 @@ export interface DashboardTransaction {
   transaction_type: 'expense' | 'income' | 'transfer' | 'investment' | 'refund'
   amount_minor: number
   transaction_date: string
+  accounting_date?: string | null
   status: 'pending' | 'confirmed' | 'ignored'
   original_transaction_type?: string | null
   category_kind?: string | null
@@ -22,7 +23,7 @@ function monthlyTotals(transactions: DashboardTransaction[], month: string) {
   let incomeMinor = 0
   let expenseMinor = 0
   for (const transaction of transactions) {
-    if (transaction.status !== 'confirmed' || transaction.transaction_date.slice(0, 7) !== month) continue
+    if (transaction.status !== 'confirmed' || effectiveTransactionDate(transaction).slice(0, 7) !== month) continue
     if (transaction.transaction_type === 'income') incomeMinor += transaction.amount_minor
     if (transaction.transaction_type === 'expense') expenseMinor += transaction.amount_minor
     if (isExpenseRefund(transaction)) expenseMinor -= transaction.amount_minor

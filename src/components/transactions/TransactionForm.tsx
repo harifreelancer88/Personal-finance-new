@@ -14,6 +14,7 @@ interface Props { initial?: Transaction; accounts: AccountDto[]; categories: Cat
 export function TransactionForm({ initial, accounts, categories, saving, requestError, onClose, onSave }: Props) {
   const [type, setType] = useState<TransactionType>(initial?.type ?? 'Expense')
   const [date, setDate] = useState(initial?.date.slice(0, 10) ?? today())
+  const [accountingDate, setAccountingDate] = useState(initial?.accountingDate ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [amount, setAmount] = useState(initial ? (Math.abs(initial.amountMinor ?? initial.amount * 100) / 100).toFixed(2) : '')
   const [accountId, setAccountId] = useState(initial?.fromAccountId ?? initial?.toAccountId ?? accounts[0]?.id ?? '')
@@ -38,14 +39,15 @@ export function TransactionForm({ initial, accounts, categories, saving, request
     setErrors(next)
     if (Object.keys(next).length) return
     const key = typeKey(type)
-    await onSave({ transactionType: key, description: description.trim(), amountMinor, categoryId: key === 'transfer' ? null : categoryId || null, fromAccountId: key === 'expense' || key === 'investment' ? accountId : key === 'transfer' ? fromAccountId : null, toAccountId: key === 'income' || key === 'refund' ? accountId : key === 'transfer' ? toAccountId : null, transactionDate: date, notes: notes.trim() || null })
+    await onSave({ transactionType: key, description: description.trim(), amountMinor, categoryId: key === 'transfer' ? null : categoryId || null, fromAccountId: key === 'expense' || key === 'investment' ? accountId : key === 'transfer' ? fromAccountId : null, toAccountId: key === 'income' || key === 'refund' ? accountId : key === 'transfer' ? toAccountId : null, transactionDate: date, accountingDate: type === 'Income' ? accountingDate || null : null, notes: notes.trim() || null })
   }
 
   const accountSelect = (label: string, value: string, set: (value: string) => void) => <label><span>{label}</span><select value={value} onChange={event => set(event.target.value)} disabled={!activeAccounts.length}>{!activeAccounts.length && <option value="">No accounts available</option>}{activeAccounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
   const accountLabel = type === 'Income' || type === 'Refund' ? 'Destination account' : type === 'Investment' ? 'From account' : 'Account'
   return <Modal title={initial ? 'Edit transaction' : 'Add transaction'} description={initial ? 'Update this transaction’s details.' : 'Record a new item in your activity.'} onClose={onClose}><form className="transaction-form" onSubmit={submit} noValidate><div className="form-grid">
-    <label><span>Transaction type</span><select value={type} onChange={event => setType(event.target.value as TransactionType)}>{types.map(item => <option key={item}>{item}</option>)}</select></label>
-    <label><span>Date</span><input type="date" value={date} onChange={event => setDate(event.target.value)}/>{errors.date && <small className="field-error">{errors.date}</small>}</label>
+    <label><span>Transaction type</span><select value={type} onChange={event => setType(event.target.value as TransactionType)}>{types.map(item => <option key={item} value={item}>{item === 'Income' ? 'Money In' : item === 'Expense' ? 'Money Out' : item}</option>)}</select></label>
+    <label><span>Transaction date</span><input type="date" value={date} onChange={event => setDate(event.target.value)}/>{errors.date && <small className="field-error">{errors.date}</small>}</label>
+    {type === 'Income' && <label className="full"><span>Accounting date <em>Optional</em></span><input type="date" value={accountingDate || date} onChange={event => setAccountingDate(event.target.value)} /><small>Counts Money In in this month's totals. The transaction date records when the money arrived.</small>{accountingDate && accountingDate !== date && <button type="button" className="secondary-button" onClick={() => setAccountingDate('')}>Use transaction date</button>}</label>}
     <label className="full"><span>Description</span><input value={description} onChange={event => setDescription(event.target.value)} placeholder="e.g. Weekly groceries"/>{errors.description && <small className="field-error">{errors.description}</small>}</label>
     <label><span>Amount (₹)</span><input type="number" min="0.01" step="0.01" inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0.00"/>{errors.amount && <small className="field-error">{errors.amount}</small>}</label>
     {type === 'Transfer' ? <>{accountSelect('From account', fromAccountId, setFrom)}{accountSelect('To account', toAccountId, setTo)}</> : <>{accountSelect(accountLabel, accountId, setAccountId)}<label><span>Category</span><select value={categoryId} onChange={event => setCategoryId(event.target.value)}><option value="">Uncategorised</option>{categories.filter(item => item.isActive).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></>}

@@ -1,7 +1,8 @@
 import type { TransactionRow } from '../types'
+import { accountingDateSql } from '../lib/financial-semantics.js'
 
 const columns = `id, workspace_id, transaction_type, description, amount_minor,
-  category_id, from_account_id, to_account_id, transaction_date, notes,
+  category_id, from_account_id, to_account_id, transaction_date, accounting_date, notes,
   source, external_id, original_transaction_id, status, created_at, updated_at`
 
 export interface TransactionFilters {
@@ -25,6 +26,7 @@ export interface TransactionWrite {
   fromAccountId: string | null
   toAccountId: string | null
   transactionDate: string
+  accountingDate: string | null
   notes: string | null
   originalTransactionId: string | null
   status: TransactionRow['status']
@@ -71,11 +73,11 @@ function listConditions(workspaceId: string, filters: TransactionFilters) {
     values.push(filters.source)
   }
   if (filters.fromDate) {
-    where.push('t.transaction_date >= ?')
+    where.push(`${accountingDateSql} >= ?`)
     values.push(filters.fromDate)
   }
   if (filters.toDate) {
-    where.push('t.transaction_date <= ?')
+    where.push(`${accountingDateSql} <= ?`)
     values.push(filters.toDate)
   }
   return { clause: where.join(' AND '), values }
@@ -89,7 +91,7 @@ function listStatement(
   const { clause, values } = listConditions(workspaceId, filters)
   return db
     .prepare(
-      `SELECT ${listColumns} ${joins} WHERE ${clause} ORDER BY t.transaction_date DESC, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`,
+      `SELECT ${listColumns} ${joins} WHERE ${clause} ORDER BY ${accountingDateSql} DESC, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`,
     )
     .bind(...values, filters.limit, filters.offset)
 }
@@ -169,7 +171,7 @@ export async function createTransaction(
   const id = crypto.randomUUID()
   await db
     .prepare(
-      `INSERT INTO transactions (id, workspace_id, transaction_type, description, amount_minor, category_id, from_account_id, to_account_id, transaction_date, notes, source, original_transaction_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
+      `INSERT INTO transactions (id, workspace_id, transaction_type, description, amount_minor, category_id, from_account_id, to_account_id, transaction_date, accounting_date, notes, source, original_transaction_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
     )
     .bind(
       id,
@@ -181,6 +183,7 @@ export async function createTransaction(
       value.fromAccountId,
       value.toAccountId,
       value.transactionDate,
+      value.accountingDate,
       value.notes,
       value.originalTransactionId,
       value.status,
@@ -197,7 +200,7 @@ export async function updateTransaction(
 ): Promise<TransactionRow> {
   await db
     .prepare(
-      `UPDATE transactions SET transaction_type = ?, description = ?, amount_minor = ?, category_id = ?, from_account_id = ?, to_account_id = ?, transaction_date = ?, notes = ?, original_transaction_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND id = ?`,
+      `UPDATE transactions SET transaction_type = ?, description = ?, amount_minor = ?, category_id = ?, from_account_id = ?, to_account_id = ?, transaction_date = ?, accounting_date = ?, notes = ?, original_transaction_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND id = ?`,
     )
     .bind(
       value.transactionType,
@@ -207,6 +210,7 @@ export async function updateTransaction(
       value.fromAccountId,
       value.toAccountId,
       value.transactionDate,
+      value.accountingDate,
       value.notes,
       value.originalTransactionId,
       value.status,
