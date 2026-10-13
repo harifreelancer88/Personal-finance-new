@@ -87,3 +87,50 @@
 .monarch-reports .insights li{display:list-item;margin:3px 0}
 .monarch-reports .insights li::before{display:none}
 .monarch-reports .cash-flow-hit-area{fill:transparent}
+
+/* Cash flow allocation: proportional ribbons, direct labels and touch inspection. */
+.monarch-reports .sankey-panel{margin-bottom:20px;padding:24px;overflow:hidden}
+.monarch-reports .sankey-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.monarch-reports .sankey-eyebrow{color:#aa481c;font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;margin:0 0 6px}
+.monarch-reports .sankey-header h2{font-size:20px;font-weight:600;letter-spacing:-.3px;margin:0;color:#262626}
+.monarch-reports .sankey-subtitle{font-size:12px;color:#717580;margin:6px 0 0}
+.monarch-reports .sankey-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.monarch-reports .sankey-controls button,.monarch-reports .sankey-controls select{height:40px;border:1px solid var(--line);background:white;border-radius:7px;color:#555967;font-size:12px;padding:0 10px}
+.monarch-reports .sankey-view-toggle{display:flex;gap:4px}
+.monarch-reports .sankey-view-toggle button{display:flex;align-items:center;gap:6px}
+.monarch-reports .sankey-view-toggle button[aria-pressed=true]{background:#fff0e8;border-color:#efb49a;color:#a83e16}
+.monarch-reports .sankey-controls .sankey-export{width:40px;padding:0;display:grid;place-items:center}
+.monarch-reports .sankey-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:20px 0;margin:20px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.monarch-reports .sankey-metrics span{display:block;font-size:12px;color:#717580;margin-bottom:5px}
+.monarch-reports .sankey-metrics strong{display:block;font-size:20px;line-height:1.4;font-weight:600;overflow-wrap:anywhere}
+.monarch-reports .sankey-metrics>div:first-child strong{color:#087f9c}
+.monarch-reports .sankey-metrics>div:nth-child(2) strong{color:#7656b5}
+.monarch-reports .sankey-metrics small{font-size:12px;font-weight:500}
+.monarch-reports .sankey-stage{min-width:0}
+.monarch-reports .sankey-stage svg{display:block;font-family:inherit;max-width:100%}
+.monarch-reports .sankey-instruction{font-size:12px;color:#717580;margin:18px 0 8px}
+.monarch-reports .sankey-node{cursor:pointer;outline:none}
+.monarch-reports .sankey-node:focus-visible rect:nth-of-type(2){stroke:#262626;stroke-width:3}
+.monarch-reports .sankey-stage path{cursor:pointer;transition:fill-opacity .15s ease}
+.monarch-reports .sankey-detail{border:1px solid #e5e2ed;background:#faf9fc;border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:74px}
+.monarch-reports .sankey-detail p{font-size:13px;color:#717580;margin:0}
+.monarch-reports .sankey-detail-label{display:block;font-size:12px;color:#606371;margin-bottom:4px}
+.monarch-reports .sankey-detail strong{font-size:16px;color:#262626;overflow-wrap:anywhere}
+.monarch-reports .sankey-detail small{font-size:12px;font-weight:400;color:#717580}
+.monarch-reports .sankey-detail button{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line);background:white;border-radius:6px;flex-shrink:0;color:#62646d}
+.monarch-reports .sankey-detail ul{flex-basis:100%;list-style:none;padding:0;margin:0;border-top:1px solid var(--line);max-height:240px;overflow:auto}
+.monarch-reports .sankey-detail li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:12px;color:#62646d}
+.monarch-reports .sankey-detail li strong{font-size:12px;white-space:nowrap}
+.monarch-reports .sankey-note{font-size:12px;color:#717580;line-height:1.7;margin:14px 0 0}
+.monarch-reports .sankey-totals{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:20px 0}
+.monarch-reports .sankey-totals h3{font-size:13px;color:#606371}
+.monarch-reports .sankey-totals button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;text-align:left;background:white;border:0;border-top:1px solid var(--line);padding:12px 0;color:#262626}
+.monarch-reports .sankey-totals button[aria-pressed=true]{background:#fff4ed}
+.monarch-reports .sankey-totals button>span{display:flex;gap:8px;align-items:center;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.monarch-reports .sankey-totals i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.monarch-reports .sankey-totals strong{text-align:right;font-size:13px;flex-shrink:0}
+.monarch-reports .sankey-totals small{display:block;font-size:11px;color:#717580;font-weight:400;margin-top:3px}
+.monarch-reports .sankey-empty{padding:48px 20px;text-align:center;color:#717580}
+.monarch-reports .sankey-empty h3{color:#262626;font-size:17px}
+@media(max-width:800px){.monarch-reports .sankey-panel{padding:16px}.monarch-reports .sankey-header h2{font-size:17px}.monarch-reports .sankey-controls{gap:6px}.monarch-reports .sankey-controls select{font-size:16px;max-width:100%}.monarch-reports .sankey-metrics{gap:12px;grid-template-columns:1fr 1fr;padding:16px 0;margin-top:16px}.monarch-reports .sankey-metrics>div:last-child{grid-column:1/-1}.monarch-reports .sankey-metrics strong{font-size:18px}.monarch-reports .sankey-totals{grid-template-columns:minmax(0,1fr);gap:12px}.monarch-reports .sankey-detail{padding:12px}.monarch-reports .sankey-controls button{min-height:44px}.monarch-reports .sankey-note{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.monarch-reports .sankey-stage path{transition:none}}

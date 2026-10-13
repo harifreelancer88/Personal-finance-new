@@ -1,5 +1,5 @@
 import { effectiveTransactionDate } from '../lib/financial-semantics'
-import { accountBreakdown, categoryBreakdown, incomeBreakdown, reportCashFlow, reportInsights, reportTotals, resolveReportPeriod, topExpenses, type ReportPeriod, type ReportTransaction } from '../lib/report-calculations'
+import { accountBreakdown, categoryBreakdown, incomeBreakdown, reportCashFlow, reportInsights, reportTotals, reportSankey, resolveReportPeriod, topExpenses, type ReportPeriod, type ReportTransaction } from '../lib/report-calculations'
 
 async function data(db: D1Database, workspaceId: string) {
   const rows = await db.prepare(`SELECT t.id, t.transaction_type, t.description, t.amount_minor, t.transaction_date, t.accounting_date, t.status,
@@ -22,6 +22,7 @@ export async function getReport(db: D1Database, workspaceId: string, period: Rep
   const transactions = await data(db, workspaceId)
   const earliest = transactions.filter(t => t.status === 'confirmed').map(effectiveTransactionDate).sort()[0]
   const range = resolveReportPeriod(period, now, earliest)
+  if (kind === 'sankey') return reportSankey(transactions, range.start, range.end)
   if (kind === 'summary') return { ...reportTotals(transactions, range.start, range.end), periodStart: range.start, periodEnd: range.end }
   if (kind === 'cash-flow') return reportCashFlow(transactions, range.start, range.end)
   if (kind === 'category-breakdown') return categoryBreakdown(transactions, range.start, range.end)

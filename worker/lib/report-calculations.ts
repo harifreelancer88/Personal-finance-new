@@ -130,3 +130,41 @@ export function reportInsights(transactions: ReportTransaction[], range: DateRan
   if (totals.savingsRatePercent !== null) insights.push({ type: 'savings_rate', message: `You saved ${totals.savingsRatePercent.toFixed(1)}% of your income during this period.`, value: totals.savingsRatePercent })
   return insights
 }
+
+
+/** A balanced allocation diagram, not a claim about which bank funded each purchase. */
+export function reportSankey(transactions: ReportTransaction[], start: string, end: string) {
+  type FlowItem = { id: string; label: string; amountMinor: number; kind: 'income' | 'expense' | 'investment' | 'remaining' | 'shortfall' | 'refund' }
+  const sources: FlowItem[] = incomeBreakdown(transactions, start, end).map(row => ({
+    id: `income:${row.categoryId ?? 'uncategorized'}`, label: row.categoryName,
+    amountMinor: row.amountMinor, kind: 'income',
+  }))
+  const expenses = new Map<string, { id: string | null; name: string; amountMinor: number }>()
+  const investments = new Map<string, { id: string | null; name: string; amountMinor: number }>()
+  for (const t of transactions) {
+    if (!inRange(t, start, end)) continue
+    if (t.transaction_type === 'expense') add(expenses, t.category_id, t.category_name, t.amount_minor)
+    else if (isQualifiedRefund(t)) add(expenses, t.original_category_id ?? t.category_id, t.original_category_name ?? t.category_name, -t.amount_minor)
+    else if (t.transaction_type === 'investment') {
+      const label = t.category_name ?? t.description.replace(/^.*salary\s*-\s*/i, '')
+      add(investments, t.category_id ?? `description:${label}`, label, t.amount_minor)
+    }
+  }
+  const destinations: FlowItem[] = finishBreakdown(expenses).map(row => ({
+    id: `expense:${row.id ?? 'uncategorized'}`, label: row.name, amountMinor: row.amountMinor, kind: 'expense',
+  }))
+  destinations.push(...finishBreakdown(investments).map(row => ({
+    id: `investment:${row.id}`, label: row.name, amountMinor: row.amountMinor, kind: 'investment' as const,
+  })))
+  const refundExcessMinor = [...expenses.values()].reduce((sum, row) => sum + Math.max(0, -row.amountMinor), 0)
+  if (refundExcessMinor) sources.push({ id: 'refund-excess', label: 'Refunds above period spending', amountMinor: refundExcessMinor, kind: 'refund' })
+  const incomeMinor = sources.filter(row => row.kind === 'income').reduce((sum, row) => sum + row.amountMinor, 0)
+  const investedMinor = destinations.filter(row => row.kind === 'investment').reduce((sum, row) => sum + row.amountMinor, 0)
+  const available = incomeMinor + refundExcessMinor
+  const allocated = destinations.reduce((sum, row) => sum + row.amountMinor, 0)
+  const remainingMinor = Math.max(0, available - allocated)
+  const shortfallMinor = Math.max(0, allocated - available)
+  if (remainingMinor) destinations.push({ id: 'remaining', label: 'Unallocated income', amountMinor: remainingMinor, kind: 'remaining' })
+  if (shortfallMinor) sources.push({ id: 'shortfall', label: 'Funding shortfall', amountMinor: shortfallMinor, kind: 'shortfall' })
+  return { sources, destinations, totalMinor: Math.max(available, allocated), incomeMinor, investedMinor, remainingMinor, shortfallMinor, refundExcessMinor, periodStart: start, periodEnd: end }
+}

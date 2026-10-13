@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { accountBreakdown, categoryBreakdown, incomeBreakdown, reportCashFlow, reportInsights, reportTotals, resolveReportPeriod, topExpenses } from '../.reports-test-dist/report-calculations.js'
+import { accountBreakdown, categoryBreakdown, incomeBreakdown, reportCashFlow, reportInsights, reportTotals, reportSankey, resolveReportPeriod, topExpenses } from '../.reports-test-dist/report-calculations.js'
 
 const tx=(overrides={})=>({id:crypto.randomUUID(),transaction_type:'expense',description:'Expense',amount_minor:10000,transaction_date:'2026-09-10',status:'confirmed',category_id:'food',category_name:'Food',category_kind:'expense',from_account_id:'bank',from_account_name:'Bank',to_account_id:null,original_transaction_type:null,original_category_id:null,original_category_name:null,original_from_account_id:null,original_from_account_name:null,...overrides})
 
@@ -21,4 +21,28 @@ test('accounting date moves income between report months and income breakdown wi
  assert.equal(incomeBreakdown([salary],'2026-09-01','2026-09-30').length,0)
  assert.equal(incomeBreakdown([salary],'2026-10-01','2026-10-31')[0].amountMinor,10000)
  assert.deepEqual(reportCashFlow([salary],'2026-09-01','2026-10-31').map(p=>p.incomeMinor),[0,10000])
+})
+
+
+const balanced = data => {
+  assert.equal(data.sources.reduce((sum,row)=>sum+row.amountMinor,0),data.totalMinor)
+  assert.equal(data.destinations.reduce((sum,row)=>sum+row.amountMinor,0),data.totalMinor)
+  assert.ok([...data.sources,...data.destinations].every(row=>row.amountMinor>0))
+}
+test('Sankey allocates income to net spending, investments and remaining income exactly once',()=>{
+  const data=reportSankey([tx({transaction_type:'income',category_name:'Salary',amount_minor:100000}),tx({amount_minor:30000}),tx({transaction_type:'refund',amount_minor:5000,original_transaction_type:'expense',original_category_id:'food',original_category_name:'Food'}),tx({transaction_type:'investment',category_id:null,category_name:null,description:'September salary - EPF contribution',amount_minor:20000}),tx({transaction_type:'transfer',amount_minor:900000}),tx({status:'pending',amount_minor:900000}),tx({status:'ignored',amount_minor:900000}),tx({transaction_date:'2026-08-10',amount_minor:900000})],'2026-09-01','2026-09-30')
+  balanced(data);assert.equal(data.totalMinor,100000);assert.equal(data.investedMinor,20000);assert.equal(data.remainingMinor,55000);assert.equal(data.destinations.find(row=>row.kind==='expense').amountMinor,25000);assert.equal(data.destinations.find(row=>row.kind==='investment').label,'EPF contribution')
+})
+test('Sankey handles deficit and zero income without negative ribbons or fabricated income',()=>{
+  const data=reportSankey([tx({amount_minor:30000}),tx({transaction_type:'investment',amount_minor:20000})],'2026-09-01','2026-09-30')
+  balanced(data);assert.equal(data.incomeMinor,0);assert.equal(data.shortfallMinor,50000);assert.equal(data.remainingMinor,0)
+})
+test('Sankey preserves refund excess as incoming funding rather than distorting category values',()=>{
+  const data=reportSankey([tx({amount_minor:10000}),tx({transaction_type:'refund',amount_minor:20000,original_transaction_type:'expense',original_category_id:'food',original_category_name:'Food'}),tx({category_id:'travel',category_name:'Travel',amount_minor:5000})],'2026-09-01','2026-09-30')
+  balanced(data);assert.equal(data.refundExcessMinor,10000);assert.equal(data.remainingMinor,5000);assert.equal(data.shortfallMinor,0)
+})
+test('Sankey uses accounting dates for salary and handles empty periods',()=>{
+  const salary=tx({transaction_type:'income',transaction_date:'2026-09-29',accounting_date:'2026-10-01',amount_minor:100000})
+  const empty=reportSankey([salary],'2026-09-01','2026-09-30');balanced(empty);assert.equal(empty.totalMinor,0)
+  const october=reportSankey([salary],'2026-10-01','2026-10-31');balanced(october);assert.equal(october.remainingMinor,100000)
 })
