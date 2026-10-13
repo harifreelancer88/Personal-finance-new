@@ -33,7 +33,7 @@ test('pagination and full-result totals agree with Dashboard past 100 records',a
   try {
     const first=await getTransactionPage(db,'development-workspace',defaults)
     assert.equal(first.total,138); assert.equal(first.items.length,25)
-    assert.deepEqual(first.summary,{incomeMinor:100000,expenseMinor:12780,netCashFlowMinor:87220,confirmedCount:136})
+    assert.deepEqual(first.summary,{incomeMinor:100000,investedMinor:30000,expenseMinor:12780,netCashFlowMinor:87220,confirmedCount:136})
     const end=await getTransactionPage(db,'development-workspace',{...defaults,offset:125})
     assert.equal(end.items.length,13);assert.deepEqual(end.summary,first.summary)
     const pages=[];for(let offset=0;offset<first.total;offset+=25)pages.push(...(await getTransactionPage(db,'development-workspace',{...defaults,offset})).items)
@@ -82,4 +82,28 @@ test('September salary recognised in October is filtered, ordered and totalled o
   sql.prepare("UPDATE transactions SET accounting_date=NULL WHERE id='salary'").run()
   assert.equal((await getTransactionPage(db,'development-workspace',{...defaults,fromDate:'2026-10-01',toDate:'2026-10-31'})).total,0)
  }finally{sql.close()}
+})
+
+
+test('monthly invested total excludes pending, ignored, other months and other workspaces',async()=>{
+  const {sql,db}=fixture()
+  try {
+    const insert=sql.prepare(`INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,from_account_id,transaction_date,status,source) VALUES (?,?,'investment',?,?,? ,?,?,'manual')`)
+    for(const [id,workspace,amount,account,date,status] of [
+      ['epf','development-workspace',1011300,'bank','2026-10-01','confirmed'],
+      ['nps','development-workspace',1179900,'bank','2026-10-01','confirmed'],
+      ['pending-investment','development-workspace',50000,'bank','2026-10-02','pending'],
+      ['ignored-investment','development-workspace',50000,'bank','2026-10-02','ignored'],
+      ['other-investment','other',999999,'other-bank','2026-10-01','confirmed']
+    ]) insert.run(id,workspace,id,amount,account,date,status)
+    const bounds={fromDate:'2026-10-01',toDate:'2026-10-31'}
+    const first=await getTransactionPage(db,'development-workspace',{...defaults,...bounds,limit:1})
+    const next=await getTransactionPage(db,'development-workspace',{...defaults,...bounds,limit:1,offset:1})
+    assert.equal(first.summary.investedMinor,2191200)
+    assert.equal(next.summary.investedMinor,2191200)
+    assert.equal(first.summary.incomeMinor,0)
+    assert.equal(first.summary.expenseMinor,0)
+    const september=await getTransactionPage(db,'development-workspace',{...defaults,fromDate:'2026-09-01',toDate:'2026-09-30'})
+    assert.equal(september.summary.investedMinor,30000)
+  }finally{sql.close()}
 })

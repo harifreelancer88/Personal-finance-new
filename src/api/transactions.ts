@@ -46,6 +46,7 @@ export interface TransactionPage {
   total: number
   summary: {
     incomeMinor: number
+    investedMinor: number
     expenseMinor: number
     netCashFlowMinor: number
     confirmedCount: number
