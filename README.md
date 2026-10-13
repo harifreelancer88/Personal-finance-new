@@ -176,7 +176,7 @@ Accounts and Dashboard use **Balance after card dues** for bank, cash and wallet
 
 The transaction list requests `GET /api/transactions?paginated=true&limit=25&offset=0`. Its data is `{ items, total, summary }`; the existing array response remains unchanged when `paginated=true` is omitted. Search (including account/category names), ID-based filters, and summaries cover every matching record, not just the displayed page. Money summaries include confirmed income and confirmed expenses reduced by eligible refunds (floored at zero). Transfers, investments, pending and ignored transactions do not contribute. The record count includes all matching statuses.
 
-The separate SMS review queue paginates all pending SMS records. Opening **Review SMS** loads sender, received time, parse metadata and original text from the individual transaction endpoint. Original SMS text is never added to the bulk transaction response. Transaction dates are displayed without a fabricated time.
+The separate SMS review queue paginates pending SMS records for the selected month. Opening **Review SMS** loads sender, received time, parse metadata and original text from the individual transaction endpoint. Original SMS text is never added to the bulk transaction response. Transaction dates are displayed without a fabricated time.
 
 Investments and Settings remain explicitly labelled previews: their data and edits are temporary, and they do not update live accounts or transactions.
 
@@ -210,3 +210,14 @@ GET          /api/settings/status
 Investment write fields follow the existing GET response: `investmentType`, `name`, `institution`, `investedMinor`, `currentValueMinor` and optional type-specific fields. Monetary fields use non-negative integer paise. PATCH preserves omitted fields and clears fields belonging to another asset class when the type changes. Activity writes use `activityType`, `activityDate`, `amountMinor` and `description`. Category writes use `name`, `kind` (`expense`, `income`, `both`) and `isActive`.
 
 These screens use the existing initial-schema tables; no new migration is required. `npm run test:wealth` exercises actual API routes against an isolated in-memory SQLite database and requires a Node release with `node:sqlite` (Node 22.13+). It checks workspace isolation, paise precision, dates, all asset classes, activity history, category references, and secret masking.
+
+
+### Transaction month, selection and deletion
+
+The Transactions screen starts in the current local calendar month. Previous/next arrows and a horizontal swipe on the month selector navigate months; the selected month is stored in the URL as `month=YYYY-MM`. Month boundaries apply to the list and SMS review queue. Money In and Money Out show confirmed totals for the whole selected month, independent of list search and other filters. Their existing accounting rules remain unchanged: transfers and investments are excluded, and eligible refunds reduce Money Out.
+
+Choose **Select transactions**, select individual rows or the current page, and use **Assign category**. Selection can span pages within the same month and filters, up to 100 entries. Switching month, filters or tabs clears selection. Only active categories can be assigned; Uncategorised clears the assignment. The workspace-scoped `PATCH /api/transactions/categories` endpoint accepts `{ transactionIds: string[], categoryId: string | null }`. It changes categories atomically and leaves amounts, accounts, dates and statuses intact. An invalid or unavailable selected ID prevents every change. Human category edits end automatic SMS reconciliation ownership while preserving other notes.
+
+Delete is available in every transaction menu, including SMS and ignored entries, with a confirmation dialog. The transaction is removed and balances/totals recalculate. Raw SMS records are retained with `parse_status='deleted'` and no transaction link, so an exact replay or a matching bank-reference counterpart cannot recreate the deleted transaction. Linked refunds must be deleted before their original transaction. No new migration is required.
+
+`npm run test:transaction-controls` covers manual/SMS deletion, replay suppression, linked refunds, 100-row atomic category updates, workspace isolation, inactive categories and month/year/leap-day boundaries. It uses isolated SQLite and requires Node with `node:sqlite`.

@@ -5,11 +5,29 @@ import { readFileSync } from 'node:fs'
 import { handleApiRequest } from '../.wealth-test-dist/api.mjs'
 function setup() {
   const sqlite = new DatabaseSync(':memory:')
-  sqlite.exec(readFileSync('migrations/0001_initial_schema.sql', 'utf8'))
+  for (const file of [
+    '0001_initial_schema.sql',
+    '0002_allow_short_last4.sql',
+    '0003_sms_ingestion.sql',
+    '0004_sms_bank_reference.sql',
+  ])
+    sqlite.exec(readFileSync('migrations/' + file, 'utf8'))
   sqlite.exec(
     "INSERT INTO workspaces(id,name) VALUES ('one','Home'),('two','Other')",
   )
   const db = {
+    async batch(statements) {
+      sqlite.exec('BEGIN')
+      try {
+        const values = []
+        for (const stmt of statements) values.push(await stmt.run())
+        sqlite.exec('COMMIT')
+        return values
+      } catch (e) {
+        sqlite.exec('ROLLBACK')
+        throw e
+      }
+    },
     prepare(sql) {
       let values = []
       const stmt = sqlite.prepare(sql)
@@ -25,7 +43,7 @@ function setup() {
           return { results: stmt.all(...values) }
         },
         async run() {
-          return stmt.run(...values)
+          return { meta: { changes: Number(stmt.run(...values).changes) } }
         },
       }
     },
