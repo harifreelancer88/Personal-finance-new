@@ -310,3 +310,19 @@ receipts stay in payroll history but are excluded from awaiting-credit totals.
 
 `npm run test:payroll` exercises actual SQLite migrations, triggers, API validation,
 cash/portfolio invariance, contribution matching, replay protection and removal.
+
+### AI audit details (migration 0009)
+
+Apply `migrations/0009_ai_audit_details.sql` to the production D1 database **before deploying this version**:
+
+```sh
+npx wrangler d1 execute personal-finance-db --remote --file=migrations/0009_ai_audit_details.sql
+```
+
+Alternatively, run the SQL file in the Cloudflare D1 console. This adds the audit table without changing existing transactions or rules. No additional secret or environment variable is required.
+
+In **Settings → AI category assistant**, select **AI audit details** on a transaction. New API attempts retain the exact sanitised request body (instructions, category IDs/names, examples and JSON schema), original response body, OpenAI request ID, HTTP status, timing, reported input/cached/output tokens and estimated USD token cost. Each retry has its own snapshot. Viewing or copying an audit does not call OpenAI or change a transaction. Authentication headers and API keys are never archived.
+
+Costs use the stored GPT-4o mini standard-rate snapshot: $0.15 input, $0.075 cached input and $0.60 output per million tokens, before taxes/currency conversion. Missing usage is displayed as unknown, including network failures and API errors without usage. Old jobs expose saved decisions and token counts with a clear message that original payloads were not retained. Their cost assumes uncached input; historical payloads are not fabricated. Audit detail reads are scoped to the configured workspace, consistent with the existing API.
+
+Run `npm run test:ai-categories` and `npm run build` to validate. Tests use mocked OpenAI responses and an in-memory database; they make no paid API calls.

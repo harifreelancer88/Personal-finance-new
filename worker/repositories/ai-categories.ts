@@ -1,3 +1,4 @@
+import { tokenCostNanoUsd, AI_PRICING_VERSION } from '../../shared/ai-audit'
 import type { Env } from '../types'
 import { cleanNarration, requestAiCategory, type AiCategory } from '../lib/ai-categorization'
 import { assignCategory, listCategoryRules } from './category-rules'
@@ -53,8 +54,21 @@ export async function processAiJob(env: Env, id: string, fetcher: typeof fetch =
     if (!quota.meta.changes) {
       await db.prepare(`UPDATE ai_category_jobs SET state='queued',attempts=attempts-1,next_attempt_at=datetime('now','+1 hour'),lease_token=NULL,updated_at=CURRENT_TIMESTAMP WHERE transaction_id=? AND workspace_id=? AND lease_token=?`).bind(id,workspace,lease).run(); return
     }
-    const { decision, inputTokens, outputTokens } = await requestAiCategory(env.OPENAI_API_KEY!,narration,t.transaction_type,categories,examples,fetcher)
-    await db.prepare(`UPDATE ai_category_jobs SET category_id=?,keyword=?,reason=?,input_tokens=input_tokens+?,output_tokens=output_tokens+?,updated_at=CURRENT_TIMESTAMP WHERE transaction_id=? AND workspace_id=? AND lease_token=?`).bind(decision.categoryId,decision.keyword,decision.reason,inputTokens,outputTokens,id,workspace,lease).run()
+    const attempt = await db.prepare('SELECT attempts FROM ai_category_jobs WHERE transaction_id=? AND workspace_id=? AND lease_token=?').bind(id,workspace,lease).first<{attempts:number}>()
+    if (!attempt) return
+    const { decision } = await requestAiCategory(env.OPENAI_API_KEY!,narration,t.transaction_type,categories,examples,fetcher, {
+      onRequest: async body => {
+        await db.prepare(`INSERT INTO ai_category_audits(id,transaction_id,workspace_id,attempt_number,model,request_json,pricing_version) VALUES(?,?,?,?,?,?,?)`).bind(lease,id,workspace,attempt.attempts,'gpt-4o-mini',body,AI_PRICING_VERSION).run()
+      },
+      onResponse: async result => {
+        const usage = result.usage
+        await db.batch([
+          db.prepare(`UPDATE ai_category_audits SET response_json=?,request_id=?,http_status=?,input_tokens=?,cached_input_tokens=?,output_tokens=?,estimated_cost_nano_usd=?,duration_ms=?,completed_at=CURRENT_TIMESTAMP WHERE id=? AND workspace_id=?`).bind(result.body,result.requestId,result.status,usage?.inputTokens??null,usage?.cachedInputTokens??null,usage?.outputTokens??null,usage?tokenCostNanoUsd(usage):null,result.durationMs,lease,workspace),
+          db.prepare(`UPDATE ai_category_jobs SET input_tokens=input_tokens+?,output_tokens=output_tokens+? WHERE transaction_id=? AND workspace_id=?`).bind(usage?.inputTokens??0,usage?.outputTokens??0,id,workspace),
+        ])
+      },
+    })
+    await db.prepare(`UPDATE ai_category_jobs SET category_id=?,keyword=?,reason=?,error_code=NULL,updated_at=CURRENT_TIMESTAMP WHERE transaction_id=? AND workspace_id=? AND lease_token=?`).bind(decision.categoryId,decision.keyword,decision.reason,id,workspace,lease).run()
     if (decision.decision !== 'categorise') { await finish('review'); return }
     // Re-check rules after the network request; a person may have added a rule meanwhile.
     const currentRules = await listCategoryRules(db,workspace)
@@ -68,6 +82,7 @@ export async function processAiJob(env: Env, id: string, fetcher: typeof fetch =
     ])
   } catch (error) {
     const code = error instanceof Error && /^(OPENAI_HTTP_\d+|INVALID_AI_\w+|AI_NO_DECISION)$/.test(error.message) ? error.message : 'AI_REQUEST_FAILED'
+    await db.prepare('UPDATE ai_category_audits SET error_code=?,completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP) WHERE id=? AND workspace_id=?').bind(code,lease,workspace).run()
     const permanent = /^(OPENAI_HTTP_(400|401|403)|INVALID_AI_|AI_NO_DECISION)/.test(code)
     await db.prepare(`UPDATE ai_category_jobs SET state=CASE WHEN attempts>=2 OR ? THEN 'failed' ELSE 'queued' END,error_code=?,lease_token=NULL,next_attempt_at=datetime('now','+5 minutes'),updated_at=CURRENT_TIMESTAMP WHERE transaction_id=? AND workspace_id=? AND lease_token=?`).bind(permanent?1:0,code,id,workspace,lease).run()
   }

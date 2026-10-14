@@ -110,8 +110,51 @@ test('AI proposals that disagree on the same merchant require review instead of 
  const s=setup();try{s.add();await enqueueAi(s.env,'tx');await processAiJob(s.env,'tx',async()=>s.reply(s.result()));s.add('second','Corner Store');await enqueueAi(s.env,'second');await processAiJob(s.env,'second',async()=>s.reply(s.result({categoryId:'shopping'})));assert.equal(s.row('second').category_id,null);assert.equal(s.job('second').state,'review');assert.equal(s.job('second').error_code,'AI_RULE_DISAGREEMENT');assert.equal(s.sql.prepare("SELECT category_id FROM category_rules WHERE keyword='CORNER STORE'").get().category_id,'food')}finally{s.sql.close()}
 })
 test('migration preserves existing manual and history rules, including paused conflicts',()=>{
- const sql=new DatabaseSync(':memory:');try{for(const file of readdirSync('migrations').filter(f=>f.endsWith('.sql')&&!f.startsWith('0008')).sort())sql.exec(readFileSync('migrations/'+file,'utf8'))
+ const sql=new DatabaseSync(':memory:');try{for(const file of readdirSync('migrations').filter(f=>f.endsWith('.sql')&&f<'0008').sort())sql.exec(readFileSync('migrations/'+file,'utf8'))
  sql.exec(`INSERT INTO workspaces(id,name) VALUES('w','Workspace');INSERT INTO categories(id,workspace_id,name,kind) VALUES('c','w','Category','expense');INSERT INTO category_rules(id,workspace_id,keyword,transaction_type,category_id,is_active,source) VALUES('manual','w','EXAMPLE MERCHANT','expense','c',1,'manual'),('history','w','CONFLICTED MERCHANT','expense',NULL,0,'history');`)
  const before=sql.prepare('SELECT * FROM category_rules ORDER BY id').all();sql.exec(readFileSync('migrations/0008_ai_categories.sql','utf8'));assert.deepEqual(sql.prepare('SELECT * FROM category_rules ORDER BY id').all(),before);assert.equal(sql.prepare('PRAGMA foreign_key_check').all().length,0)
  }finally{sql.close()}
+})
+
+test('audit captures exact sanitised request and original response with cached pricing, accessible only in its workspace',async()=>{
+ const s=setup();try{
+  s.add('example','Cafe 9876543210');s.sql.prepare("UPDATE transactions SET category_id='food',category_origin='manual' WHERE id='example'").run()
+  s.add('tx','Corner Store 1234567890');await enqueueAi(s.env,'tx')
+  const raw=JSON.stringify({id:'completion-id',model:'gpt-4o-mini-2024-07-18',choices:[{finish_reason:'stop',message:{content:JSON.stringify(s.result())}}],usage:{prompt_tokens:100,completion_tokens:30,prompt_tokens_details:{cached_tokens:40}}})
+  let request
+  await processAiJob(s.env,'tx',async(_,options)=>{request=options.body;return new Response(raw,{headers:{'x-request-id':'req_test'}})})
+  const details=await s.api('/ai-categories/tx');assert.equal(details.status,200)
+  const audit=details.data.audits[0];assert.equal(audit.requestJson,request);assert.equal(audit.responseJson,raw);assert.equal(audit.requestId,'req_test');assert.equal(audit.httpStatus,200);assert.equal(audit.cachedInputTokens,40);assert.equal(audit.estimatedCostNanoUsd,30000);assert.ok(audit.completedAt);assert.ok(audit.durationMs>=0)
+  assert.ok(!JSON.stringify(audit).includes('test-only-secret'));assert.ok(!JSON.stringify(audit).includes('1234567890'));assert.ok(!JSON.stringify(audit).includes('9876543210'))
+  const input=JSON.parse(JSON.parse(audit.requestJson).messages[1].content);assert.equal(input.reviewedExamples.length,1)
+  const other=await handleApiRequest(new Request('https://test.invalid/api/ai-categories/tx'),{...s.env,DEFAULT_WORKSPACE_ID:'other'});assert.equal(other.status,404)
+  await s.api('/transactions/tx','PATCH',{categoryId:'shopping',description:'Changed merchant'})
+  const changed=await s.api('/ai-categories/tx');assert.equal(changed.data.job.state,'corrected');assert.equal(changed.data.audits[0].requestJson,request);assert.equal(changed.data.audits[0].responseJson,raw)
+ }finally{s.sql.close()}
+})
+test('retry audits retain HTTP error body and record unknown cost separately from successful usage',async()=>{
+ const s=setup();try{s.add();await enqueueAi(s.env,'tx')
+ await processAiJob(s.env,'tx',async()=>new Response('rate limited',{status:429}));s.sql.prepare('UPDATE ai_category_jobs SET next_attempt_at=CURRENT_TIMESTAMP').run()
+ await processAiJob(s.env,'tx',async()=>s.reply(s.result()))
+ const details=await s.api('/ai-categories/tx'), [first,second]=details.data.audits
+ assert.equal(first.attemptNumber,1);assert.equal(first.responseJson,'rate limited');assert.equal(first.httpStatus,429);assert.equal(first.errorCode,'OPENAI_HTTP_429');assert.equal(first.inputTokens,null);assert.equal(first.estimatedCostNanoUsd,null)
+ assert.equal(second.attemptNumber,2);assert.equal(second.estimatedCostNanoUsd,33000);assert.equal(details.data.job.inputTokens,100);assert.equal(details.data.job.outputTokens,30);assert.equal(details.data.job.errorCode,null)
+ }finally{s.sql.close()}
+})
+test('refused or invalid decisions retain response and charged tokens before validation',async()=>{
+ for(const refusal of [true,false]){const s=setup();try{s.add();await enqueueAi(s.env,'tx')
+ const raw=JSON.stringify({choices:[{finish_reason:'stop',message:refusal?{refusal:'Cannot classify'}:{content:JSON.stringify(s.result({categoryId:'invented'}))}}],usage:{prompt_tokens:120,completion_tokens:20}})
+ await processAiJob(s.env,'tx',async()=>new Response(raw))
+ const audit=(await s.api('/ai-categories/tx')).data.audits[0];assert.equal(audit.responseJson,raw);assert.equal(audit.estimatedCostNanoUsd,30000);assert.equal(audit.errorCode,refusal?'AI_NO_DECISION':'INVALID_AI_CATEGORY');assert.equal(s.job().input_tokens,120);assert.equal(s.row().category_id,null)
+ }finally{s.sql.close()}}
+})
+test('network failure retains request snapshot with unknown response, token usage and cost',async()=>{
+ const s=setup();try{s.add();await enqueueAi(s.env,'tx');await processAiJob(s.env,'tx',async()=>{throw Error('timeout')})
+ const audit=(await s.api('/ai-categories/tx')).data.audits[0];assert.ok(audit.requestJson);assert.equal(audit.responseJson,null);assert.equal(audit.estimatedCostNanoUsd,null);assert.equal(audit.errorCode,'AI_REQUEST_FAILED');assert.ok(audit.completedAt)
+ }finally{s.sql.close()}
+})
+test('legacy details return saved decision and tokens without inventing snapshots or issuing requests',async()=>{
+ const s=setup();try{s.add();await enqueueAi(s.env,'tx');s.sql.prepare("UPDATE ai_category_jobs SET state='applied',category_id='food',keyword='CORNER STORE',input_tokens=667,output_tokens=59").run()
+ const details=await s.api('/ai-categories/tx');assert.equal(details.status,200);assert.equal(details.data.job.inputTokens,667);assert.deepEqual(details.data.audits,[]);assert.equal((await s.api('/ai-categories/missing')).status,404);assert.equal((await s.api('/ai-categories/tx','POST')).status,405)
+ }finally{s.sql.close()}
 })

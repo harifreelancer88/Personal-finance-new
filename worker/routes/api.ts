@@ -1,4 +1,4 @@
-import { aiCategoriesRoute } from './ai-categories'
+import { aiCategoriesRoute, aiAuditDetailsRoute } from './ai-categories'
 import { enqueueAi, markManualCategory } from '../repositories/ai-categories'
 import { categoryRulesRoute } from './category-rules'
 import { payrollList, payrollTransactions, payrollMatch, guardPayrollTransaction } from './payroll'
@@ -328,6 +328,8 @@ export async function handleApiRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url)
   try {
+    const aiAuditMatch = pathname.match(/^\/api\/ai-categories\/([^/]+)$/)
+    if (aiAuditMatch) return await aiAuditDetailsRoute(request,env,decodeURIComponent(aiAuditMatch[1]))
     if (pathname === '/api/ai-categories') return await aiCategoriesRoute(request,env)
     if (pathname === '/api/ingest/sms') {
       if (request.method !== 'POST') return methodNotAllowed()
