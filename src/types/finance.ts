@@ -51,6 +51,13 @@ export interface CashFlowPoint {
 export type InvestmentType = 'Stocks / Equity' | 'Mutual Funds' | 'Gold' | 'EPF' | 'NPS' | 'Fixed Deposits' | 'Crypto' | 'Other Investments'
 
 export interface Investment {
+  basisKind?: 'recorded' | 'actual_cost' | 'opening_valuation' | 'unknown'
+  valuationDate?: string | null
+  ledgerVersion?: number
+  pendingContributionMinor?: number
+  additionalContributionMinor?: number
+  verifiedCurrentValueMinor?: number
+  verifiedInvestedMinor?: number
   updatedAt?: string
   id: string
   name: string

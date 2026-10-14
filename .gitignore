@@ -8,3 +8,5 @@ dist
 .account-overview-test-dist/
 
 .transaction-controls-test-dist/
+.investment-ledger-test-dist/
+.nps-test-dist/

@@ -1,3 +1,4 @@
+import { investmentLedger, netWorth } from './investment-ledger'
 import { npsRoute } from './nps'
 import { aiCategoriesRoute, aiAuditDetailsRoute } from './ai-categories'
 import { enqueueAi, markManualCategory } from '../repositories/ai-categories'
@@ -459,6 +460,9 @@ export async function handleApiRequest(
         env,
         accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined,
       )
+    if(pathname==='/api/net-worth')return request.method==='GET'?await netWorth(env):methodNotAllowed()
+    const ledgerMatch=pathname.match(/^\/api\/investments\/([^/]+)\/(payments|valuations)(?:\/([^/]+))?$/)
+    if(ledgerMatch)return await investmentLedger(request,env,decodeURIComponent(ledgerMatch[1]),ledgerMatch[2],ledgerMatch[3])
     if(pathname==='/api/investments/retirement-pending')return await retirementPendingRoute(request,env)
     const npsMatch = pathname.match(/^\/api\/investments\/([^/]+)\/nps(?:\/(preview|import))?$/)
     if(npsMatch)return await npsRoute(request,env,decodeURIComponent(npsMatch[1]),npsMatch[2])
@@ -492,6 +496,8 @@ export async function handleApiRequest(
     const detail = error instanceof Error ? error.message : ''
     if (/PAYROLL_|UNIQUE constraint failed: payroll_/.test(detail))
       return failure('PAYROLL_CONFLICT', 'The salary record or statement match changed or is already in use. Reload and check the linked records.', 409)
+    if (/investment_payments|investment_valuations|Unlink the investment payment|Investment payment must match/.test(detail))
+      return failure('INVESTMENT_LEDGER_CONFLICT','This payment is already linked or protected by investment history. Refresh or unlink it before changing the transaction.',409)
     console.error('API request failed', { pathname, error })
     return failure(
       'DATABASE_ERROR',
