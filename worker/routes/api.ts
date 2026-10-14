@@ -1,3 +1,4 @@
+import { npsRoute } from './nps'
 import { aiCategoriesRoute, aiAuditDetailsRoute } from './ai-categories'
 import { enqueueAi, markManualCategory } from '../repositories/ai-categories'
 import { categoryRulesRoute } from './category-rules'
@@ -458,6 +459,8 @@ export async function handleApiRequest(
         env,
         accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined,
       )
+    const npsMatch = pathname.match(/^\/api\/investments\/([^/]+)\/nps(?:\/(preview|import))?$/)
+    if(npsMatch)return await npsRoute(request,env,decodeURIComponent(npsMatch[1]),npsMatch[2])
     const holdingMatch = pathname.match(
       /^\/api\/investments(?:\/([^/]+)(\/activity)?)?$/,
     )

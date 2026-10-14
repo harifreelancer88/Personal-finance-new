@@ -386,6 +386,7 @@ export function InvestmentsPage() {
       )}
       {viewing && (
         <InvestmentDetails
+            onSaved={()=>{setViewing(undefined);void load()}}
           investment={viewing}
           onClose={() => setViewing(undefined)}
           onEdit={() => {

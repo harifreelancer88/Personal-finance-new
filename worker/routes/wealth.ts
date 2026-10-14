@@ -230,7 +230,12 @@ export async function investmentsRoute(
     (!id && request.method === 'POST') ||
     (id && request.method === 'PATCH')
   ) {
-    const value = validateHolding(await json(request), existing ?? undefined),
+    const input = await json(request)
+    if(existing?.investment_type==='nps' && await db.prepare('SELECT id FROM nps_statements WHERE investment_id=? AND workspace_id=? LIMIT 1').bind(id,workspace).first()) {
+      if(('investedMinor' in input && input.investedMinor!==existing.invested_minor)||('currentValueMinor' in input && input.currentValueMinor!==existing.current_value_minor)||('investmentType' in input && input.investmentType!=='nps'))
+        throw new ApiError(409,'NPS_STATEMENT_VERIFIED','Import a newer NPS statement to update verified balances. This holding must remain type NPS.')
+    }
+    const value = validateHolding(input, existing ?? undefined),
       columns = Object.keys(value),
       values = Object.values(value),
       holdingId = id ?? crypto.randomUUID()
@@ -263,6 +268,7 @@ export async function investmentsRoute(
     )
   }
   if (id && request.method === 'DELETE') {
+    if(existing?.investment_type==='nps' && await db.prepare('SELECT id FROM nps_statements WHERE investment_id=? AND workspace_id=? LIMIT 1').bind(id,workspace).first())throw new ApiError(409,'INVESTMENT_IN_USE','This NPS holding has verified statement history and cannot be deleted.')
     if (await db.prepare('SELECT id FROM payroll_contributions WHERE investment_id=? LIMIT 1').bind(id).first())
       throw new ApiError(409, 'INVESTMENT_IN_USE', 'This holding is matched to payroll history. Reset its retirement matches before deleting it.')
     if (

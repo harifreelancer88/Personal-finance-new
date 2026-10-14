@@ -326,3 +326,19 @@ In **Settings → AI category assistant**, select **AI audit details** on a tran
 Costs use the stored GPT-4o mini standard-rate snapshot: $0.15 input, $0.075 cached input and $0.60 output per million tokens, before taxes/currency conversion. Missing usage is displayed as unknown, including network failures and API errors without usage. Old jobs expose saved decisions and token counts with a clear message that original payloads were not retained. Their cost assumes uncached input; historical payloads are not fabricated. Audit detail reads are scoped to the configured workspace, consistent with the existing API.
 
 Run `npm run test:ai-categories` and `npm run build` to validate. Tests use mocked OpenAI responses and an in-memory database; they make no paid API calls.
+
+### NPS statement workflow (migration 0010)
+
+Apply `migrations/0010_nps_statements.sql` to production D1 before deploying:
+
+```sh
+npx wrangler d1 execute personal-finance-db --remote --file=migrations/0010_nps_statements.sql
+```
+
+Open **Investments → your NPS holding → Import NPS statement**, select the CRA Tier I transaction CSV, review its preview and select **Import statement & update holding**. The CSV is sufficient for holdings, units, NAV, contributions and intermediary fees; a holdings PDF can be checked alongside it. This first version supports the three E/C/G schemes, contributions and fees. Withdrawals, switches, inconsistent unit balances or totals are rejected for separate reconciliation.
+
+The import replaces the existing NPS holding's principal/current value with the statement totals. It does not add another holding or create money-in, money-out or investment transactions, so historical contributions cannot inflate this month's dashboard. Scheme components are included in their parent's value once. Four decimal places are preserved for units and NAV. Fees deducted in units are shown in NPS history and are already reflected in the valuation; they are not subtracted twice or recorded as bank spending. Reported XIRR is shown as supplied, not recalculated from partial contribution history.
+
+Existing confirmed investment transactions tagged with `[investment-holding:<holding ID>]` appear as deductions awaiting credit. Salary tags `[salary-ledger:YYYY-MM:nps]` allow exact salary-month/amount matching to posted contribution rows. Matching updates reconciliation metadata only; it preserves the original cash-flow date, amount and transaction. Deductions not present in the statement remain separate from its verified portfolio valuation.
+
+Imports retain sanitised statement snapshots and the prior holding metadata, use an account hash to prevent cross-account imports, reject older/same-date changed statements and stale previews, and make re-importing an identical statement a no-op. Generic holding edits cannot change verified NPS balances/type, and holdings with statement history cannot be deleted. No OpenAI call or raw personal/contact data is needed. Test with `npm run test:nps`, `npm run test:wealth` and `npm run build`.
