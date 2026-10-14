@@ -33,11 +33,11 @@ CREATE TABLE investment_valuations (
 );
 CREATE INDEX idx_investment_valuations_date ON investment_valuations(investment_id,valuation_date,created_at);
 CREATE TRIGGER investment_payment_insert_guard BEFORE INSERT ON investment_payments BEGIN
- SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM transactions t JOIN investments i ON i.id=NEW.investment_id AND i.workspace_id=t.workspace_id WHERE t.id=NEW.transaction_id AND t.transaction_type='investment' AND t.status='confirmed' AND t.amount_minor=NEW.amount_minor AND t.transaction_date=NEW.payment_date) THEN RAISE(ABORT,'Investment payment must match a confirmed investment transaction') END;
- SELECT CASE WHEN EXISTS(SELECT 1 FROM nps_credit_matches WHERE transaction_id=NEW.transaction_id) THEN RAISE(ABORT,'Use retirement reconciliation for this transaction') END;
+ SELECT (CASE WHEN NOT EXISTS(SELECT 1 FROM transactions t JOIN investments i ON i.id=NEW.investment_id AND i.workspace_id=t.workspace_id WHERE t.id=NEW.transaction_id AND t.transaction_type='investment' AND t.status='confirmed' AND t.amount_minor=NEW.amount_minor AND t.transaction_date=NEW.payment_date) THEN RAISE(ABORT,'Investment payment must match a confirmed investment transaction') END);
+ SELECT (CASE WHEN EXISTS(SELECT 1 FROM nps_credit_matches WHERE transaction_id=NEW.transaction_id) THEN RAISE(ABORT,'Use retirement reconciliation for this transaction') END);
 END;
 CREATE TRIGGER investment_payment_transaction_guard BEFORE UPDATE ON transactions WHEN EXISTS(SELECT 1 FROM investment_payments WHERE transaction_id=OLD.id) BEGIN
- SELECT CASE WHEN NEW.workspace_id<>OLD.workspace_id OR NEW.amount_minor<>OLD.amount_minor OR NEW.transaction_type<>OLD.transaction_type OR NEW.status<>OLD.status OR NEW.transaction_date<>OLD.transaction_date OR NEW.from_account_id IS NOT OLD.from_account_id OR NEW.to_account_id IS NOT OLD.to_account_id THEN RAISE(ABORT,'Unlink the investment payment before changing its cash transaction') END;
+ SELECT (CASE WHEN NEW.workspace_id<>OLD.workspace_id OR NEW.amount_minor<>OLD.amount_minor OR NEW.transaction_type<>OLD.transaction_type OR NEW.status<>OLD.status OR NEW.transaction_date<>OLD.transaction_date OR NEW.from_account_id IS NOT OLD.from_account_id OR NEW.to_account_id IS NOT OLD.to_account_id THEN RAISE(ABORT,'Unlink the investment payment before changing its cash transaction') END);
 END;
 CREATE TRIGGER investment_valuation_no_update BEFORE UPDATE ON investment_valuations BEGIN SELECT RAISE(ABORT,'Valuation history is append-only'); END;
 CREATE TRIGGER investment_valuation_no_delete BEFORE DELETE ON investment_valuations BEGIN SELECT RAISE(ABORT,'Valuation history is append-only'); END;
