@@ -253,3 +253,21 @@ test('status reflects actual workspace and secret presence without returning sec
   assert.ok(!JSON.stringify(status).includes('synthetic-secret'))
   assert.equal((await api('/settings/status', 'POST', {})).status, 405)
 })
+
+test('pending retirement banner follows salary investment links, excluding matched NPS, ignored entries and other workspaces', async () => {
+  const {api,sqlite}=setup()
+  const epf=(await api('/investments','POST',{investmentType:'epf',name:'EPF test',institution:'EPFO',investedMinor:100,currentValueMinor:100})).data
+  const nps=(await api('/investments','POST',{investmentType:'nps',name:'NPS test',institution:'CRA',investedMinor:100,currentValueMinor:100})).data
+  sqlite.exec("INSERT INTO accounts(id,workspace_id,name,institution,account_type) VALUES('salary','one','Salary','Clearing','cash')")
+  const insert=sqlite.prepare(`INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,from_account_id,transaction_date,status,notes) VALUES(?,'one','investment','Salary deduction',?,'salary','2026-10-01',?,?)`)
+  insert.run('epf-pending',1000,'confirmed',`[investment-holding:${epf.id}]`)
+  insert.run('nps-pending',2000,'confirmed',`[investment-holding:${nps.id}]`)
+  insert.run('ignored',9999,'ignored',`[investment-holding:${epf.id}]`)
+  insert.run('unlinked',9999,'confirmed','Not linked')
+  let result=await api('/investments/retirement-pending');assert.equal(result.status,200);assert.equal(result.data.length,2);assert.equal(result.data.reduce((sum,row)=>sum+row.amountMinor,0),3000)
+  sqlite.prepare('INSERT INTO nps_credit_matches(investment_id,transaction_id,credit_date,salary_month,amount_minor) VALUES(?,?,?,?,?)').run(nps.id,'nps-pending','2026-10-11','2026-09',2000)
+  result=await api('/investments/retirement-pending');assert.equal(result.data.length,1);assert.equal(result.data[0].investmentId,epf.id)
+  assert.deepEqual((await api('/investments/retirement-pending','GET',undefined,'two')).data,[])
+  sqlite.prepare("UPDATE transactions SET amount_minor=2500 WHERE id='nps-pending'").run()
+  assert.equal((await api('/investments/retirement-pending')).data.length,2)
+})

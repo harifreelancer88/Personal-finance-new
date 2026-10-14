@@ -6,9 +6,10 @@ import {
   type HoldingActivity,
 } from '../../api/investments'
 import {
-  formatCurrency,
+  formatWholeCurrency as formatCurrency,
+  formatCurrency as formatUnitPrice,
   formatDate,
-  formatSignedCurrency,
+  formatWholeSignedCurrency as formatSignedCurrency,
 } from '../../lib/format'
 import type { Investment } from '../../types/finance'
 import { Modal } from '../transactions/Modal'
@@ -81,20 +82,20 @@ function GeneralInvestmentDetails({
     ['Quantity', i.quantity],
     [
       'Average purchase price',
-      i.averagePrice === undefined ? undefined : formatCurrency(i.averagePrice),
+      i.averagePrice === undefined ? undefined : formatUnitPrice(i.averagePrice),
     ],
     [
       'Recorded unit price',
-      i.currentPrice === undefined ? undefined : formatCurrency(i.currentPrice),
+      i.currentPrice === undefined ? undefined : formatUnitPrice(i.currentPrice),
     ],
     ['Units', i.units],
     [
       'Average NAV',
-      i.averageNav === undefined ? undefined : formatCurrency(i.averageNav),
+      i.averageNav === undefined ? undefined : formatUnitPrice(i.averageNav),
     ],
     [
       'Recorded NAV',
-      i.currentNav === undefined ? undefined : formatCurrency(i.currentNav),
+      i.currentNav === undefined ? undefined : formatUnitPrice(i.currentNav),
     ],
     ['Weight (grams)', i.weightGrams],
     [
@@ -134,9 +135,10 @@ function GeneralInvestmentDetails({
               : 'Return unavailable'}
           </small>
         </div>
+        <p className="wealth-caption">Gain is measured against the recorded basis. Imported opening balances can include prior interest and do not establish lifetime contributions or returns.</p>
         <dl className="wealth-detail-list">
           <div>
-            <dt>Invested amount</dt>
+            <dt>Recorded basis</dt>
             <dd>{formatCurrency(i.investedAmount)}</dd>
           </div>
           <div>

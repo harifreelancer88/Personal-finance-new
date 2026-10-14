@@ -393,3 +393,9 @@ export async function settingsStatus(env: Env) {
     appearance: 'light',
   })
 }
+
+export async function retirementPendingRoute(request: Request, env: Env) {
+  if(request.method!=='GET')return methodNotAllowed()
+  const items=(await env.DB.prepare(`SELECT t.id AS transactionId,i.id AS investmentId,i.name AS investmentName,i.investment_type AS investmentType,t.amount_minor AS amountMinor,t.description,t.transaction_date AS transactionDate FROM transactions t JOIN investments i ON i.workspace_id=t.workspace_id AND instr(COALESCE(t.notes,''),'[investment-holding:'||i.id||']')>0 WHERE t.workspace_id=? AND i.investment_type IN ('epf','nps') AND t.transaction_type='investment' AND t.status='confirmed' AND NOT EXISTS(SELECT 1 FROM nps_credit_matches m WHERE m.transaction_id=t.id AND m.investment_id=i.id AND m.amount_minor=t.amount_minor) ORDER BY t.transaction_date,i.name,t.id`).bind(env.DEFAULT_WORKSPACE_ID).all()).results
+  return success(items)
+}

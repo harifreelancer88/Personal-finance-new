@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getPayrolls } from '../../api/payroll'
-import { formatMinorCurrency } from '../../lib/format'
-export function RetirementNotice() {
-  const [pending,setPending]=useState<{count:number;minor:number}>(),[error,setError]=useState(''),[retry,setRetry]=useState(0)
+import { apiRequest } from '../../api/client'
+import { formatWholeMinorCurrency } from '../../lib/format'
+interface Pending {transactionId:string;investmentId:string;investmentName:string;investmentType:string;amountMinor:number;description:string;transactionDate:string}
+export function RetirementNotice({onReview}:{onReview:(investmentId:string)=>void}) {
+  const [items,setItems]=useState<Pending[]>(),[error,setError]=useState(''),[retry,setRetry]=useState(0)
   useEffect(()=>{
     const controller=new AbortController()
-    getPayrolls(controller.signal).then(items=>{
-      if(controller.signal.aborted)return
-      const credits=items.filter(p=>p.transactionStatus!=='ignored').flatMap(p=>p.contributions.filter(c=>!c.creditedDate))
-      setPending({count:credits.length,minor:credits.filter(c=>c.scheme!=='eps').reduce((sum,c)=>sum+c.amountMinor,0)});setError('')
-    }).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Could not load retirement credits.')})
+    apiRequest<Pending[]>('/api/investments/retirement-pending',{signal:controller.signal}).then(value=>{if(!controller.signal.aborted){setItems(value);setError('')}}).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Could not load pending credits.')})
     return()=>controller.abort()
   },[retry])
-  return <section className="payroll-notice" aria-label="Awaiting retirement credits"><div><strong>Awaiting retirement credits</strong>{error?<p role="alert">{error} <button onClick={()=>setRetry(n=>n+1)}>Retry</button></p>:pending?<p>{pending.count} allocations · {formatMinorCurrency(pending.minor)} excluding pension. Separate from recorded portfolio value.</p>:<p role="status">Loading payroll reconciliation…</p>}</div><Link className="payroll-link" to="/salary">Review salary →</Link></section>
+  const total=items?.reduce((sum,item)=>sum+item.amountMinor,0)??0
+  return <section className="payroll-notice" aria-label="Awaiting retirement credits"><div><strong>Salary investments awaiting credit confirmation</strong>{error?<p role="alert">{error} <button onClick={()=>setRetry(n=>n+1)}>Retry</button></p>:items?<><p>{items.length} salary deductions · {formatWholeMinorCurrency(total)}. Awaiting EPF/NPS statement confirmation; separate from verified holding values.</p>{items.length>0&&<div className="retirement-pending-actions">{items.map(item=><button className="payroll-link" key={item.transactionId} onClick={()=>onReview(item.investmentId)}>{item.investmentType.toUpperCase()} · {formatWholeMinorCurrency(item.amountMinor)} →</button>)}</div>}</>:<p role="status">Loading pending salary investments…</p>}</div></section>
 }

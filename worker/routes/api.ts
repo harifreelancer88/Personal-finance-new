@@ -21,7 +21,7 @@ import {
   listAccounts,
   updateAccount,
 } from '../repositories/accounts'
-import { investmentsRoute, categoriesRoute, settingsStatus } from './wealth'
+import { investmentsRoute, categoriesRoute, settingsStatus, retirementPendingRoute } from './wealth'
 import {
   createTransaction,
   deleteTransaction,
@@ -459,6 +459,7 @@ export async function handleApiRequest(
         env,
         accountMatch[1] ? decodeURIComponent(accountMatch[1]) : undefined,
       )
+    if(pathname==='/api/investments/retirement-pending')return await retirementPendingRoute(request,env)
     const npsMatch = pathname.match(/^\/api\/investments\/([^/]+)\/nps(?:\/(preview|import))?$/)
     if(npsMatch)return await npsRoute(request,env,decodeURIComponent(npsMatch[1]),npsMatch[2])
     const holdingMatch = pathname.match(
