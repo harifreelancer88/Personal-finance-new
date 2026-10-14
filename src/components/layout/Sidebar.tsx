@@ -1,10 +1,11 @@
-import { BarChart3, CreditCard, FileChartColumn, LayoutDashboard, Settings, TrendingUp, X } from 'lucide-react'
+import { BarChart3, FlaskConical, CreditCard, FileChartColumn, LayoutDashboard, Settings, TrendingUp, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Logo } from '../ui/Logo'
 
 const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
+  { label: 'Dashboard preview', icon: FlaskConical, to: '/dashboard-preview' },
   { label: 'Transactions', icon: CreditCard, to: '/transactions' },
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
@@ -15,7 +16,7 @@ const items = [
 interface SidebarProps { open: boolean; onClose: () => void; light?: boolean }
 
 export function Sidebar({ open, onClose, light = false }: SidebarProps) {
-  const orderedItems = light ? ['Dashboard','Accounts','Transactions','Reports','Investments','Settings'].map(label => items.find(item => item.label === label)!) : items
+  const orderedItems = light ? ['Dashboard','Dashboard preview','Accounts','Transactions','Reports','Investments','Settings'].map(label => items.find(item => item.label === label)!) : items
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return

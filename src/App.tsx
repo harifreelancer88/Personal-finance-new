@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
@@ -8,6 +9,8 @@ import { ReportsPage } from './pages/ReportsPage'
 import { SalaryPage } from './pages/SalaryPage'
 import { SettingsPage } from './pages/SettingsPage'
 
+const DashboardPreviewPage = lazy(() => import('./pages/DashboardPreviewPage'))
+
 export default function App() {
-  return <Routes><Route element={<AppLayout/>}><Route index element={<DashboardPage/>}/><Route path="transactions" element={<TransactionsPage/>}/><Route path="accounts" element={<AccountsPage/>}/><Route path="investments" element={<InvestmentsPage/>}/><Route path="reports" element={<ReportsPage/>}/><Route path="salary" element={<SalaryPage/>}/><Route path="settings" element={<SettingsPage/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes>
+  return <Routes><Route element={<AppLayout/>}><Route index element={<DashboardPage/>}/><Route path="dashboard-preview" element={<Suspense fallback={<div className="page-body" role="status">Loading dashboard preview…</div>}><DashboardPreviewPage/></Suspense>}/><Route path="transactions" element={<TransactionsPage/>}/><Route path="accounts" element={<AccountsPage/>}/><Route path="investments" element={<InvestmentsPage/>}/><Route path="reports" element={<ReportsPage/>}/><Route path="salary" element={<SalaryPage/>}/><Route path="settings" element={<SettingsPage/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes>
 }
