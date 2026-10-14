@@ -66,6 +66,13 @@ export interface TransactionRow {
 }
 
 export interface InvestmentRow {
+  basis_kind: 'recorded' | 'actual_cost' | 'opening_valuation' | 'unknown'
+  valuation_date: string | null
+  ledger_version: number
+  additional_contribution_minor?: number
+  pending_contribution_minor?: number
+  verified_current_value_minor?: number
+  verified_invested_minor?: number
   id: string
   workspace_id: string
   investment_type: 'equity' | 'mutual_fund' | 'gold' | 'epf' | 'nps' | 'fixed_deposit' | 'crypto' | 'other'

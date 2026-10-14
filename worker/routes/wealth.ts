@@ -23,6 +23,8 @@ const fields = {
   monthlyContributionMinor: 'monthly_contribution_minor',
   interestRate: 'interest_rate',
   maturityDate: 'maturity_date',
+  basisKind: 'basis_kind',
+  valuationDate: 'valuation_date',
 } as const
 const types = [
   'equity',
@@ -87,6 +89,10 @@ export function validateHolding(
       if (!types.includes(value as string))
         invalid('Choose a valid investment type.')
       result[column] = value as string
+    } else if (key === 'basisKind') {
+      const basis = value ?? 'recorded'
+      if (!['recorded','actual_cost','opening_valuation','unknown'].includes(basis as string)) invalid('Choose a valid basis type.')
+      result[column] = basis as string
     } else if (money.has(key) || real.has(key)) {
       const required = ['investedMinor', 'currentValueMinor'].includes(key)
       if (value == null && !required) result[column] = null
@@ -102,7 +108,7 @@ export function validateHolding(
           )
         result[column] = value as number
       }
-    } else if (key === 'startDate' || key === 'maturityDate') {
+    } else if (key === 'startDate' || key === 'maturityDate' || key === 'valuationDate') {
       if (value != null && !validDate(value))
         invalid(`${key} must be a valid YYYY-MM-DD date.`)
       result[column] = value as string | null
@@ -225,49 +231,55 @@ export async function investmentsRoute(
     }
     return methodNotAllowed()
   }
-  if (id && request.method === 'GET') return success(investmentToApi(existing!))
+  if (id && request.method === 'GET') return success(investmentToApi((await listInvestments(db,workspace)).find(i=>i.id===id)!))
   if (
     (!id && request.method === 'POST') ||
     (id && request.method === 'PATCH')
   ) {
     const input = await json(request)
     if(existing?.investment_type==='nps' && await db.prepare('SELECT id FROM nps_statements WHERE investment_id=? AND workspace_id=? LIMIT 1').bind(id,workspace).first()) {
-      if(('investedMinor' in input && input.investedMinor!==existing.invested_minor)||('currentValueMinor' in input && input.currentValueMinor!==existing.current_value_minor)||('investmentType' in input && input.investmentType!=='nps'))
+      if(('investedMinor' in input && input.investedMinor!==existing.invested_minor)||('currentValueMinor' in input && input.currentValueMinor!==existing.current_value_minor)||('investmentType' in input && input.investmentType!=='nps')||('valuationDate' in input && input.valuationDate!==existing.valuation_date)||('basisKind' in input && input.basisKind!==existing.basis_kind))
         throw new ApiError(409,'NPS_STATEMENT_VERIFIED','Import a newer NPS statement to update verified balances. This holding must remain type NPS.')
     }
+    if(existing && 'investmentType' in input && input.investmentType!==existing.investment_type && await db.prepare('SELECT id FROM investment_payments WHERE investment_id=? LIMIT 1').bind(id).first())
+      throw new ApiError(409,'INVESTMENT_IN_USE','This holding has linked investment payments and must keep its asset type.')
     const value = validateHolding(input, existing ?? undefined),
       columns = Object.keys(value),
       values = Object.values(value),
       holdingId = id ?? crypto.randomUUID()
-    if (id)
-      await db
-        .prepare(
-          `UPDATE investments SET ${columns.map((c) => `${c}=?`).join(',')},updated_at=CURRENT_TIMESTAMP WHERE workspace_id=? AND id=?`,
-        )
-        .bind(...values, workspace, id)
-        .run()
-    else
-      await db
-        .prepare(
-          `INSERT INTO investments (id,workspace_id,${columns.join(',')}) VALUES (${Array(
-            columns.length + 2,
-          )
-            .fill('?')
-            .join(',')})`,
-        )
-        .bind(holdingId, workspace, ...values)
-        .run()
+    if (existing && 'expectedVersion' in input && input.expectedVersion !== existing.ledger_version)
+      throw new ApiError(409,'LEDGER_CHANGED','The holding changed. Refresh before editing.')
+    if(existing?.valuation_date && !value.valuation_date)invalid('Keep a valuation date once dated history has been recorded.')
+    const financialChange = !existing || value.invested_minor!==existing.invested_minor || value.current_value_minor!==existing.current_value_minor || value.basis_kind!==existing.basis_kind || value.valuation_date!==existing.valuation_date
+    if (existing && await db.prepare('SELECT id FROM investment_payments WHERE investment_id=? AND included_in_value=0 LIMIT 1').bind(id).first()) {
+      if(financialChange || value.investment_type!==existing.investment_type)
+        throw new ApiError(409,'USE_VALUATION','Record a valuation and reconcile its linked payments before changing these balances or type.')
+    }
+    const snapshotId=crypto.randomUUID()
+    const batch:D1PreparedStatement[]=[]
+    if(existing) {
+      batch.push(db.prepare(`UPDATE investments SET ${columns.map(c=>`${c}=?`).join(',')},ledger_version=ledger_version+1,updated_at=CURRENT_TIMESTAMP WHERE workspace_id=? AND id=? AND ledger_version=?`).bind(...values,workspace,id,existing.ledger_version))
+    } else {
+      batch.push(db.prepare(`INSERT INTO investments(id,workspace_id,${columns.join(',')}) VALUES (${Array(columns.length+2).fill('?').join(',')})`).bind(holdingId,workspace,...values))
+    }
+    // A manual edit is a newly observed valuation only when explicitly dated.
+    // Older undated holdings remain unknown; never invent backdated history.
+    if(financialChange && value.valuation_date) {
+      if(existing?.valuation_date && String(value.valuation_date)<existing.valuation_date)invalid('Use a valuation date no earlier than the latest recorded valuation.')
+      const ist=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+      if(String(value.valuation_date)>ist)invalid('A valuation date cannot be in the future.')
+      batch.push(db.prepare(`INSERT INTO investment_valuations(id,investment_id,valuation_date,invested_minor,value_minor,basis_kind,source,units,quantity,weight_grams) SELECT ?,id,valuation_date,invested_minor,current_value_minor,basis_kind,'Manual holding valuation',units,quantity,weight_grams FROM investments WHERE id=? AND ledger_version=?`).bind(snapshotId,holdingId,existing?existing.ledger_version+1:0))
+    }
+    const results=await db.batch(batch)
+    if(!results[0].meta.changes)throw new ApiError(409,'LEDGER_CHANGED','The holding changed. Refresh before editing.')
     return success(
-      investmentToApi(
-        (await db
-          .prepare('SELECT * FROM investments WHERE workspace_id=? AND id=?')
-          .bind(workspace, holdingId)
-          .first<InvestmentRow>())!,
-      ),
+      investmentToApi((await listInvestments(db,workspace)).find(i=>i.id===holdingId)!),
       { status: id ? 200 : 201 },
     )
   }
   if (id && request.method === 'DELETE') {
+    if(await db.prepare('SELECT id FROM investment_payments WHERE investment_id=? UNION ALL SELECT id FROM investment_valuations WHERE investment_id=? LIMIT 1').bind(id,id).first())
+      throw new ApiError(409,'INVESTMENT_IN_USE','Holdings with linked payments or valuation history cannot be deleted.')
     if(existing?.investment_type==='nps' && await db.prepare('SELECT id FROM nps_statements WHERE investment_id=? AND workspace_id=? LIMIT 1').bind(id,workspace).first())throw new ApiError(409,'INVESTMENT_IN_USE','This NPS holding has verified statement history and cannot be deleted.')
     if (await db.prepare('SELECT id FROM payroll_contributions WHERE investment_id=? LIMIT 1').bind(id).first())
       throw new ApiError(409, 'INVESTMENT_IN_USE', 'This holding is matched to payroll history. Reset its retirement matches before deleting it.')

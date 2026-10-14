@@ -65,7 +65,9 @@ export function InvestmentsPage() {
       100,
     value =
       items.reduce((sum, i) => sum + Math.round(i.currentValue * 100), 0) / 100,
-    gain = value - invested
+    gainItems = items.filter(i=>i.basisKind!=='unknown' && i.basisKind!=='opening_valuation'),
+    gainBasis = gainItems.reduce((s,i)=>s+Math.round(i.investedAmount*100),0)/100,
+    gain = gainItems.reduce((s,i)=>s+Math.round(i.currentValue*100)-Math.round(i.investedAmount*100),0)/100
   const groups = investmentTypes
     .map((type, index) => ({
       type,
@@ -139,11 +141,11 @@ export function InvestmentsPage() {
                 {[
                   ['Current value', formatCurrency(value)],
                   ['Recorded basis', formatCurrency(invested)],
-                  ['Gain vs recorded basis', formatSignedCurrency(gain)],
+                  ['Gain on comparable holdings', gainItems.length?formatSignedCurrency(gain):'Unavailable'],
                   [
                     'Return',
-                    invested > 0
-                      ? `${((gain / invested) * 100).toFixed(1)}%`
+                    gainBasis > 0
+                      ? `${((gain / gainBasis) * 100).toFixed(1)}%`
                       : '—',
                   ],
                 ].map(([label, total], index) => (
@@ -165,7 +167,7 @@ export function InvestmentsPage() {
               </div>
               <p className="wealth-caption">
                 Amounts shown in whole rupees; calculations retain paise. Return is change against the recorded basis, not annualized.
-                Imported EPF opening balances include prior interest; this is not a lifetime return.
+                Opening valuations and holdings with unknown purchase cost are excluded from gain and return. Imported EPF opening balances can include prior interest; recorded-basis change is not lifetime return.
               </p>
               <div className="wealth-grid">
                 <section className="wealth-holdings">
@@ -280,10 +282,8 @@ export function InvestmentsPage() {
                                         : 'wealth-negative'
                                     }
                                   >
-                                    {formatSignedCurrency(
-                                      i.currentValue - i.investedAmount,
-                                    )}
-                                    {i.investedAmount > 0
+                                    {i.basisKind==='unknown'||i.basisKind==='opening_valuation'?'Historical profit unavailable':formatSignedCurrency(i.currentValue-i.investedAmount)}
+                                    {i.basisKind!=='unknown'&&i.basisKind!=='opening_valuation'&&i.investedAmount > 0
                                       ? ` (${(((i.currentValue - i.investedAmount) / i.investedAmount) * 100).toFixed(1)}%)`
                                       : ''}
                                   </small>

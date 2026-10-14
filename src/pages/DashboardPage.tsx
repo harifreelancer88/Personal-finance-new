@@ -1,3 +1,4 @@
+import { NetWorth } from '../components/dashboard/NetWorth'
 import { ClipboardList, Menu, Plus, RefreshCw, ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
@@ -32,6 +33,7 @@ export function DashboardPage() {
   const failed=Object.keys(errors) as (keyof DashboardData)[]
   return <><header className="activity-header"><button className="icon-button activity-menu" onClick={openMenu} aria-label="Open navigation"><Menu/></button><h1>Dashboard</h1><button className="icon-button activity-refresh" onClick={()=>void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw/></button><Link className="primary-button activity-add" to="/transactions?new=1" aria-label="Add transaction"><Plus/><span>Add transaction</span></Link></header><div className="page-body dashboard-page"><p className="dashboard-period">{month}</p>{failed.length>0&&<div className="api-feedback error" role="alert"><span>Could not load {failed.map(key=>titles[key].toLowerCase()).join(', ')}. Previously loaded figures remain visible where available.</span><button className="secondary-button" onClick={()=>void load()} disabled={loading}>Try again</button></div>}
     {data.summary?<SummaryCards summary={data.summary}/>:<PanelState title="Monthly totals" loading={loading}/>}
+    <NetWorth refreshKey={loading?0:version.current}/>
     {data.reviewCount!==undefined&&data.reviewCount>0&&<div className="dashboard-review-banner"><ClipboardList/><span>{data.reviewCount} {data.reviewCount===1?'transaction needs':'transactions need'} review</span><Link to="/transactions?tab=review">Review <ArrowRight/></Link></div>}
     <div className="dashboard-content"><div className="dashboard-primary-column">{data.cashFlow?<CashFlowChart points={data.cashFlow}/>:<PanelState title="Cash flow" loading={loading}/>} {data.transactions?<RecentTransactions transactions={data.transactions} accounts={data.accounts??[]}/>:<PanelState title="Recent transactions" loading={loading}/>}</div><div className="dashboard-secondary-column">{data.accounts?<AccountsPanel accounts={data.accounts}/>:<PanelState title="Accounts" loading={loading}/>}</div></div>
   </div></>

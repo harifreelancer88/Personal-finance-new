@@ -1,3 +1,4 @@
+import { InvestmentLedger } from './InvestmentLedger'
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import {
@@ -18,10 +19,12 @@ function GeneralInvestmentDetails({
   investment: i,
   onClose,
   onEdit,
+  onSaved,
 }: {
   investment: Investment
   onClose: () => void
   onEdit: () => void
+  onSaved?: () => void
 }) {
   const [activity, setActivity] = useState<HoldingActivity[]>([]),
     [loading, setLoading] = useState(true),
@@ -120,7 +123,7 @@ function GeneralInvestmentDetails({
     >
       <div className="wealth-modal-body">
         <div className="wealth-detail-total">
-          <span>Recorded current value</span>
+          <span>{i.additionalContributionMinor?'Value including linked payments':'Recorded current value'}</span>
           <strong>{formatCurrency(i.currentValue)}</strong>
           <small
             className={
@@ -129,12 +132,10 @@ function GeneralInvestmentDetails({
                 : 'wealth-negative'
             }
           >
-            {formatSignedCurrency(i.currentValue - i.investedAmount)} ·{' '}
-            {i.investedAmount > 0
-              ? `${(((i.currentValue - i.investedAmount) / i.investedAmount) * 100).toFixed(1)}%`
-              : 'Return unavailable'}
+            {i.basisKind==='unknown' || i.basisKind==='opening_valuation' ? 'Historical profit unavailable' : <>{formatSignedCurrency(i.currentValue-i.investedAmount)} · {i.investedAmount>0?`${(((i.currentValue-i.investedAmount)/i.investedAmount)*100).toFixed(1)}%`:'Return unavailable'}</>}
           </small>
         </div>
+        {(i.pendingContributionMinor??0)>0&&<p className="wealth-caption">Includes {formatCurrency((i.pendingContributionMinor??0)/100)} awaiting credit, carried at cost.</p>}
         <p className="wealth-caption">Gain is measured against the recorded basis. Imported opening balances can include prior interest and do not establish lifetime contributions or returns.</p>
         <dl className="wealth-detail-list">
           <div>
@@ -166,6 +167,7 @@ function GeneralInvestmentDetails({
             </div>
           )}
         </dl>
+        <InvestmentLedger investment={i} onSaved={onSaved}/>
         <div className="wealth-section-heading">
           <h3>Activity history</h3>
           <button

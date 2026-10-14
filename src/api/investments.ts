@@ -46,6 +46,13 @@ interface HoldingDTO {
 }
 export function holdingFromApi(row: HoldingDTO): Investment {
   const item: Investment = {
+    basisKind: row.basisKind as Investment['basisKind'],
+    valuationDate: row.valuationDate as string | null,
+    ledgerVersion: row.ledgerVersion as number,
+    pendingContributionMinor: row.pendingContributionMinor as number,
+    additionalContributionMinor: row.additionalContributionMinor as number,
+    verifiedCurrentValueMinor: row.verifiedCurrentValueMinor as number,
+    verifiedInvestedMinor: row.verifiedInvestedMinor as number,
     id: row.id,
     name: row.name,
     institution: row.institution,
@@ -69,11 +76,14 @@ export function holdingFromApi(row: HoldingDTO): Investment {
 }
 export function holdingToApi(item: Investment) {
   const value: Record<string, unknown> = {
+    expectedVersion: item.ledgerVersion,
+    basisKind: item.basisKind ?? 'recorded',
+    valuationDate: item.valuationDate || null,
     investmentType: keys[investmentTypes.indexOf(item.type)],
     name: item.name,
     institution: item.institution,
-    investedMinor: Math.round(item.investedAmount * 100),
-    currentValueMinor: Math.round(item.currentValue * 100),
+    investedMinor: item.additionalContributionMinor ? item.verifiedInvestedMinor : Math.round(item.investedAmount * 100),
+    currentValueMinor: item.additionalContributionMinor ? item.verifiedCurrentValueMinor : Math.round(item.currentValue * 100),
     startDate: item.startDate || null,
     notes: item.notes ?? null,
   }

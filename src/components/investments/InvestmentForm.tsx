@@ -25,6 +25,8 @@ export function InvestmentForm({
     initial?.type ?? 'Stocks / Equity',
   )
   const [values, setValues] = useState<Record<string, string>>({
+    basisKind: initial?.basisKind ?? 'recorded',
+    valuationDate: initial ? (initial.valuationDate ?? '') : new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
     name: initial?.name ?? '',
     institution: initial?.institution ?? '',
     investedAmount: String(initial?.investedAmount ?? ''),
@@ -57,6 +59,7 @@ export function InvestmentForm({
       <input
         {...props}
         value={values[key]}
+        onInput={(e) => set(key, e.currentTarget.value)}
         onChange={(e) => set(key, e.target.value)}
       />
       {errors[key] && <small className="field-error">{errors[key]}</small>}
@@ -121,6 +124,9 @@ export function InvestmentForm({
     setRequestError('')
     try {
       await onSave({
+        ...initial,
+        basisKind: values.basisKind as Investment['basisKind'],
+        valuationDate: values.valuationDate || null,
         id: initial?.id ?? `investment-${Date.now()}`,
         name: values.name.trim(),
         institution: values.institution.trim(),
@@ -195,15 +201,18 @@ export function InvestmentForm({
             min: 0,
             step: 'any',
             placeholder: '0',
+            disabled: Boolean(initial?.additionalContributionMinor),
           })}
           {field(
             'currentValue',
             type === 'EPF' || type === 'NPS'
               ? 'Current Balance'
               : 'Current Value',
-            { type: 'number', min: 0, step: 'any', placeholder: '0' },
+            { type: 'number', min: 0, step: 'any', placeholder: '0', disabled: Boolean(initial?.additionalContributionMinor) },
           )}
           {field('startDate', 'Start Date', { type: 'date' })}
+          {field('valuationDate', 'Valuation date', { type: 'date', required: true })}
+          <label><span>Recorded basis represents</span><select value={values.basisKind} onChange={e=>set('basisKind',e.target.value)}><option value="recorded">Recorded amount (cost not verified)</option><option value="actual_cost">Actual contributions / purchase cost</option><option value="opening_valuation">Opening market valuation</option><option value="unknown">Purchase cost unknown</option></select></label>
           {(type === 'Stocks / Equity' || type === 'Crypto') && (
             <>
               {field('quantity', 'Quantity', {
