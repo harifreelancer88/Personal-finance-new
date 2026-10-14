@@ -804,3 +804,6 @@
 @media(max-width:600px){.ai-status-grid{grid-template-columns:1fr 1fr}.ai-status-grid>div:last-child{grid-column:1/-1}.ai-job-correction select{flex-basis:100%;font-size:16px}.ai-categories .wealth-section-heading{flex-wrap:wrap;gap:12px}}
 
 .ai-rule-actions{display:flex;gap:8px;flex-wrap:wrap}
+.retirement-pending-actions{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}.retirement-pending-actions button{background:transparent;border:0;cursor:pointer;font:inherit;min-height:36px}
+.monarch-wealth .investment-overview strong{white-space:nowrap;overflow-wrap:normal;font-size:clamp(18px,2.2vw,25px)}
+@media(min-width:801px) and (max-width:1100px){.monarch-wealth .investment-overview{grid-template-columns:repeat(2,minmax(0,1fr));padding:0}.monarch-wealth .investment-overview>div{padding:18px 16px}.monarch-wealth .investment-overview>div:nth-child(3){border-left:0}.monarch-wealth .investment-overview>div:nth-child(n+3){border-top:1px solid var(--line)}}

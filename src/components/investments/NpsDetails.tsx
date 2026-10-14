@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiRequest } from '../../api/client'
 import { Modal } from '../transactions/Modal'
-import { formatMinorCurrency, formatDate } from '../../lib/format'
+import { formatWholeMinorCurrency as formatMinorCurrency, formatDate } from '../../lib/format'
 import type { Investment } from '../../types/finance'
 import type { NpsStatement } from '../../../shared/nps'
 import '../../nps.css'

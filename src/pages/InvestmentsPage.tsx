@@ -21,7 +21,7 @@ import { RetirementNotice } from '../components/payroll/RetirementNotice'
 import { InvestmentForm } from '../components/investments/InvestmentForm'
 import { InvestmentDetails } from '../components/investments/InvestmentDetails'
 import { Modal } from '../components/transactions/Modal'
-import { formatCurrency, formatSignedCurrency } from '../lib/format'
+import { formatWholeCurrency as formatCurrency, formatWholeSignedCurrency as formatSignedCurrency } from '../lib/format'
 import type { Investment } from '../types/finance'
 const colors = [
   '#5594bd',
@@ -122,7 +122,7 @@ export function InvestmentsPage() {
         </div>
       </header>
       <main className="wealth-page">
-        <RetirementNotice/>
+        <RetirementNotice onReview={id=>setViewing(items.find(item=>item.id===id))}/>
         {error && (
           <p className="wealth-error" role="alert">
             {error} <button onClick={() => void load()}>Try again</button>
@@ -135,11 +135,11 @@ export function InvestmentsPage() {
         ) : (
           !error && (
             <>
-              <div className="wealth-metrics">
+              <div className="wealth-metrics investment-overview">
                 {[
                   ['Current value', formatCurrency(value)],
-                  ['Invested amount', formatCurrency(invested)],
-                  ['Total gain / loss', formatSignedCurrency(gain)],
+                  ['Recorded basis', formatCurrency(invested)],
+                  ['Gain vs recorded basis', formatSignedCurrency(gain)],
                   [
                     'Return',
                     invested > 0
@@ -164,8 +164,8 @@ export function InvestmentsPage() {
                 ))}
               </div>
               <p className="wealth-caption">
-                Recorded values · updated manually. Return is value change
-                against invested amount, not annualized.
+                Amounts shown in whole rupees; calculations retain paise. Return is change against the recorded basis, not annualized.
+                Imported EPF opening balances include prior interest; this is not a lifetime return.
               </p>
               <div className="wealth-grid">
                 <section className="wealth-holdings">
