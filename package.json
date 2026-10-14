@@ -23,7 +23,8 @@
     "test:category-rules": "bash scripts/test-category-rules.sh",
     "test:sankey-layout": "rm -rf .sankey-test-dist && tsc --ignoreConfig src/lib/sankey-layout.ts --module esnext --moduleResolution bundler --target es2022 --types vite/client --outDir .sankey-test-dist && node --test tests/sankey-layout.test.mjs && rm -rf .sankey-test-dist",
     "test:ai-categories": "bash scripts/test-ai-categories.sh",
-    "test:dashboard-preview": "tsc --ignoreConfig src/lib/dashboard-preview.ts --module esnext --moduleResolution bundler --target es2022 --outDir .dashboard-preview-test-dist --rootDir src --types vite/client && node --test tests/dashboard-preview.test.mjs"
+    "test:dashboard-preview": "tsc --ignoreConfig src/lib/dashboard-preview.ts --module esnext --moduleResolution bundler --target es2022 --outDir .dashboard-preview-test-dist --rootDir src --types vite/client && node --test tests/dashboard-preview.test.mjs",
+    "test:nps": "bash scripts/test-nps.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

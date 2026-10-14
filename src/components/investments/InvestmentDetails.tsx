@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import {
   getActivity,
@@ -12,7 +12,8 @@ import {
 } from '../../lib/format'
 import type { Investment } from '../../types/finance'
 import { Modal } from '../transactions/Modal'
-export function InvestmentDetails({
+const NpsDetails=lazy(()=>import('./NpsDetails').then(module=>({default:module.NpsDetails})))
+function GeneralInvestmentDetails({
   investment: i,
   onClose,
   onEdit,
@@ -272,4 +273,8 @@ export function InvestmentDetails({
       </footer>
     </Modal>
   )
+}
+
+export function InvestmentDetails(props: {investment: Investment; onClose:()=>void; onEdit:()=>void; onSaved?:()=>void}) {
+  return props.investment.type === 'NPS' ? <Suspense fallback={<p role="status">Loading NPS details…</p>}><NpsDetails investment={props.investment} onClose={props.onClose} onSaved={props.onSaved}/></Suspense> : <GeneralInvestmentDetails {...props}/>
 }
