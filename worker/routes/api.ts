@@ -1,3 +1,4 @@
+import { statementImportsRoute } from './statement-imports'
 import { billsRoute } from './bills'
 import { splitsRoute } from './splits'
 import { importsRoute } from './imports'
@@ -394,12 +395,14 @@ export async function handleApiRequest(
         })),
       )
     }
-    const workflowWrite = request.method!=='GET' && /^\/api\/(bills|imports|recovery|analytics|transactions\/[^/]+\/splits)/.test(pathname)
+    const workflowWrite = request.method!=='GET' && /^\/api\/(statement-imports|bills|imports|recovery|analytics|transactions\/[^/]+\/splits)/.test(pathname)
     if(workflowWrite && request.headers.get('Origin') && request.headers.get('Origin')!==new URL(request.url).origin) throw new ApiError(403,'ORIGIN_REJECTED','Open this action from your Personal Finance app.')
     const billsMatch=pathname.match(/^\/api\/bills(?:\/([^/]+)(?:\/(candidates|pay|skip))?)?$/)
     if(billsMatch)return await billsRoute(request,env,billsMatch[1],billsMatch[2])
     const splitMatch=pathname.match(/^\/api\/transactions\/([^/]+)\/splits$/)
     if(splitMatch)return await splitsRoute(request,env,splitMatch[1])
+    const statementMatch=pathname.match(/^\/api\/statement-imports(?:\/([^/]+)(?:\/(parse|review|commit|audit|source))?)?$/)
+    if(statementMatch)return await statementImportsRoute(request,env,statementMatch[1],statementMatch[2])
     const importsMatch=pathname.match(/^\/api\/imports(?:\/([^/]+)(?:\/(commit|undo))?)?$/)
     if(importsMatch)return await importsRoute(request,env,importsMatch[1],importsMatch[2])
     const recoveryMatch=pathname.match(/^\/api\/recovery\/(status|export|preview|restore)$/)
@@ -511,7 +514,7 @@ export async function handleApiRequest(
     if (error instanceof ApiError)
       return failure(error.code, error.message, error.status)
     const detail = error instanceof Error ? error.message : ''
-    if (/CHECK constraint failed: eligible|IMPORT_|BILL_|SPLIT_|UNIQUE constraint failed: (bill_|import_|transaction_splits|workflow_claims)/.test(detail)) return failure('WORKFLOW_CONFLICT','This record changed or is already linked. Refresh and review it.',409)
+    if (/CHECK constraint failed: eligible|STATEMENT_|IMPORT_|BILL_|SPLIT_|UNIQUE constraint failed: (statement_|bill_|import_|transaction_splits|workflow_claims)/.test(detail)) return failure('WORKFLOW_CONFLICT','This record changed or is already linked. Refresh and review it.',409)
     if (/FOREIGN KEY constraint failed/.test(detail)) return failure('LINKED_RECORD','This record is linked to financial history. Review its links or import batch before deleting it.',409)
     if (/CHECK constraint failed: snapshot_matches/.test(detail)) return failure('RESTORE_STALE','Data changed during restore preparation. Review a fresh restore preview.',409)
     if (/PAYROLL_|UNIQUE constraint failed: payroll_/.test(detail))

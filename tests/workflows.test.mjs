@@ -20,6 +20,7 @@ function setup() {
     sqlite.exec(readFileSync('migrations/' + file, 'utf8'))
   sqlite.exec(readFileSync('migrations/0011_investment_ledger.sql', 'utf8'))
   sqlite.exec(readFileSync('migrations/0012_finance_workflows.sql', 'utf8'))
+  sqlite.exec(readFileSync('migrations/0013_ai_statement_imports.sql', 'utf8'))
   sqlite.exec(
     "INSERT INTO workspaces(id,name) VALUES ('one','Home'),('two','Other')",
   )
@@ -667,6 +668,7 @@ test('backup registry tracks every restorable column and excludes only operation
     'restore_previews',
     'workflow_claims',
     'import_commit_guards',
+    'statement_commit_context',
   ])
   const tables = s.sqlite
     .prepare(
