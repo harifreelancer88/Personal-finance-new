@@ -7,7 +7,7 @@ import { calculateDashboard } from '../.transaction-page-test-dist/lib/dashboard
 
 function fixture() {
   const sql = new DatabaseSync(':memory:')
-  for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql','0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql','0008_ai_categories.sql']) sql.exec(readFileSync(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
+  for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql','0003_sms_ingestion.sql','0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql','0008_ai_categories.sql','0009_ai_audit_details.sql','0010_nps_statements.sql','0011_investment_ledger.sql','0012_finance_workflows.sql']) sql.exec(readFileSync(new URL(`../migrations/${file}`,import.meta.url),'utf8'))
   sql.exec(readFileSync(new URL('../bootstrap.sql',import.meta.url),'utf8'))
   sql.exec(`INSERT INTO workspaces(id,name) VALUES ('other','Other');
     INSERT INTO accounts(id,workspace_id,name,institution,account_type) VALUES ('bank','development-workspace','Family Bank','Bank','bank'),('wallet','development-workspace','Meal Wallet','Wallet','wallet'),('other-bank','other','Other Bank','Bank','bank');`)

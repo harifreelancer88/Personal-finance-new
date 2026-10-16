@@ -364,3 +364,49 @@ The Dashboard's **Recorded net worth** adds recorded bank/cash/wallet balances, 
 API: `GET /api/net-worth`, `GET/POST /api/investments/:id/payments`, `PATCH/DELETE /api/investments/:id/payments/:paymentId`, and `GET/POST /api/investments/:id/valuations`. Writes require the current `expectedVersion` (except unlinking an awaiting payment); payment creation also accepts a caller-generated `requestId` prefixed `ledger-`. Legacy activity logs remain explanatory only and are not added into portfolio totals. Existing account/workspace routing and authentication behavior are unchanged.
 
 Validate with `npm run test:investment-ledger`, `npm run test:wealth`, `npm run test:payroll`, `npm run test:nps`, `npm run test:transaction-controls`, `npm run test:sms-ingestion`, `npm run test:dashboard`, and `npm run build`.
+
+## Bills, statement imports, splits, comparison reports and recovery (migration 0012)
+
+This release implements the five selected workflows in the existing React/Worker/D1 app. It preserves the cash movement model: schedules and category allocations never create extra cash transactions. New pages are available in the sidebar and in the phone navigation's **More** menu.
+
+### Deployment order
+
+1. Save a current production D1 recovery point/export.
+2. Apply **only** `migrations/0012_finance_workflows.sql` to the production database after migrations 0001–0011. For this existing installation, where earlier SQL was applied manually, use the file directly rather than reapplying all migrations:
+
+   ```sh
+   npx wrangler d1 execute personal-finance-db --remote --file=migrations/0012_finance_workflows.sql
+   ```
+
+   Run the complete file once. It contains compound triggers and a fixed atomic recovery program; do not split trigger bodies into individual statements in the web console. It adds empty workflow tables and protects linked records; it does not invent bills, payments, splits or historical transactions.
+
+3. Deploy/merge the application **after** the migration succeeds.
+4. To enable backup/restore, set a new private owner key through Cloudflare's encrypted Worker secret named `RECOVERY_TOKEN`, or run `npx wrangler secret put RECOVERY_TOKEN`. Enter that key only in **Backup & restore**. Never put it in Git, public variables or a chat message. The rest of the app works without this secret; recovery returns an unavailable response until it is configured.
+
+For a fresh local database use `npx wrangler d1 migrations apply personal-finance-db --local`. Migration 0012 is not designed to be run twice. Application rollback can leave its additive tables in place.
+
+### Using the features
+
+- **Bills & instalments:** monthly, quarterly or yearly schedules with an optional fixed instalment count. Enter the first *unpaid* due date and any verified earlier paid count. Paid and skipped periods are distinct; skipping consumes a schedule slot without increasing the paid count. Month-end schedules retain their original day anchor. Pause/resume preserves history. Match a confirmed payment already in Transactions; record missing real cash movements there first. Different amounts require explicit acceptance. Investment schedules can link ordinary investment payments to an existing holding once, awaiting credit; EPF/NPS retain their retirement reconciliation flow. Earlier payments already covered by a valuation must first be reviewed in the holding's payment ledger. This version provides an in-app due/overdue tracker, without external notifications or automatic debits.
+- **Statement import centre:** CSV, TSV and semicolon-delimited text, up to 500 rows and 500 KB, with explicit date convention and column mapping. Supports quoted fields and Indian/western money grouping with exact integer paise. Preview rejects invalid/future dates and malformed amounts, flags existing same-account/date/amount or reference matches, and starts possible duplicates unchecked. Commit rechecks duplicates, including a guard inside the atomic write against a concurrent SMS. Identical statement retries reuse their batch. Review transfers, refunds and investment payments separately: this importer posts ordinary confirmed income/expenses only. Historical backfill explicitly offsets the opening balance to preserve today's cash balance and records the offset for undo. Undo removes only the batch's unedited, unlinked rows and reverses its own offset; edits, refunds, salary/bill/investment links or deleted rows require reconciliation first. PDF/OCR/AI extraction is outside this version.
+- **Split transactions:** open an income or expense's **View/Review** dialog and choose **Split into categories**. Up to ten distinct additional categories, with any remainder kept in the main category. Allocations cannot exceed the parent amount. Bank balance and total cash flow remain unchanged. Category reports and Sankey use these allocations; a transaction-category filter can find a split but its Transactions row still shows the full bank payment. Existing refunds must be unlinked before editing splits. Explicit matching-category refunds reduce that allocation; otherwise refunds are distributed proportionally with exact-paise remainder handling.
+- **Comparison reports:** monthly recorded spending by category, account or normalized merchant description; date/account/category filters, saved exact-date views, CSV download, and clickable monthly cells showing the included transactions and refund amounts. Confirmed expenses are reduced by eligible linked refunds in the month the refund arrived; transfers and investments are excluded. Category filters include only that allocation. Merchant grouping uses transaction descriptions rather than a new payee database. This version does not project future income or reconstruct missing historical asset valuations.
+- **Backup & restore:** owner-key-protected, versioned JSON with SHA-256 checksum, exact table/column contract and workspace/reference validation. Includes financial records, raw SMS, payroll/NPS evidence, investment valuation/payment history and the new workflows. Credentials/server secrets and transient recovery/request-control state are excluded. Restore accepts this schema/workspace only, with a 1.5 MB small-workspace limit; larger datasets require administrator D1 recovery. A preview shows before/after row counts, supplies a current recovery copy, requires typed confirmation and expires after ten minutes. A change after preview (including SMS) aborts replacement. The fixed database program replaces records atomically with FK/record guards enabled and rolls back on any failure. The valuation deletion exception exists only inside that restore transaction. Use the database recovery copy if rolling back schema/application versions; this is not a general cross-version migration utility.
+
+The existing application's workspace routing and access model remain in place. Destructive recovery additionally requires its owner secret and same-origin writes. Keep exported files private because they contain financial data and original SMS text.
+
+### Implementation references and checks
+
+The implementation is original TypeScript/SQLite for this application's schema. The reviewed [MoneyMatter source](https://github.com/letehaha/moneymatter/tree/9c45e0f293e9fa014693193ed8ed8d93f3e7701f) informed these patterns:
+
+| Pattern | Reviewed source | Adaptation here |
+| --- | --- | --- |
+| Finite instalments and consumed periods | `services/subscriptions/installments.ts` | Separate paid/skipped history; capped schedules and anchored due dates |
+| Preview duplicates before import | `services/import-export/statement-parser/detect-duplicates.service.ts` | Integer paise, explicit row selection and an additional atomic SMS-race guard |
+| Category allocations beneath one payment | `services/transactions/splits/validate-splits.ts` | Workspace checks, unique categories, limits and parent remainder |
+| Shared split/refund reporting rules | `services/stats/get-pivot/index.ts` and `refunds.ts` | Shared allocations, refund-month netting, matching totals and drilldowns |
+| Explicit backup registry and preflight | `services/backup/registry.ts` and `restore/preflight.ts` | Exact schema contract, drift test, checksum, owner/workspace checks and atomic D1 restore |
+
+Source paths above are relative to `packages/backend/src`. No upstream application code or infrastructure is copied into this app.
+
+Run `npm run test:workflows` for schedule/retry/date-anchor checks, allocation/report reconciliation, import duplicate/retry/undo/race cases, CSV boundary cases, backup schema drift, linked payroll/NPS round trips, owner checks, stale previews and injected restore rollback. Also run the existing report, dashboard, transaction, payroll, NPS, investment-ledger and SMS regression suites, `npm run build`, and `npx tsc -p tsconfig.worker.json --pretty false`.

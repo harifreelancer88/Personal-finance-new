@@ -214,6 +214,7 @@ export function SettingsPage() {
         </section>
         <section className="wealth-panel">
           <h2>Integrations</h2>
+          <p><Link className="wealth-text-button" to="/backup">Backup and restore financial records <ArrowUpRight /></Link></p>
           {connectionError && (
             <p className="wealth-error" role="alert">
               {connectionError}

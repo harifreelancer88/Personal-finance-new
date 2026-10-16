@@ -1,4 +1,5 @@
 export interface Env {
+  RECOVERY_TOKEN?: string
   ASSETS: Fetcher
   DB: D1Database
   DEFAULT_WORKSPACE_ID: string
