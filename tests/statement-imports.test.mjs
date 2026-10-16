@@ -861,3 +861,98 @@ test('discarding an unimported statement clears source/audit without removing co
     1,
   )
 })
+
+test('bank glossary exclusion spans AI chunks and preserves real movements after a footer', async () => {
+  const s = await fixture()
+  const source = {
+    fileName: 'icici.xls', sheetName: 'Statement',
+    rows: [
+      { number: 1, cells: ['Date', 'Description', 'Debit', 'Credit'] },
+      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00', ''] },
+      { number: 3, cells: ['', 'Legends Used in Account Statement', '', ''] },
+      ...Array.from({ length: 42 }, (_, i) => ({ number: i + 4, cells: ['', `${i + 1}. INF - Internet fund transfer`, '', ''] })),
+      { number: 46, cells: ['Date', 'Description', 'Debit', 'Credit'] },
+      { number: 47, cells: ['02/10/2026', 'Actual transfer', '', '1000.00'] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  await mock((input) => {
+    assert.ok(input.BLOCK.every((r) => !/Legends|Internet fund transfer/.test(r.cells.join(' '))))
+    return input.BLOCK.some((r) => r.number === 2)
+      ? extraction([parsedRow(2, '300.00'), parsedRow(4, '300.00', { description: 'INF - Internet fund transfer' })])
+      : extraction([parsedRow(44, '300.00'), parsedRow(47, '1000.00', { date: '2026-10-02', direction: 'credit', kind: 'income' })])
+  }, async (calls) => {
+    await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
+    const r = await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
+    assert.equal(r.status, 200, JSON.stringify(r))
+    assert.deepEqual(r.data.rows.map((row) => row.sourceRow), [2, 47])
+    assert.equal(r.data.rows[0].reference, '628717519115')
+    assert.deepEqual(r.data.blockers, [])
+    assert.equal(calls(), 2)
+  })
+  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n, 0)
+})
+
+test('existing pending AI review is repaired without another paid call and commits only confirmed matches', async () => {
+  const s = await fixture()
+  const source = {
+    fileName: 'existing.xls', sheetName: 'Statement', rows: [
+      { number: 1, cells: ['Date', 'Description', 'Debit'] },
+      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00'] },
+      { number: 3, cells: ['Legends Used in Account Statement'] },
+      { number: 4, cells: ['17. INF - Internet fund transfer in linked accounts'] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const raw = extraction([
+    parsedRow(2, '300.00', { employee: 'null', employer: 'N/A', pension: '', salaryMonth: 'null' }),
+    parsedRow(4, null, { date: null, description: 'INF - Internet fund transfer' }),
+  ], { openingBalance: 'null', principal: 'null', employeeBalance: 'null', employerBalance: 'null', pensionBalance: 'null' })
+  s.sqlite.prepare("UPDATE statement_imports SET status='review',parsed_json=?,next_chunk=1 WHERE id=?").run(JSON.stringify(raw), b.id)
+  const transaction = (await s.api('/transactions', 'POST', {
+    transactionType: 'expense', description: 'Shop SMS', amountMinor: 30000,
+    fromAccountId: 'bank', transactionDate: '2026-10-01', categoryId: 'food',
+  })).data.id
+  await mock(extraction([]), async (calls) => {
+    const r = (await s.api('/statement-imports/' + b.id)).data
+    assert.equal(r.rows.length, 1)
+    assert.equal(r.rows[0].reference, '628717519115')
+    assert.equal(r.rows[0].status, 'possible_match')
+    assert.deepEqual(r.rows[0].errors, [])
+    assert.deepEqual(r.blockers, [])
+    assert.equal(r.extraction.principal, null)
+    // Opening the review is read-only; the raw extraction and AI audit are preserved.
+    assert.equal(s.sqlite.prepare('SELECT parsed_json FROM statement_imports WHERE id=?').get(b.id).parsed_json, JSON.stringify(raw))
+    const checked = await s.api('/statement-imports/' + b.id + '/review', 'POST', { corrections: [] })
+    assert.deepEqual(checked.data.rows, r.rows)
+    const done = await commitAI(s, r, [{ sourceRow: 2, action: 'match', matchId: transaction }])
+    assert.equal(done.status, 200, JSON.stringify(done))
+    assert.equal(done.data.result.matched, 1)
+    assert.equal(done.data.result.added, 0)
+    assert.equal(calls(), 0)
+  })
+  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n, 1)
+  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n, 1)
+  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM statement_ai_attempts').get().n, 0)
+})
+
+test('reference recovery prefers explicit columns and leaves ambiguous IDs and malformed amounts for review', async () => {
+  const s = await fixture()
+  const source = {
+    fileName: 'references.csv', sheetName: 'Statement', rows: [
+      { number: 1, cells: ['Date', 'Description', 'Debit', 'Reference No'] },
+      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00', 'BANK-001'] },
+      { number: 3, cells: ['01/10/2026', 'UPI/Shop/628717519115/628717519116/ICIabc', '300.00', ''] },
+      { number: 4, cells: ['01/10/2026', 'No reference', '300.00', ''] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const r = await parseAI(s, b, extraction([
+    parsedRow(2), parsedRow(3), parsedRow(4, 'not-money', { date: null }),
+  ], { openingBalance: 'not-money' }))
+  assert.equal(r.rows[0].reference, 'BANK-001')
+  assert.equal(r.rows[1].reference, '')
+  assert.equal(r.rows[2].status, 'needs_review')
+  assert.ok(r.blockers.includes('Invalid summary amount: openingBalance'))
+  assert.equal((await commitAI(s, r, r.rows.map((row) => ({ sourceRow: row.sourceRow, action: 'new' })))).status, 400)
+})
