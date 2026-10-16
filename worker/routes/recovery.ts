@@ -46,7 +46,7 @@ async function snapshot(env: Env): Promise<Backup> {
     .first<{ data: string }>()
   const payload: Payload = {
     formatVersion: 1,
-    schemaVersion: 12,
+    schemaVersion: 13,
     workspaceId: ws,
     tables: JSON.parse(row!.data),
   }
@@ -61,7 +61,7 @@ async function validate(backup: unknown, env: Env): Promise<Backup> {
   if (
     !v?.payload ||
     v.payload.formatVersion !== 1 ||
-    v.payload.schemaVersion !== 12 ||
+    ![12, 13].includes(v.payload.schemaVersion) ||
     v.payload.workspaceId !== env.DEFAULT_WORKSPACE_ID
   )
     invalid('Backup format, schema or workspace does not match this app.')
@@ -72,6 +72,29 @@ async function validate(backup: unknown, env: Env): Promise<Backup> {
     )
   if ((await hash(JSON.stringify(v.payload))) !== v.checksum)
     invalid('Backup checksum does not match. The file is damaged or edited.')
+  if (v.payload.schemaVersion === 12) {
+    const newTables = [
+      'statement_imports',
+      'statement_import_items',
+      'statement_ai_attempts',
+    ]
+    if (
+      !v.payload.tables ||
+      Object.keys(v.payload.tables).length !==
+        BACKUP_TABLES.length - newTables.length ||
+      newTables.some((t) => t in v.payload.tables)
+    )
+      invalid('Invalid schema-12 backup tables.')
+    v.payload = {
+      ...v.payload,
+      schemaVersion: 13,
+      tables: {
+        ...v.payload.tables,
+        ...Object.fromEntries(newTables.map((t) => [t, []])),
+      },
+    }
+    v.checksum = await hash(JSON.stringify(v.payload))
+  }
   const tables = v.payload.tables
   if (!tables || Object.keys(tables).length !== BACKUP_TABLES.length)
     invalid('Backup is missing required tables.')
@@ -129,6 +152,19 @@ async function validate(backup: unknown, env: Env): Promise<Backup> {
         } else if (!tables[ref.table]?.some((r) => r[ref.target] === value))
           invalid(`Missing reference in ${table.name}.${ref.column}.`)
       }
+  for (const row of tables.statement_imports) {
+    const table = row.statement_type === 'bank' ? 'accounts' : 'investments'
+    if (
+      !tables[table].some(
+        (t) =>
+          t.id === row.target_id &&
+          (table === 'accounts' || t.investment_type === row.statement_type),
+      )
+    )
+      invalid(
+        'Statement import references a missing or incompatible destination.',
+      )
+  }
   return v
 }
 export async function recoveryRoute(

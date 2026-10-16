@@ -1,130 +1,224 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import {
   write,
+  lookups,
   errorText,
   rupees,
-  lookups,
   type Lookup,
-  type ImportPreview,
-  type ImportHistory,
 } from '../api/workflows'
-import { parseCsv } from '../../worker/lib/statement-parser'
 import { WorkflowShell, Feedback } from '../components/workflows/WorkflowShell'
+import { readStatementFile, type StatementSheet } from '../lib/statement-upload'
+import type {
+  StatementReview,
+  StatementType,
+  StatementSelection,
+  ParsedStatementRow,
+  StatementKind,
+  StatementExtraction,
+} from '../../shared/statement-import'
+const ManualImports = lazy(() => import('./ManualImportsPage'))
+type Choices = {
+  accounts: Lookup[]
+  categories: Lookup[]
+  investments: Lookup[]
+}
+interface History {
+  id: string
+  file_name: string
+  statement_type: string
+  status: string
+  created_at: string
+}
+type Correction = Partial<ParsedStatementRow> & {
+  sourceRow: number
+  confirmed?: boolean
+}
 export default function ImportsPage() {
-  const [csv, setCsv] = useState(''),
-    [filename, setFilename] = useState('statement.csv'),
-    [header, setHeader] = useState<string[]>([]),
-    [account, setAccount] = useState(''),
-    [format, setFormat] = useState('DMY'),
-    [preserve, setPreserve] = useState(false),
-    [mapping, setMapping] = useState<Record<string, string>>({
-      date: '',
-      description: '',
-      amount: '',
-      debit: '',
-      credit: '',
-      reference: '',
+  const [mode, setMode] = useState('ai'),
+    [choices, setChoices] = useState<Choices>({
+      accounts: [],
+      categories: [],
+      investments: [],
     }),
-    [choices, setChoices] = useState<{
-      accounts: Lookup[]
-      categories: Lookup[]
-    }>({ accounts: [], categories: [] }),
-    [preview, setPreview] = useState<ImportPreview>(),
-    [selected, setSelected] = useState<number[]>([]),
-    [categories, setCategories] = useState<Record<string, string>>({}),
-    [history, setHistory] = useState<ImportHistory[]>([]),
+    [configured, setConfigured] = useState<boolean>(),
+    [type, setType] = useState<StatementType>('bank'),
+    [target, setTarget] = useState(''),
+    [filename, setFilename] = useState(''),
+    [sheets, setSheets] = useState<StatementSheet[]>([]),
+    [sheet, setSheet] = useState(''),
+    [review, setReview] = useState<StatementReview>(),
+    [history, setHistory] = useState<History[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [notice, setNotice] = useState('')
-  const refresh = () =>
-    apiRequest<ImportHistory[]>('/api/imports').then(setHistory)
+    [notice, setNotice] = useState(''),
+    [decisions, setDecisions] = useState<Record<number, StatementSelection>>(
+      {},
+    ),
+    [corrections, setCorrections] = useState<Record<number, Correction>>({}),
+    [summary, setSummary] = useState<Partial<StatementExtraction>>({}),
+    [preserve, setPreserve] = useState(false),
+    [updateValue, setUpdateValue] = useState(false),
+    [confirmTarget, setConfirmTarget] = useState(false),
+    [confirmReview, setConfirmReview] = useState(false),
+    [filter, setFilter] = useState('all'),
+    [page, setPage] = useState(0),
+    [audit, setAudit] = useState<unknown>(),
+    [sourceOpen, setSourceOpen] = useState(false),
+    [summaryConfirmed, setSummaryConfirmed] = useState(false)
+  const alive = useRef(true),
+    active = useRef(0)
   useEffect(() => {
-    let alive = true
-    Promise.all([lookups(), apiRequest<ImportHistory[]>('/api/imports')])
-      .then(([l, h]) => {
-        if (alive) {
+    alive.current = true
+    const c = new AbortController()
+    Promise.all([
+      lookups(),
+      apiRequest<{ configured: boolean }>('/api/statement-imports/status', {
+        signal: c.signal,
+      }),
+      apiRequest<History[]>('/api/statement-imports', { signal: c.signal }),
+    ])
+      .then(([l, s, h]) => {
+        if (alive.current) {
           setChoices(l)
+          setConfigured(s.configured)
           setHistory(h)
         }
       })
       .catch((e) => {
-        if (alive) setError(errorText(e))
+        if (!c.signal.aborted) setError(errorText(e))
       })
     return () => {
-      alive = false
+      alive.current = false
+      active.current++
+      c.abort()
     }
   }, [])
-  const applyPreview = (p: ImportPreview) => {
-    setPreview(p)
-    setCategories({})
-    setSelected(
-      p.rows
-        .filter((r) => !r.error && !r.candidates.length)
-        .map((r) => r.number),
-    )
+  const refreshHistory = async () =>
+    setHistory(await apiRequest<History[]>('/api/statement-imports'))
+  const apply = (r: StatementReview, reset = true) => {
+    setReview(r)
+    if (reset) {
+      setPage(0)
+      setCorrections({})
+      setSummary({})
+      setSummaryConfirmed(false)
+      setDecisions(
+        Object.fromEntries(
+          r.rows.map((row) => [
+            row.sourceRow,
+            { sourceRow: row.sourceRow, action: 'skip' },
+          ]),
+        ),
+      )
+      setUpdateValue(r.canUpdateValuation)
+      setConfirmReview(false)
+      setConfirmTarget(false)
+      setAudit(undefined)
+    }
+  }
+  const clear = () => {
+    active.current++
+    setReview(undefined)
+    setError('')
+    setNotice('')
+    setConfirmReview(false)
+    setSourceOpen(false)
   }
   const loadFile = async (file?: File) => {
-    setError('')
-    setPreview(undefined)
-    setHeader([])
-    setCsv('')
+    clear()
+    setSheets([])
+    setSheet('')
     if (!file) return
-    if (file.size > 500_000) {
-      setError('Choose a CSV or text statement smaller than 500 KB.')
-      return
-    }
+    setBusy(true)
     try {
-      const text = await file.text(),
-        rows = parseCsv(text)
-      setCsv(text)
-      setFilename(file.name)
-      setHeader(rows[0] ?? [])
-      const fields: Record<string, string> = {}
-      for (const key of Object.keys(mapping)) {
-        const aliases: Record<string, string[]> = {
-          date: ['date', 'transaction date', 'txn date'],
-          description: ['description', 'narration', 'particulars', 'remarks'],
-          amount: ['amount', 'signed amount'],
-          debit: ['debit', 'withdrawal', 'withdrawal amt.'],
-          credit: ['credit', 'deposit', 'deposit amt.'],
-          reference: ['reference', 'reference no', 'utr', 'ref no'],
-        }
-        const index = (rows[0] ?? []).findIndex((c) =>
-          aliases[key].includes(c.trim().toLowerCase()),
-        )
-        fields[key] = index < 0 ? '' : String(index)
+      const result = await readStatementFile(file)
+      if (alive.current) {
+        setSheets(result)
+        setSheet(result[0].name)
+        setFilename(file.name)
       }
-      if (fields.amount) {
-        fields.debit = ''
-        fields.credit = ''
-      }
-      setMapping(fields)
     } catch (e) {
       setError(errorText(e))
+    } finally {
+      if (alive.current) setBusy(false)
     }
   }
-  const makePreview = async (event: FormEvent) => {
-    event.preventDefault()
+  const submit = async (resume?: StatementReview) => {
+    const request = ++active.current
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      const p = await write<ImportPreview>('/api/imports', {
-        csv,
-        fileName: filename,
-        accountId: account,
-        dateFormat: format,
-        mapping,
-        preserveBalance: preserve,
-      })
-      if (p.status !== 'preview') {
-        setPreview(undefined)
-        setNotice(
-          `This exact statement is already ${p.status}. Check import history.`,
+      let r =
+        resume ??
+        (await write<StatementReview>('/api/statement-imports', {
+          statementType: type,
+          targetId: target,
+          source: {
+            fileName: filename,
+            sheetName: sheet,
+            rows: sheets.find((s) => s.name === sheet)!.rows,
+          },
+        }))
+      if (!alive.current || request !== active.current) return
+      apply(r)
+      while (!['review', 'committed'].includes(r.status)) {
+        r = await write<StatementReview>(
+          '/api/statement-imports/' + r.id + '/parse',
+          {},
         )
-      } else applyPreview(p)
-      await refresh()
+        if (!alive.current || request !== active.current) return
+        apply(r)
+      }
+      await refreshHistory()
+      if (r.status === 'committed')
+        setNotice(
+          'This exact statement was already imported. No duplicate records were added.',
+        )
+    } catch (e) {
+      if (alive.current) {
+        setError(errorText(e))
+        await refreshHistory().catch(() => {})
+      }
+    } finally {
+      if (alive.current) setBusy(false)
+    }
+  }
+  const change = (
+    n: number,
+    field: keyof StatementSelection,
+    value: unknown,
+  ) => {
+    setDecisions((old) => ({
+      ...old,
+      [n]: { ...(old[n] ?? { sourceRow: n, action: 'skip' }), [field]: value },
+    }))
+    setConfirmReview(false)
+  }
+  const correct = (n: number, field: keyof Correction, value: unknown) => {
+    setCorrections((old) => ({
+      ...old,
+      [n]: { ...old[n], sourceRow: n, [field]: value },
+    }))
+    setConfirmReview(false)
+  }
+  const correctedRows = Object.values(corrections)
+  const recheck = async () => {
+    if (!review) return
+    setBusy(true)
+    setError('')
+    try {
+      const next = await write<StatementReview>(
+        '/api/statement-imports/' + review.id + '/review',
+        { corrections: correctedRows, summary, summaryConfirmed },
+      )
+      setReview(next)
+      setConfirmReview(false)
+      setNotice(
+        'Validation and matches refreshed. Check every selected row before importing.',
+      )
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -132,281 +226,950 @@ export default function ImportsPage() {
     }
   }
   const commit = async () => {
-    if (!preview) return
+    if (!review) return
     setBusy(true)
     setError('')
     try {
-      const result = await write<{
-        imported: number
-        balanceChangeMinor: number
-      }>('/api/imports/' + preview.id + '/commit', {
-        selectedRows: selected,
-        categories,
-        acceptDuplicateRows: preview.rows
-          .filter((r) => r.candidates.length && selected.includes(r.number))
-          .map((r) => r.number),
-      })
+      const r = await write<StatementReview>(
+        '/api/statement-imports/' + review.id + '/commit',
+        {
+          expectedTarget: review.expectedTarget,
+          selections: Object.values(decisions),
+          corrections: correctedRows,
+          summary,
+          summaryConfirmed,
+          preserveBalance: preserve,
+          updateValuation: updateValue,
+          confirmTarget,
+          confirmReview,
+        },
+      )
+      apply(r)
       setNotice(
-        `${result.imported} transactions imported. Balance change: ${rupees(result.balanceChangeMinor)}.`,
+        `Import complete: ${r.result?.added ?? 0} added, ${r.result?.matched ?? 0} matched, ${r.result?.skipped ?? 0} skipped.`,
       )
-      setPreview(undefined)
-      await refresh()
+      await refreshHistory()
     } catch (e) {
       setError(errorText(e))
-      try {
-        applyPreview(
-          await apiRequest<ImportPreview>('/api/imports/' + preview.id),
-        )
-      } catch {
-        /* Keep the original failure visible. */
-      }
+      setConfirmReview(false)
     } finally {
       setBusy(false)
     }
   }
-  const undo = async (id: string) => {
-    if (
-      !window.confirm(
-        'Undo this import? Only its unedited, unlinked transactions will be removed; existing transactions are preserved.',
-      )
+  if (mode === 'manual')
+    return (
+      <>
+        <div className="workflow-mode-switch">
+          <button className="secondary-button" onClick={() => setMode('ai')}>
+            Back to AI statement imports
+          </button>
+        </div>
+        <Suspense fallback={<p>Loading manual CSV importer…</p>}>
+          <ManualImports />
+        </Suspense>
+      </>
     )
-      return
-    setBusy(true)
-    setError('')
-    try {
-      await write('/api/imports/' + id + '/undo', {})
-      setNotice('Import undone. Existing records were preserved.')
-      await refresh()
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const delta =
-    preview?.rows
-      .filter((r) => selected.includes(r.number))
-      .reduce(
-        (n, r) => n + (r.type === 'income' ? r.amountMinor : -r.amountMinor),
-        0,
-      ) ?? 0
+  const visibleRows = (review?.rows ?? []).filter(
+    (r) => filter === 'all' || r.status === filter,
+  )
+  const bank = (review?.statementType ?? type) === 'bank',
+    destinations =
+      type === 'bank'
+        ? choices.accounts
+        : choices.investments.filter((i) => i.investmentType === type),
+    selectedSheet = sheets.find((s) => s.name === sheet),
+    editable = review?.status === 'review'
   return (
     <WorkflowShell
       title="Statement import centre"
-      description="Fill gaps in SMS capture using a bank or card statement. Review dates, amounts and possible duplicates before posting."
+      description="Upload a bank, card, NPS or EPFO statement, ask AI to interpret it, then review and confirm exactly what to import."
     >
       <Feedback error={error} notice={notice} />
-      <section className="panel">
-        <h2>Import CSV statement</h2>
-        <p>
-          CSV and delimited text · up to 500 rows / 500 KB. For PDF statements,
-          export CSV from the provider first. No statement data is sent to an AI
-          service.
+      <div className="workflow-toolbar">
+        <span className="workflow-chip">AI statement review</span>
+        <button
+          className="secondary-button"
+          disabled={busy}
+          onClick={() => setMode('manual')}
+        >
+          Use manual CSV mapping
+        </button>
+      </div>
+      {configured === false && (
+        <p role="alert">
+          The existing OpenAI API key is not configured on this Worker.
+          Configure OPENAI_API_KEY to enable Submit to AI.
         </p>
-        <form className="workflow-form" onSubmit={makePreview}>
+      )}
+      <section className="panel workflow-form">
+        <h2>1. Upload and choose destination</h2>
+        <label>
+          Statement file
+          <input
+            type="file"
+            accept=".csv,.tsv,.txt,.xls,.xlsx"
+            disabled={busy}
+            onChange={(e) => void loadFile(e.target.files?.[0])}
+          />
+        </label>
+        <p>
+          CSV, XLS or XLSX · up to 2 MB, 600 source rows and 40 columns per
+          worksheet. Files stay local until you submit. Encrypted files must be
+          unlocked first.
+        </p>
+        <div className="workflow-fields">
           <label>
-            Statement file
-            <input
-              type="file"
-              accept=".csv,.txt,.tsv,text/csv,text/plain"
+            Statement type
+            <select
+              value={type}
               disabled={busy}
-              onChange={(e) => void loadFile(e.target.files?.[0])}
-            />
+              onChange={(e) => {
+                clear()
+                setType(e.target.value as StatementType)
+                setTarget('')
+              }}
+            >
+              <option value="bank">Bank / credit card</option>
+              <option value="nps">NPS</option>
+              <option value="epf">EPFO / EPF</option>
+            </select>
           </label>
-          <div className="workflow-fields">
+          <label>
+            {type === 'bank' ? 'Destination account' : 'Destination holding'}
+            <select
+              value={target}
+              disabled={busy}
+              onChange={(e) => {
+                clear()
+                setTarget(e.target.value)
+              }}
+            >
+              <option value="">
+                Choose existing {type === 'bank' ? 'account' : 'holding'}
+              </option>
+              {destinations.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {sheets.length > 0 && (
             <label>
-              Account
+              Worksheet
               <select
-                required
-                value={account}
+                value={sheet}
+                disabled={busy}
                 onChange={(e) => {
-                  setAccount(e.target.value)
-                  setPreview(undefined)
+                  clear()
+                  setSheet(e.target.value)
                 }}
               >
-                <option value="">Choose account</option>
-                {choices.accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
+                {sheets.map((s) => (
+                  <option key={s.name}>{s.name}</option>
                 ))}
               </select>
             </label>
-            <label>
-              Date convention
-              <select
-                value={format}
-                onChange={(e) => {
-                  setFormat(e.target.value)
-                  setPreview(undefined)
-                }}
-              >
-                <option value="DMY">Day / month / year (India)</option>
-                <option value="MDY">Month / day / year</option>
-                <option value="ISO">YYYY-MM-DD only</option>
-              </select>
-            </label>
-          </div>
-          {header.length > 0 && (
-            <>
-              <div className="workflow-fields">
-                {Object.keys(mapping).map((key) => (
-                  <label key={key}>
-                    {key === 'amount'
-                      ? 'Signed amount'
-                      : key[0].toUpperCase() + key.slice(1)}{' '}
-                    column
-                    <select
-                      value={mapping[key]}
-                      onChange={(e) => {
-                        setMapping({ ...mapping, [key]: e.target.value })
-                        setPreview(undefined)
-                      }}
-                    >
-                      <option value="">Not mapped</option>
-                      {header.map((h, i) => (
-                        <option key={i} value={String(i)}>
-                          {h || `Column ${i + 1}`}
-                        </option>
+          )}
+        </div>
+        {selectedSheet && (
+          <details>
+            <summary>Preview source · {selectedSheet.rows.length} rows</summary>
+            <div className="workflow-table">
+              <table>
+                <tbody>
+                  {selectedSheet.rows.slice(0, 8).map((r) => (
+                    <tr key={r.number}>
+                      <th>{r.number}</th>
+                      {r.cells.map((c, i) => (
+                        <td key={i}>{c}</td>
                       ))}
-                    </select>
-                  </label>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+        <p>
+          Submit sends the selected worksheet’s cells to OpenAI using the
+          existing GPT-4o-mini connection. AI calls share your configured daily
+          limit. No financial records are created during parsing.
+        </p>
+        <button
+          className="primary-button"
+          disabled={busy || !configured || !target || !selectedSheet}
+          onClick={() => void submit()}
+        >
+          {busy ? 'Processing…' : 'Submit to AI'}
+        </button>
+      </section>
+      {review && (
+        <section className="panel workflow-form">
+          <h2>2. Review parsed statement</h2>
+          <p>
+            <strong>{review.fileName}</strong> ·{' '}
+            {review.statementType.toUpperCase()} · {review.progress}/
+            {review.totalChunks} AI batches · {review.tokens.toLocaleString()}{' '}
+            tokens
+          </p>
+          {busy && (
+            <p role="status">
+              Reading and validating statement batches. You can reopen this
+              import from history if you leave.
+            </p>
+          )}
+          {review.extraction && review.status === 'review' && (
+            <>
+              <div className="workflow-toolbar">
+                {[
+                  'new',
+                  'possible_match',
+                  'already_imported',
+                  'needs_review',
+                ].map((status) => (
+                  <span className="workflow-chip" key={status}>
+                    {review.rows.filter((r) => r.status === status).length}{' '}
+                    {status.replaceAll('_', ' ')}
+                  </span>
                 ))}
               </div>
+              {!!review.warnings.length && (
+                <details>
+                  <summary>
+                    Statement checks and warnings ({review.warnings.length})
+                  </summary>
+                  <ul>
+                    {review.warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {review.blockers.map((b, i) => (
+                <p role="alert" className="api-feedback error" key={i}>
+                  {b}
+                </p>
+              ))}
+              <details>
+                <summary>
+                  Statement dates and totals — inspect or correct
+                </summary>
+                <div className="workflow-fields">
+                  {(
+                    [
+                      'statementDate',
+                      'openingBalance',
+                      'closingBalance',
+                      ...(!bank
+                        ? [
+                            'principal',
+                            'employeeBalance',
+                            'employerBalance',
+                            'pensionBalance',
+                          ]
+                        : []),
+                    ] as (keyof StatementExtraction)[]
+                  ).map((field) => (
+                    <label key={field}>
+                      {field.replace(/([A-Z])/g, ' $1')}
+                      <input
+                        type={field === 'statementDate' ? 'date' : 'text'}
+                        value={String(
+                          summary[field] ?? review.extraction?.[field] ?? '',
+                        )}
+                        disabled={!editable || busy}
+                        onChange={(e) => {
+                          setSummary({
+                            ...summary,
+                            [field]: e.target.value || null,
+                          })
+                          setConfirmReview(false)
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p>
+                  Amounts are rupees. EPF value excludes EPS/pension. Opening
+                  balance + movements − closing balance:{' '}
+                  {review.reconciliation.differenceMinor === null
+                    ? 'Unavailable'
+                    : rupees(review.reconciliation.differenceMinor)}
+                </p>
+                <label className="workflow-check">
+                  <input
+                    type="checkbox"
+                    checked={summaryConfirmed}
+                    onChange={(e) => {
+                      setSummaryConfirmed(e.target.checked)
+                      setConfirmReview(false)
+                    }}
+                  />
+                  I verified the statement summary against the source; use my
+                  corrected totals to resolve conflicting AI summaries.
+                </label>
+                {!bank && review.valuation && (
+                  <p>
+                    Holding snapshot: {rupees(review.valuation.valueMinor)} as
+                    of {review.valuation.date}. Contributions/cost:{' '}
+                    {rupees(review.valuation.investedMinor)} (
+                    {review.valuation.basisKind.replaceAll('_', ' ')}).
+                  </p>
+                )}
+              </details>
+              <div className="workflow-toolbar">
+                <label>
+                  Show rows
+                  <select
+                    value={filter}
+                    onChange={(e) => {
+                      setFilter(e.target.value)
+                      setPage(0)
+                    }}
+                  >
+                    <option value="all">All</option>
+                    <option value="new">New</option>
+                    <option value="possible_match">Possible matches</option>
+                    <option value="already_imported">Already imported</option>
+                    <option value="needs_review">Needs review</option>
+                  </select>
+                </label>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => void recheck()}
+                >
+                  Validate corrections & refresh matches
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => setSourceOpen(!sourceOpen)}
+                >
+                  Show original source rows
+                </button>
+              </div>
+              <div className="workflow-toolbar">
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setDecisions((old) => ({
+                      ...old,
+                      ...Object.fromEntries(
+                        review.rows
+                          .filter((r) => r.status === 'new')
+                          .map((r) => [
+                            r.sourceRow,
+                            { sourceRow: r.sourceRow, action: 'new' as const },
+                          ]),
+                      ),
+                    }))
+                    setConfirmReview(false)
+                  }}
+                >
+                  Select validated new rows
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setDecisions(
+                      Object.fromEntries(
+                        review.rows.map((r) => [
+                          r.sourceRow,
+                          { sourceRow: r.sourceRow, action: 'skip' },
+                        ]),
+                      ),
+                    )
+                    setConfirmReview(false)
+                  }}
+                >
+                  Skip all rows
+                </button>
+              </div>
+              <div className="statement-review-list">
+                {review.rows
+                  .filter((r) => filter === 'all' || r.status === filter)
+                  .slice(page * 25, (page + 1) * 25)
+                  .map((row) => {
+                    const decision = decisions[row.sourceRow] ?? {
+                        sourceRow: row.sourceRow,
+                        action: 'skip',
+                      },
+                      fix = corrections[row.sourceRow] ?? {},
+                      locked = row.status === 'already_imported',
+                      payroll = row.candidates.filter(
+                        (c) => c.type === 'payroll',
+                      )
+                    return (
+                      <article
+                        className="statement-review-row"
+                        key={row.sourceRow}
+                      >
+                        <div className="workflow-toolbar">
+                          <h3>
+                            Row {row.sourceRow} · {row.description}
+                          </h3>
+                          <span className="workflow-chip">
+                            {row.status.replaceAll('_', ' ')}
+                          </span>
+                        </div>
+                        <p>
+                          {row.date ?? 'Date missing'} · {row.direction} ·{' '}
+                          <strong>{rupees(row.amountMinor)}</strong>
+                          {row.salaryMonth
+                            ? ' · salary ' + row.salaryMonth
+                            : ''}
+                        </p>
+                        {row.reviewReason && <p>{row.reviewReason}</p>}
+                        {row.errors.map((e, i) => (
+                          <p className="workflow-error" key={i}>
+                            {e}
+                          </p>
+                        ))}
+                        <div className="workflow-fields">
+                          <label>
+                            Decision for row {row.sourceRow}
+                            <select
+                              disabled={busy || locked}
+                              value={decision.action}
+                              onChange={(e) =>
+                                change(row.sourceRow, 'action', e.target.value)
+                              }
+                            >
+                              <option value="skip">Skip</option>
+                              <option value="new">
+                                Add new {bank ? 'transaction' : 'evidence'}
+                              </option>
+                              <option value="match">Match existing</option>
+                            </select>
+                          </label>
+                          {decision.action === 'match' && (
+                            <label>
+                              Existing evidence
+                              <select
+                                value={decision.matchId ?? ''}
+                                onChange={(e) =>
+                                  change(
+                                    row.sourceRow,
+                                    'matchId',
+                                    e.target.value,
+                                  )
+                                }
+                                disabled={busy}
+                              >
+                                <option value="">
+                                  Choose evidence
+                                  {!bank ? ' (or payroll below)' : ''}
+                                </option>
+                                {row.candidates
+                                  .filter((c) => c.type !== 'payroll')
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.date} · {c.label} ·{' '}
+                                      {rupees(c.amountMinor)}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                          )}
+                          {decision.action === 'new' &&
+                            row.candidates.length > 0 && (
+                              <label className="workflow-check">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    decision.acknowledgeDuplicate ?? false
+                                  }
+                                  disabled={busy}
+                                  onChange={(e) =>
+                                    change(
+                                      row.sourceRow,
+                                      'acknowledgeDuplicate',
+                                      e.target.checked,
+                                    )
+                                  }
+                                />
+                                I checked the possible matches; this is a
+                                separate movement.
+                              </label>
+                            )}
+                        </div>
+                        {!bank &&
+                          decision.action === 'match' &&
+                          payroll.length > 0 && (
+                            <div className="workflow-fields">
+                              {(row.employeeMinor !== null &&
+                              row.employerMinor !== null
+                                ? [
+                                    'employee',
+                                    'employer',
+                                    ...(row.pensionMinor ? ['pension'] : []),
+                                  ]
+                                : [
+                                    'total',
+                                    ...(row.pensionMinor ? ['pension'] : []),
+                                  ]
+                              ).map((component) => (
+                                <label key={component}>
+                                  {component} payroll match
+                                  <select
+                                    value={
+                                      decision.payrollMatches?.find(
+                                        (m) => m.component === component,
+                                      )?.id ?? ''
+                                    }
+                                    disabled={busy}
+                                    onChange={(e) =>
+                                      change(row.sourceRow, 'payrollMatches', [
+                                        ...(
+                                          decision.payrollMatches ?? []
+                                        ).filter(
+                                          (m) => m.component !== component,
+                                        ),
+                                        ...(e.target.value
+                                          ? [{ component, id: e.target.value }]
+                                          : []),
+                                      ])
+                                    }
+                                  >
+                                    <option value="">Leave unmatched</option>
+                                    {payroll
+                                      .filter(
+                                        (c) =>
+                                          component === 'total' ||
+                                          c.label.startsWith(component),
+                                      )
+                                      .map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.label} · {rupees(c.amountMinor)}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        <details>
+                          <summary>Inspect / correct parsed fields</summary>
+                          <div className="workflow-fields">
+                            <label>
+                              Date
+                              <input
+                                type="date"
+                                value={fix.date ?? row.date ?? ''}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(row.sourceRow, 'date', e.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Amount ₹
+                              <input
+                                value={fix.amount ?? row.amount ?? ''}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(
+                                    row.sourceRow,
+                                    'amount',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label>
+                              Description
+                              <input
+                                maxLength={200}
+                                value={fix.description ?? row.description}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(
+                                    row.sourceRow,
+                                    'description',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label>
+                              Direction
+                              <select
+                                value={fix.direction ?? row.direction}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(
+                                    row.sourceRow,
+                                    'direction',
+                                    e.target.value,
+                                  )
+                                }
+                              >
+                                <option value="debit">Debit</option>
+                                <option value="credit">Credit</option>
+                              </select>
+                            </label>
+                            <label>
+                              Reference
+                              <input
+                                maxLength={200}
+                                value={fix.reference ?? row.reference}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(
+                                    row.sourceRow,
+                                    'reference',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label>
+                              Movement type
+                              <select
+                                value={fix.kind ?? row.kind}
+                                disabled={busy || locked}
+                                onChange={(e) =>
+                                  correct(
+                                    row.sourceRow,
+                                    'kind',
+                                    e.target.value as StatementKind,
+                                  )
+                                }
+                              >
+                                {(bank
+                                  ? [
+                                      'expense',
+                                      'income',
+                                      'transfer',
+                                      'investment',
+                                      'refund',
+                                    ]
+                                  : [
+                                      'contribution',
+                                      'interest',
+                                      'fee',
+                                      'withdrawal',
+                                    ]
+                                ).map((k) => (
+                                  <option key={k}>{k}</option>
+                                ))}
+                              </select>
+                            </label>
+                            {bank ? (
+                              <label>
+                                Category
+                                <select
+                                  value={
+                                    'categoryId' in fix
+                                      ? (fix.categoryId ?? '')
+                                      : (row.categoryId ?? '')
+                                  }
+                                  disabled={busy || locked}
+                                  onChange={(e) =>
+                                    correct(
+                                      row.sourceRow,
+                                      'categoryId',
+                                      e.target.value || null,
+                                    )
+                                  }
+                                >
+                                  <option value="">Uncategorized</option>
+                                  {choices.categories.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : (
+                              <>
+                                <label>
+                                  Salary month
+                                  <input
+                                    type="month"
+                                    value={
+                                      fix.salaryMonth ?? row.salaryMonth ?? ''
+                                    }
+                                    disabled={busy || locked}
+                                    onChange={(e) =>
+                                      correct(
+                                        row.sourceRow,
+                                        'salaryMonth',
+                                        e.target.value || null,
+                                      )
+                                    }
+                                  />
+                                </label>
+                                {(
+                                  ['employee', 'employer', 'pension'] as const
+                                ).map((k) => (
+                                  <label key={k}>
+                                    {k} ₹
+                                    <input
+                                      value={fix[k] ?? row[k] ?? ''}
+                                      disabled={busy || locked}
+                                      onChange={(e) =>
+                                        correct(
+                                          row.sourceRow,
+                                          k,
+                                          e.target.value || null,
+                                        )
+                                      }
+                                    />
+                                  </label>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                          <label className="workflow-check">
+                            <input
+                              type="checkbox"
+                              checked={fix.confirmed ?? false}
+                              disabled={busy || locked}
+                              onChange={(e) =>
+                                correct(
+                                  row.sourceRow,
+                                  'confirmed',
+                                  e.target.checked,
+                                )
+                              }
+                            />
+                            I checked this row against the original statement.
+                          </label>
+                        </details>
+                        {bank &&
+                          (fix.kind ?? row.kind) === 'transfer' &&
+                          decision.action === 'new' && (
+                            <label>
+                              Other transfer account
+                              <select
+                                value={decision.otherAccountId ?? ''}
+                                onChange={(e) =>
+                                  change(
+                                    row.sourceRow,
+                                    'otherAccountId',
+                                    e.target.value,
+                                  )
+                                }
+                              >
+                                <option value="">Choose account</option>
+                                {choices.accounts
+                                  .filter((a) => a.id !== review.targetId)
+                                  .map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                      {a.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                          )}
+                        {bank &&
+                          (fix.kind ?? row.kind) === 'refund' &&
+                          decision.action === 'new' && (
+                            <label>
+                              Original expense transaction ID
+                              <input
+                                value={decision.originalTransactionId ?? ''}
+                                onChange={(e) =>
+                                  change(
+                                    row.sourceRow,
+                                    'originalTransactionId',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          )}
+                        {sourceOpen && (
+                          <pre className="statement-audit">
+                            {JSON.stringify(row.sourceCells, null, 2)}
+                          </pre>
+                        )}
+                        {locked && (
+                          <p>
+                            Recorded evidence is already linked. This row will
+                            not be added again.
+                          </p>
+                        )}
+                      </article>
+                    )
+                  })}
+              </div>
+              {visibleRows.length > 25 && (
+                <div className="workflow-toolbar">
+                  <button
+                    className="secondary-button"
+                    disabled={page === 0}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous rows
+                  </button>
+                  <span>
+                    Rows {page * 25 + 1}–
+                    {Math.min((page + 1) * 25, visibleRows.length)} of{' '}
+                    {visibleRows.length}
+                  </span>
+                  <button
+                    className="secondary-button"
+                    disabled={(page + 1) * 25 >= visibleRows.length}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next rows
+                  </button>
+                </div>
+              )}
+              {bank ? (
+                <label className="workflow-check">
+                  <input
+                    type="checkbox"
+                    checked={preserve}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setPreserve(e.target.checked)
+                      setConfirmReview(false)
+                    }}
+                  />
+                  Historical backfill: preserve the current account balance
+                  using a recorded opening-balance offset.
+                </label>
+              ) : (
+                <label className="workflow-check">
+                  <input
+                    type="checkbox"
+                    checked={updateValue}
+                    disabled={busy || !review.canUpdateValuation}
+                    onChange={(e) => {
+                      setUpdateValue(e.target.checked)
+                      setConfirmReview(false)
+                    }}
+                  />
+                  Update this holding to the newer statement snapshot.
+                  Older/equal-date statements add history only.
+                </label>
+              )}
               <p>
-                Use a signed amount column (negative means debit), or map
-                separate debit and credit columns. ₹1,25,000.50 is supported.
+                {bank
+                  ? 'Matching links evidence to the existing payment. Only Add new creates a cash transaction.'
+                  : 'Retirement movements are statement evidence. They do not create bank debits; the selected snapshot replaces the holding value once.'}
               </p>
               <label className="workflow-check">
                 <input
                   type="checkbox"
-                  checked={preserve}
-                  onChange={(e) => {
-                    setPreserve(e.target.checked)
-                    setPreview(undefined)
-                  }}
+                  checked={confirmTarget}
+                  disabled={busy}
+                  onChange={(e) => setConfirmTarget(e.target.checked)}
                 />
-                Historical backfill: preserve the current account balance
+                I verified this statement belongs to{' '}
+                {choices.accounts
+                  .concat(choices.investments)
+                  .find((t) => t.id === review.targetId)?.name ??
+                  'the selected destination'}
+                .
+              </label>
+              <label className="workflow-check">
+                <input
+                  type="checkbox"
+                  checked={confirmReview}
+                  disabled={busy}
+                  onChange={(e) => setConfirmReview(e.target.checked)}
+                />
+                I reviewed the totals, selected rows and matches. Import these
+                decisions.
               </label>
               <p>
-                {preserve
-                  ? 'Imported history will be offset against the opening balance. The offset is recorded for undo.'
-                  : 'Selected income and expenses will change the account balance. Review the impact below.'}
+                {
+                  Object.values(decisions).filter((d) => d.action === 'new')
+                    .length
+                }{' '}
+                new ·{' '}
+                {
+                  Object.values(decisions).filter((d) => d.action === 'match')
+                    .length
+                }{' '}
+                matches ·{' '}
+                {
+                  Object.values(decisions).filter((d) => d.action === 'skip')
+                    .length
+                }{' '}
+                skipped
               </p>
               <button
                 className="primary-button"
-                disabled={busy || !csv || !account}
+                disabled={
+                  busy ||
+                  !confirmTarget ||
+                  !confirmReview ||
+                  review.blockers.length > 0
+                }
+                onClick={() => void commit()}
               >
-                {busy ? 'Checking…' : 'Preview statement'}
+                {busy ? 'Importing…' : 'Import Now'}
               </button>
             </>
           )}
-        </form>
-      </section>
-      {preview && preview.status === 'preview' && (
-        <section className="panel">
-          <h2>Review {preview.rows.length} rows</h2>
-          <p>
-            Possible duplicates start unchecked. Select one only if you have
-            verified that it is a separate payment. Imports are confirmed
-            records: check transfers, refunds and investments carefully; omit
-            them here and record them using their proper transaction types.
-          </p>
-          <div className="workflow-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Import</th>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Direction / amount</th>
-                  <th>Category</th>
-                  <th>Review</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.rows.map((r) => (
-                  <tr key={r.number}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Import row ${r.number}`}
-                        disabled={!!r.error || busy}
-                        checked={selected.includes(r.number)}
-                        onChange={(e) =>
-                          setSelected(
-                            e.target.checked
-                              ? [...selected, r.number]
-                              : selected.filter((n) => n !== r.number),
-                          )
-                        }
-                      />
-                    </td>
-                    <td>{r.date || 'Invalid date'}</td>
-                    <td>{r.description}</td>
-                    <td>
-                      {r.type} {rupees(r.amountMinor)}
-                    </td>
-                    <td>
-                      <select
-                        aria-label={`Category for row ${r.number}`}
-                        value={categories[String(r.number)] ?? ''}
-                        onChange={(e) =>
-                          setCategories({
-                            ...categories,
-                            [r.number]: e.target.value,
-                          })
-                        }
-                      >
-                        <option value="">Uncategorized</option>
-                        {choices.categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      {r.error ? (
-                        <span className="workflow-error">{r.error}</span>
-                      ) : r.candidates.length ? (
-                        <details>
-                          <summary>Possible duplicate</summary>
-                          {r.candidates.map((c) => (
-                            <p key={c.id}>
-                              {c.transaction_date} · {c.description} ·{' '}
-                              {rupees(c.amount_minor)}
-                            </p>
-                          ))}
-                        </details>
-                      ) : (
-                        'Ready'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p>
-            <strong>{selected.length} selected</strong> · Proposed balance
-            change {rupees((preview.preserveBalance ?? preserve) ? 0 : delta)}
-          </p>
+          {review.status === 'committed' && (
+            <p>
+              Import completed.{' '}
+              <Link to={bank ? '/transactions' : '/investments'}>
+                View {bank ? 'transactions' : 'investments'}
+              </Link>
+            </p>
+          )}
           <button
-            className="primary-button"
-            disabled={busy || !selected.length}
-            onClick={() => void commit()}
+            className="secondary-button"
+            disabled={busy}
+            onClick={() => {
+              apiRequest('/api/statement-imports/' + review.id + '/audit')
+                .then(setAudit)
+                .catch((e) => setError(errorText(e)))
+            }}
           >
-            {busy
-              ? 'Importing…'
-              : `Import ${selected.length} selected transactions`}
+            View AI audit
           </button>
+          {review.status !== 'committed' && (
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    'Discard this unimported statement and its AI audit? No financial records will be removed.',
+                  )
+                )
+                  return
+                setBusy(true)
+                write('/api/statement-imports/' + review.id, {}, 'DELETE')
+                  .then(async () => {
+                    setReview(undefined)
+                    setNotice('Unimported statement discarded.')
+                    await refreshHistory()
+                  })
+                  .catch((e) => setError(errorText(e)))
+                  .finally(() => setBusy(false))
+              }}
+            >
+              Discard unimported statement
+            </button>
+          )}
+          {audit !== undefined && (
+            <details open>
+              <summary>
+                AI requests and responses — private statement data
+              </summary>
+              <pre className="statement-audit">
+                {JSON.stringify(audit, null, 2)}
+              </pre>
+            </details>
+          )}
         </section>
       )}
       <section className="panel">
-        <h2>Import history</h2>
-        {!history.length ? (
-          <p>No imports yet.</p>
+        <h2>AI import history</h2>
+        {history.length === 0 ? (
+          <p>No AI statements submitted yet.</p>
         ) : (
           <ul className="workflow-history">
             {history.map((h) => (
@@ -414,33 +1177,30 @@ export default function ImportsPage() {
                 <div>
                   <strong>{h.file_name}</strong>
                   <p>
-                    {h.created_at} · {h.status}
+                    {h.statement_type.toUpperCase()} · {h.status} ·{' '}
+                    {h.created_at}
                   </p>
                 </div>
-                {h.status === 'committed' && (
-                  <button
-                    className="secondary-button"
-                    disabled={busy}
-                    onClick={() => void undo(h.id)}
-                  >
-                    Undo import
-                  </button>
-                )}
-                {h.status === 'preview' && (
-                  <button
-                    className="secondary-button"
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true)
-                      apiRequest<ImportPreview>('/api/imports/' + h.id)
-                        .then(applyPreview)
-                        .catch((e) => setError(errorText(e)))
-                        .finally(() => setBusy(false))
-                    }}
-                  >
-                    Resume review
-                  </button>
-                )}
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true)
+                    setError('')
+                    apiRequest<StatementReview>(
+                      '/api/statement-imports/' + h.id,
+                    )
+                      .then(async (r) => {
+                        apply(r)
+                        if (!['review', 'committed'].includes(r.status))
+                          await submit(r)
+                      })
+                      .catch((e) => setError(errorText(e)))
+                      .finally(() => setBusy(false))
+                  }}
+                >
+                  Open / resume
+                </button>
               </li>
             ))}
           </ul>
