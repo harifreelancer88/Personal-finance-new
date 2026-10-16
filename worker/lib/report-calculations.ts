@@ -1,9 +1,13 @@
+import { refundAllocations, type Allocation } from './category-allocations.js'
 import { isExpenseRefund, effectiveTransactionDate } from './financial-semantics.js'
 
 export const REPORT_PERIODS = ['thisMonth', '3Months', '6Months', '1Year', 'all'] as const
 export type ReportPeriod = typeof REPORT_PERIODS[number]
 
 export interface ReportTransaction {
+  original_transaction_id?: string | null
+  allocations?: Allocation[]
+  originalAllocations?: Allocation[]
   id: string
   transaction_type: 'expense' | 'income' | 'transfer' | 'investment' | 'refund'
   description: string
@@ -88,8 +92,8 @@ function add(values: Map<string, { id: string | null; name: string; amountMinor:
 export function categoryBreakdown(transactions: ReportTransaction[], start: string, end: string) {
   const values = new Map<string, { id: string | null; name: string; amountMinor: number }>()
   for (const t of transactions) if (inRange(t, start, end)) {
-    if (t.transaction_type === 'expense') add(values, t.category_id, t.category_name, t.amount_minor)
-    else if (isQualifiedRefund(t)) add(values, t.original_category_id ?? t.category_id, t.original_category_name ?? t.category_name, -t.amount_minor)
+    if (t.transaction_type === 'expense') { for (const a of t.allocations ?? [{categoryId:t.category_id,categoryName:t.category_name,amountMinor:t.amount_minor}]) add(values,a.categoryId,a.categoryName,a.amountMinor) }
+    else if (isQualifiedRefund(t)) { if(t.originalAllocations) { for(const a of refundAllocations(t.amount_minor,t.originalAllocations,t.category_id)) add(values,a.categoryId,a.categoryName,a.amountMinor) } else add(values, t.original_category_id ?? t.category_id, t.original_category_name ?? t.category_name, -t.amount_minor) }
   }
   return finishBreakdown(values).map(({ id: categoryId, name: categoryName, ...rest }) => ({ categoryId, categoryName, ...rest }))
 }
@@ -105,7 +109,7 @@ export function accountBreakdown(transactions: ReportTransaction[], start: strin
 
 export function incomeBreakdown(transactions: ReportTransaction[], start: string, end: string) {
   const values = new Map<string, { id: string | null; name: string; amountMinor: number }>()
-  for (const t of transactions) if (inRange(t, start, end) && t.transaction_type === 'income') add(values, t.category_id, t.category_name, t.amount_minor)
+  for (const t of transactions) if (inRange(t, start, end) && t.transaction_type === 'income') { for(const a of t.allocations ?? [{categoryId:t.category_id,categoryName:t.category_name,amountMinor:t.amount_minor}]) add(values,a.categoryId,a.categoryName,a.amountMinor) }
   return finishBreakdown(values).map(({ id: categoryId, name: categoryName, ...rest }) => ({ categoryId, categoryName, ...rest }))
 }
 
@@ -143,8 +147,8 @@ export function reportSankey(transactions: ReportTransaction[], start: string, e
   const investments = new Map<string, { id: string | null; name: string; amountMinor: number }>()
   for (const t of transactions) {
     if (!inRange(t, start, end)) continue
-    if (t.transaction_type === 'expense') add(expenses, t.category_id, t.category_name, t.amount_minor)
-    else if (isQualifiedRefund(t)) add(expenses, t.original_category_id ?? t.category_id, t.original_category_name ?? t.category_name, -t.amount_minor)
+    if (t.transaction_type === 'expense') {for(const a of t.allocations??[{categoryId:t.category_id,categoryName:t.category_name,amountMinor:t.amount_minor}])add(expenses,a.categoryId,a.categoryName,a.amountMinor)}
+    else if (isQualifiedRefund(t)) {if(t.originalAllocations){for(const a of refundAllocations(t.amount_minor,t.originalAllocations,t.category_id))add(expenses,a.categoryId,a.categoryName,a.amountMinor)}else add(expenses,t.original_category_id??t.category_id,t.original_category_name??t.category_name,-t.amount_minor)}
     else if (t.transaction_type === 'investment') {
       const label = t.category_name ?? t.description.replace(/^.*salary\s*-\s*/i, '')
       add(investments, t.category_id ?? `description:${label}`, label, t.amount_minor)

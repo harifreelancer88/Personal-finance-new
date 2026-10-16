@@ -7,7 +7,7 @@ export type FilterState = {
   category: string
   account: string
   range: 'All' | '7' | '30' | '90'
-  source: 'All' | 'SMS' | 'Manual'
+  source: 'All' | 'SMS' | 'Manual' | 'Import'
   status: 'All' | 'Pending' | 'Confirmed' | 'Ignored'
 }
 export const emptyFilters: FilterState = {
@@ -138,6 +138,7 @@ export function TransactionFilters({
             <option>All</option>
             <option>SMS</option>
             <option>Manual</option>
+            <option>Import</option>
           </select>
         </label>
         <label>

@@ -57,8 +57,8 @@ function listConditions(workspaceId: string, filters: TransactionFilters) {
     values.push(filters.type)
   }
   if (filters.categoryId) {
-    where.push('t.category_id = ?')
-    values.push(filters.categoryId)
+    where.push('(t.category_id = ? OR EXISTS(SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id=?))')
+    values.push(filters.categoryId, filters.categoryId)
   }
   if (filters.accountId) {
     where.push('(t.from_account_id = ? OR t.to_account_id = ?)')

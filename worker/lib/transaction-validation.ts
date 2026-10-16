@@ -35,7 +35,7 @@ export function validateTransaction(value: Record<string, unknown>, current?: Tr
   const descriptionValue = read('description', current?.description)
   if (typeof descriptionValue !== 'string' || !descriptionValue.trim()) throw new ApiError(400, 'INVALID_DESCRIPTION', 'description is required.')
   const amountMinor = read('amountMinor', current?.amount_minor)
-  if (!Number.isInteger(amountMinor) || (amountMinor as number) <= 0) throw new ApiError(400, 'INVALID_AMOUNT', 'amountMinor must be a positive integer number of paise.')
+  if (!Number.isSafeInteger(amountMinor) || (amountMinor as number) <= 0) throw new ApiError(400, 'INVALID_AMOUNT', 'amountMinor must be a positive integer number of paise.')
   const transactionDate = read('transactionDate', current?.transaction_date)
   if (!isDate(transactionDate)) throw new ApiError(400, 'INVALID_DATE', 'transactionDate must be a valid YYYY-MM-DD date.')
   const accountingValue = read('accountingDate', current?.accounting_date)

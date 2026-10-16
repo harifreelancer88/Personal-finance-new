@@ -1,3 +1,8 @@
+import { billsRoute } from './bills'
+import { splitsRoute } from './splits'
+import { importsRoute } from './imports'
+import { recoveryRoute } from './recovery'
+import { analyticsRoute } from './analytics'
 import { investmentLedger, netWorth } from './investment-ledger'
 import { npsRoute } from './nps'
 import { aiCategoriesRoute, aiAuditDetailsRoute } from './ai-categories'
@@ -53,7 +58,7 @@ const transactionTypes = new Set([
   'refund',
 ])
 const statuses = new Set(['pending', 'confirmed', 'ignored'])
-const sources = new Set(['sms', 'manual'])
+const sources = new Set(['sms', 'manual', 'import'])
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
 function parseListQuery(url: URL) {
@@ -389,6 +394,18 @@ export async function handleApiRequest(
         })),
       )
     }
+    const workflowWrite = request.method!=='GET' && /^\/api\/(bills|imports|recovery|analytics|transactions\/[^/]+\/splits)/.test(pathname)
+    if(workflowWrite && request.headers.get('Origin') && request.headers.get('Origin')!==new URL(request.url).origin) throw new ApiError(403,'ORIGIN_REJECTED','Open this action from your Personal Finance app.')
+    const billsMatch=pathname.match(/^\/api\/bills(?:\/([^/]+)(?:\/(candidates|pay|skip))?)?$/)
+    if(billsMatch)return await billsRoute(request,env,billsMatch[1],billsMatch[2])
+    const splitMatch=pathname.match(/^\/api\/transactions\/([^/]+)\/splits$/)
+    if(splitMatch)return await splitsRoute(request,env,splitMatch[1])
+    const importsMatch=pathname.match(/^\/api\/imports(?:\/([^/]+)(?:\/(commit|undo))?)?$/)
+    if(importsMatch)return await importsRoute(request,env,importsMatch[1],importsMatch[2])
+    const recoveryMatch=pathname.match(/^\/api\/recovery\/(status|export|preview|restore)$/)
+    if(recoveryMatch)return await recoveryRoute(request,env,recoveryMatch[1])
+    const analyticsMatch=pathname.match(/^\/api\/analytics\/(pivot|export|views)$/)
+    if(analyticsMatch)return await analyticsRoute(request,env,analyticsMatch[1])
     if (pathname === '/api/health') {
       if (request.method !== 'GET') return methodNotAllowed()
       await env.DB.prepare('SELECT 1 AS healthy').first<{ healthy: number }>()
@@ -494,6 +511,9 @@ export async function handleApiRequest(
     if (error instanceof ApiError)
       return failure(error.code, error.message, error.status)
     const detail = error instanceof Error ? error.message : ''
+    if (/CHECK constraint failed: eligible|IMPORT_|BILL_|SPLIT_|UNIQUE constraint failed: (bill_|import_|transaction_splits|workflow_claims)/.test(detail)) return failure('WORKFLOW_CONFLICT','This record changed or is already linked. Refresh and review it.',409)
+    if (/FOREIGN KEY constraint failed/.test(detail)) return failure('LINKED_RECORD','This record is linked to financial history. Review its links or import batch before deleting it.',409)
+    if (/CHECK constraint failed: snapshot_matches/.test(detail)) return failure('RESTORE_STALE','Data changed during restore preparation. Review a fresh restore preview.',409)
     if (/PAYROLL_|UNIQUE constraint failed: payroll_/.test(detail))
       return failure('PAYROLL_CONFLICT', 'The salary record or statement match changed or is already in use. Reload and check the linked records.', 409)
     if (/investment_payments|investment_valuations|Unlink the investment payment|Investment payment must match/.test(detail))

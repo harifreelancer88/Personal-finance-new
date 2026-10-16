@@ -10,13 +10,17 @@ const items = [
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
   { label: 'Reports', icon: FileChartColumn, to: '/reports' },
+  { label: 'Bills & instalments', icon: CreditCard, to: '/bills' },
+  { label: 'Statement imports', icon: FileChartColumn, to: '/imports' },
+  { label: 'Comparison reports', icon: BarChart3, to: '/analytics' },
+  { label: 'Backup & restore', icon: Settings, to: '/backup' },
   { label: 'Settings', icon: Settings, to: '/settings' },
 ]
 
 interface SidebarProps { open: boolean; onClose: () => void; light?: boolean }
 
 export function Sidebar({ open, onClose, light = false }: SidebarProps) {
-  const orderedItems = light ? ['Dashboard','Dashboard preview','Accounts','Transactions','Reports','Investments','Settings'].map(label => items.find(item => item.label === label)!) : items
+  const orderedItems = light ? ['Dashboard','Dashboard preview','Accounts','Transactions','Reports','Investments','Bills & instalments','Statement imports','Comparison reports','Backup & restore','Settings'].map(label => items.find(item => item.label === label)!) : items
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return

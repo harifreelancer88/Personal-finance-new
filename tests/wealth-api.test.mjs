@@ -13,6 +13,7 @@ function setup() {
   ])
     sqlite.exec(readFileSync('migrations/' + file, 'utf8'))
   sqlite.exec(readFileSync('migrations/0011_investment_ledger.sql','utf8'))
+  sqlite.exec(readFileSync('migrations/0012_finance_workflows.sql','utf8'))
   sqlite.exec(
     "INSERT INTO workspaces(id,name) VALUES ('one','Home'),('two','Other')",
   )

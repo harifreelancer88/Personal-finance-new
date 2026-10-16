@@ -12,8 +12,10 @@ function setup() {
     '0004_sms_bank_reference.sql','0005_income_accounting_date.sql','0006_category_rules.sql','0007_payroll.sql','0008_ai_categories.sql',
   ])
     sqlite.exec(readFileSync('migrations/' + file, 'utf8'))
+  sqlite.exec(readFileSync('migrations/0009_ai_audit_details.sql','utf8'))
   sqlite.exec(readFileSync('migrations/0010_nps_statements.sql','utf8'))
   sqlite.exec(readFileSync('migrations/0011_investment_ledger.sql','utf8'))
+  sqlite.exec(readFileSync('migrations/0012_finance_workflows.sql','utf8'))
   sqlite.exec(
     "INSERT INTO workspaces(id,name) VALUES ('one','Home'),('two','Other')",
   )
