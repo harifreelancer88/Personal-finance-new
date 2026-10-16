@@ -22,6 +22,7 @@ import {
 import { dailyLimit } from '../repositories/ai-categories'
 import { AI_MODEL } from '../lib/ai-categorization'
 import { statementCommit } from './statement-commit'
+import { normalizeStatementExtraction } from '../lib/statement-normalization'
 export async function statementImportsRoute(
   request: Request,
   env: Env,
@@ -240,6 +241,7 @@ export async function statementImportsRoute(
         context,
         categories.results,
         examples.results,
+        source.rows,
       )
       await db
         .prepare(
@@ -286,9 +288,21 @@ export async function statementImportsRoute(
           502,
         )
       }
-      const next = mergeExtraction(
-          JSON.parse(batch.parsed_json),
-          checkExtraction(parsed, block),
+      const next = normalizeStatementExtraction(
+          mergeExtraction(
+            normalizeStatementExtraction(
+              JSON.parse(batch.parsed_json),
+              source.rows,
+              batch.statement_type,
+            ),
+            normalizeStatementExtraction(
+              checkExtraction(parsed, block),
+              source.rows,
+              batch.statement_type,
+            ),
+          ),
+          source.rows,
+          batch.statement_type,
         ),
         finished = (batch.next_chunk + 1) * CHUNK_SIZE >= source.rows.length
       const saved = await db
@@ -395,7 +409,11 @@ function applyCorrections(
   batch: StatementBatch,
   b: Record<string, unknown>,
 ): StatementExtraction {
-  const parsed: StatementExtraction = JSON.parse(batch.parsed_json)
+  const parsed = normalizeStatementExtraction(
+    JSON.parse(batch.parsed_json),
+    (JSON.parse(batch.source_json) as StatementSource).rows,
+    batch.statement_type,
+  )
   if (b.corrections !== undefined) {
     if (!Array.isArray(b.corrections) || b.corrections.length > 600)
       invalid('Invalid row corrections.')

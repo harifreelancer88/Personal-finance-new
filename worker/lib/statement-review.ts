@@ -8,6 +8,7 @@ import type {
 } from '../../shared/statement-import'
 import type { Env } from '../types'
 import { parseMoney } from './statement-parser'
+import { normalizeStatementExtraction } from './statement-normalization'
 import { dateOnly, hash, todayIST, invalid } from './workflow-utils'
 export interface StatementBatch {
   id: string
@@ -105,7 +106,14 @@ export async function reviewStatement(
   batch: StatementBatch,
 ): Promise<StatementReview> {
   const source: StatementSource = JSON.parse(batch.source_json),
-    extraction: StatementExtraction = JSON.parse(batch.parsed_json),
+    extraction: StatementExtraction =
+      batch.status === 'committed'
+        ? JSON.parse(batch.parsed_json)
+        : normalizeStatementExtraction(
+            JSON.parse(batch.parsed_json),
+            source.rows,
+            batch.statement_type,
+          ),
     target = await statementTarget(env, batch.statement_type, batch.target_id),
     ws = env.DEFAULT_WORKSPACE_ID,
     bank = batch.statement_type === 'bank'
