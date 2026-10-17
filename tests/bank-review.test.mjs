@@ -118,3 +118,18 @@ test('already linked and conflicting-reference suggestions explain why manual at
   assert.match(html, /Bank references differ/)
   assert.match(html, /disabled="">Match this/)
 })
+
+test('equivalent ICICI references do not display a conflict and absent references do not render a stray zero', () => {
+  const html = render([
+    row(1, {
+      status: 'possible_match',
+      reference: '111111111111/ICI5794e0b9978c40c180f1cf5397129550',
+      candidates: [
+        { ...candidate, references: ['111111111111'] },
+        { ...candidate, id: 'no-reference' },
+      ],
+    }),
+  ])
+  assert.doesNotMatch(html, /Bank references differ/)
+  assert.doesNotMatch(html, /<\/p>0<button/)
+})

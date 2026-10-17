@@ -4,7 +4,17 @@ import type {
   StatementSelection,
 } from './statement-import'
 
-const reference = (v: string) => v.trim().toUpperCase()
+// ICICI statements may append their internal UPI ID to the RRN that the
+// bank SMS contains. Recognise only this complete format, never substrings.
+export function canonicalBankReference(value: string): string {
+  const normalized = value.trim().toUpperCase()
+  return /^(\d{12})\/ICI[A-F0-9]{32}$/.exec(normalized)?.[1] ?? normalized
+}
+
+export function bankReferencesMatch(left: string, right: string): boolean {
+  return !!left.trim() && !!right.trim() &&
+    canonicalBankReference(left) === canonicalBankReference(right)
+}
 function compatible(row: ReviewedStatementRow, c: StatementCandidate) {
   return (
     c.type === 'transaction' &&
@@ -13,7 +23,7 @@ function compatible(row: ReviewedStatementRow, c: StatementCandidate) {
     !(
       row.reference &&
       c.references?.length &&
-      !c.references.some((r) => reference(r) === reference(row.reference))
+      !c.references.some((r) => bankReferencesMatch(r, row.reference))
     )
   )
 }
@@ -30,7 +40,7 @@ export function autoMatchBankRows(rows: ReviewedStatementRow[]): void {
         (c.date === row.date ||
           (row.reference &&
             c.references?.some(
-              (r) => reference(r) === reference(row.reference),
+              (r) => bankReferencesMatch(r, row.reference),
             ))),
     ))
       claims.set(c.id, (claims.get(c.id) ?? 0) + 1)
@@ -47,7 +57,7 @@ export function autoMatchBankRows(rows: ReviewedStatementRow[]): void {
       (c) =>
         row.reference &&
         c.references?.length === 1 &&
-        reference(c.references[0]) === reference(row.reference),
+        bankReferencesMatch(c.references[0], row.reference),
     )
     const exactDate = row.candidates.filter((c) => c.date === row.date)
     let candidate: StatementCandidate | undefined

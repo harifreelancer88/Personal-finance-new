@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
-import { defaultStatementDecision } from '../.workflow-test-dist/statement-matching.mjs'
+import { defaultStatementDecision, bankReferencesMatch } from '../.workflow-test-dist/statement-matching.mjs'
 import { handleApiRequest } from '../.workflow-test-dist/api.mjs'
 function setup() {
   const sqlite = new DatabaseSync(':memory:')
@@ -1243,6 +1243,47 @@ test('a shared amount can be auto-matched by distinct references, while one cand
     s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
     0,
   )
+})
+
+test('ICICI RRN plus internal ID matches SMS RRN, including distinct payments of the same amount', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'one', '2026-10-01', 30000, '111111111111')
+  await seedBankTransaction(s, 'two', '2026-10-01', 30000, '222222222222')
+  const references = [
+    '111111111111/ICI5794e0b9978c40c180f1cf5397129550',
+    '222222222222/ICI9253ff55827d40b4b355b107d271de1d',
+  ]
+  const source = {
+    ...bankSource,
+    rows: references.map((reference, index) => ({
+      number: index + 1,
+      cells: ['01/10/2026', 'UPI/Shop/' + reference, '300.00'],
+    })),
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const r = await parseAI(s, b, extraction(references.map((reference, index) =>
+    parsedRow(index + 1, '300.00', { reference }),
+  )))
+  assert.deepEqual(r.rows.map((row) => row.autoMatch?.id), ['one', 'two'])
+  assert.deepEqual(r.rows.map((row) => row.reference), references)
+  const done = await commitAI(s, r, r.rows.map((row) => defaultStatementDecision(row, true)))
+  assert.equal(done.status, 200, JSON.stringify(done))
+  assert.equal(done.data.result.matched, 2)
+  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n, 2)
+})
+
+test('reference comparison rejects conflicting, ambiguous and partial references', () => {
+  const rrn = '111111111111'
+  assert.equal(bankReferencesMatch(rrn, ' 111111111111/ici5794e0b9978c40c180f1cf5397129550 '), true)
+  for (const other of [
+    '222222222222/ICI5794e0b9978c40c180f1cf5397129550',
+    '111111111111/222222222222',
+    'prefix111111111111',
+    '111111111111/ICIbroken',
+    '111111111111/ICI5794e0b9978c40c180f1cf5397129550/extra',
+    '',
+  ]) assert.equal(bankReferencesMatch(rrn, other), false, other)
+  assert.equal(bankReferencesMatch('', ''), false)
 })
 
 test('partial bank imports keep unresolved rows pending and resume without recreating prior transactions', async () => {
