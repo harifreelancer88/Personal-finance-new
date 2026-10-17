@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
+import { defaultStatementDecision } from '../.workflow-test-dist/statement-matching.mjs'
 import { handleApiRequest } from '../.workflow-test-dist/api.mjs'
 function setup() {
   const sqlite = new DatabaseSync(':memory:')
@@ -221,7 +222,7 @@ test('AI bank preview uses existing key, confirms a match, inserts only new cash
       ]),
     )
   assert.equal(r.status, 'review')
-  assert.equal(r.rows[0].status, 'possible_match')
+  assert.equal(r.rows[0].status, 'auto_matched')
   assert.equal(r.rows[1].status, 'new')
   assert.equal(
     s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
@@ -721,7 +722,7 @@ test('AI bank backfill preserves balance and transfers match once across account
       }),
     ]),
   )
-  assert.equal(fresh.rows[0].status, 'possible_match')
+  assert.equal(fresh.rows[0].status, 'auto_matched')
   assert.equal(
     (
       await commitAI(s, fresh, [
@@ -865,94 +866,579 @@ test('discarding an unimported statement clears source/audit without removing co
 test('bank glossary exclusion spans AI chunks and preserves real movements after a footer', async () => {
   const s = await fixture()
   const source = {
-    fileName: 'icici.xls', sheetName: 'Statement',
+    fileName: 'icici.xls',
+    sheetName: 'Statement',
     rows: [
       { number: 1, cells: ['Date', 'Description', 'Debit', 'Credit'] },
-      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00', ''] },
+      {
+        number: 2,
+        cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00', ''],
+      },
       { number: 3, cells: ['', 'Legends Used in Account Statement', '', ''] },
-      ...Array.from({ length: 42 }, (_, i) => ({ number: i + 4, cells: ['', `${i + 1}. INF - Internet fund transfer`, '', ''] })),
+      ...Array.from({ length: 42 }, (_, i) => ({
+        number: i + 4,
+        cells: ['', `${i + 1}. INF - Internet fund transfer`, '', ''],
+      })),
       { number: 46, cells: ['Date', 'Description', 'Debit', 'Credit'] },
       { number: 47, cells: ['02/10/2026', 'Actual transfer', '', '1000.00'] },
     ],
   }
   const b = await uploadAI(s, 'bank', 'bank', source)
-  await mock((input) => {
-    assert.ok(input.BLOCK.every((r) => !/Legends|Internet fund transfer/.test(r.cells.join(' '))))
-    return input.BLOCK.some((r) => r.number === 2)
-      ? extraction([parsedRow(2, '300.00'), parsedRow(4, '300.00', { description: 'INF - Internet fund transfer' })])
-      : extraction([parsedRow(44, '300.00'), parsedRow(47, '1000.00', { date: '2026-10-02', direction: 'credit', kind: 'income' })])
-  }, async (calls) => {
-    await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
-    const r = await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
-    assert.equal(r.status, 200, JSON.stringify(r))
-    assert.deepEqual(r.data.rows.map((row) => row.sourceRow), [2, 47])
-    assert.equal(r.data.rows[0].reference, '628717519115')
-    assert.deepEqual(r.data.blockers, [])
-    assert.equal(calls(), 2)
-  })
-  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n, 0)
+  await mock(
+    (input) => {
+      assert.ok(
+        input.BLOCK.every(
+          (r) => !/Legends|Internet fund transfer/.test(r.cells.join(' ')),
+        ),
+      )
+      return input.BLOCK.some((r) => r.number === 2)
+        ? extraction([
+            parsedRow(2, '300.00'),
+            parsedRow(4, '300.00', {
+              description: 'INF - Internet fund transfer',
+            }),
+          ])
+        : extraction([
+            parsedRow(44, '300.00'),
+            parsedRow(47, '1000.00', {
+              date: '2026-10-02',
+              direction: 'credit',
+              kind: 'income',
+            }),
+          ])
+    },
+    async (calls) => {
+      await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
+      const r = await s.api('/statement-imports/' + b.id + '/parse', 'POST', {})
+      assert.equal(r.status, 200, JSON.stringify(r))
+      assert.deepEqual(
+        r.data.rows.map((row) => row.sourceRow),
+        [2, 47],
+      )
+      assert.equal(r.data.rows[0].reference, '628717519115')
+      assert.deepEqual(r.data.blockers, [])
+      assert.equal(calls(), 2)
+    },
+  )
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+    0,
+  )
 })
 
 test('existing pending AI review is repaired without another paid call and commits only confirmed matches', async () => {
   const s = await fixture()
   const source = {
-    fileName: 'existing.xls', sheetName: 'Statement', rows: [
+    fileName: 'existing.xls',
+    sheetName: 'Statement',
+    rows: [
       { number: 1, cells: ['Date', 'Description', 'Debit'] },
-      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00'] },
+      {
+        number: 2,
+        cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00'],
+      },
       { number: 3, cells: ['Legends Used in Account Statement'] },
-      { number: 4, cells: ['17. INF - Internet fund transfer in linked accounts'] },
+      {
+        number: 4,
+        cells: ['17. INF - Internet fund transfer in linked accounts'],
+      },
     ],
   }
   const b = await uploadAI(s, 'bank', 'bank', source)
-  const raw = extraction([
-    parsedRow(2, '300.00', { employee: 'null', employer: 'N/A', pension: '', salaryMonth: 'null' }),
-    parsedRow(4, null, { date: null, description: 'INF - Internet fund transfer' }),
-  ], { openingBalance: 'null', principal: 'null', employeeBalance: 'null', employerBalance: 'null', pensionBalance: 'null' })
-  s.sqlite.prepare("UPDATE statement_imports SET status='review',parsed_json=?,next_chunk=1 WHERE id=?").run(JSON.stringify(raw), b.id)
-  const transaction = (await s.api('/transactions', 'POST', {
-    transactionType: 'expense', description: 'Shop SMS', amountMinor: 30000,
-    fromAccountId: 'bank', transactionDate: '2026-10-01', categoryId: 'food',
-  })).data.id
+  const raw = extraction(
+    [
+      parsedRow(2, '300.00', {
+        employee: 'null',
+        employer: 'N/A',
+        pension: '',
+        salaryMonth: 'null',
+      }),
+      parsedRow(4, null, {
+        date: null,
+        description: 'INF - Internet fund transfer',
+      }),
+    ],
+    {
+      openingBalance: 'null',
+      principal: 'null',
+      employeeBalance: 'null',
+      employerBalance: 'null',
+      pensionBalance: 'null',
+    },
+  )
+  s.sqlite
+    .prepare(
+      "UPDATE statement_imports SET status='review',parsed_json=?,next_chunk=1 WHERE id=?",
+    )
+    .run(JSON.stringify(raw), b.id)
+  const transaction = (
+    await s.api('/transactions', 'POST', {
+      transactionType: 'expense',
+      description: 'Shop SMS',
+      amountMinor: 30000,
+      fromAccountId: 'bank',
+      transactionDate: '2026-10-01',
+      categoryId: 'food',
+    })
+  ).data.id
   await mock(extraction([]), async (calls) => {
     const r = (await s.api('/statement-imports/' + b.id)).data
     assert.equal(r.rows.length, 1)
     assert.equal(r.rows[0].reference, '628717519115')
-    assert.equal(r.rows[0].status, 'possible_match')
+    assert.equal(r.rows[0].status, 'auto_matched')
     assert.deepEqual(r.rows[0].errors, [])
     assert.deepEqual(r.blockers, [])
     assert.equal(r.extraction.principal, null)
     // Opening the review is read-only; the raw extraction and AI audit are preserved.
-    assert.equal(s.sqlite.prepare('SELECT parsed_json FROM statement_imports WHERE id=?').get(b.id).parsed_json, JSON.stringify(raw))
-    const checked = await s.api('/statement-imports/' + b.id + '/review', 'POST', { corrections: [] })
+    assert.equal(
+      s.sqlite
+        .prepare('SELECT parsed_json FROM statement_imports WHERE id=?')
+        .get(b.id).parsed_json,
+      JSON.stringify(raw),
+    )
+    const checked = await s.api(
+      '/statement-imports/' + b.id + '/review',
+      'POST',
+      { corrections: [] },
+    )
     assert.deepEqual(checked.data.rows, r.rows)
-    const done = await commitAI(s, r, [{ sourceRow: 2, action: 'match', matchId: transaction }])
+    const done = await commitAI(s, r, [
+      { sourceRow: 2, action: 'match', matchId: transaction },
+    ])
     assert.equal(done.status, 200, JSON.stringify(done))
     assert.equal(done.data.result.matched, 1)
     assert.equal(done.data.result.added, 0)
     assert.equal(calls(), 0)
   })
-  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n, 1)
-  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n, 1)
-  assert.equal(s.sqlite.prepare('SELECT count(*) n FROM statement_ai_attempts').get().n, 0)
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+    1,
+  )
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
+    1,
+  )
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_ai_attempts').get().n,
+    0,
+  )
 })
 
 test('reference recovery prefers explicit columns and leaves ambiguous IDs and malformed amounts for review', async () => {
   const s = await fixture()
   const source = {
-    fileName: 'references.csv', sheetName: 'Statement', rows: [
+    fileName: 'references.csv',
+    sheetName: 'Statement',
+    rows: [
       { number: 1, cells: ['Date', 'Description', 'Debit', 'Reference No'] },
-      { number: 2, cells: ['01/10/2026', 'UPI/Shop/628717519115/ICIabc', '300.00', 'BANK-001'] },
-      { number: 3, cells: ['01/10/2026', 'UPI/Shop/628717519115/628717519116/ICIabc', '300.00', ''] },
+      {
+        number: 2,
+        cells: [
+          '01/10/2026',
+          'UPI/Shop/628717519115/ICIabc',
+          '300.00',
+          'BANK-001',
+        ],
+      },
+      {
+        number: 3,
+        cells: [
+          '01/10/2026',
+          'UPI/Shop/628717519115/628717519116/ICIabc',
+          '300.00',
+          '',
+        ],
+      },
       { number: 4, cells: ['01/10/2026', 'No reference', '300.00', ''] },
     ],
   }
   const b = await uploadAI(s, 'bank', 'bank', source)
-  const r = await parseAI(s, b, extraction([
-    parsedRow(2), parsedRow(3), parsedRow(4, 'not-money', { date: null }),
-  ], { openingBalance: 'not-money' }))
+  const r = await parseAI(
+    s,
+    b,
+    extraction(
+      [parsedRow(2), parsedRow(3), parsedRow(4, 'not-money', { date: null })],
+      { openingBalance: 'not-money' },
+    ),
+  )
   assert.equal(r.rows[0].reference, 'BANK-001')
   assert.equal(r.rows[1].reference, '')
   assert.equal(r.rows[2].status, 'needs_review')
   assert.ok(r.blockers.includes('Invalid summary amount: openingBalance'))
-  assert.equal((await commitAI(s, r, r.rows.map((row) => ({ sourceRow: row.sourceRow, action: 'new' })))).status, 400)
+  assert.equal(
+    (
+      await commitAI(
+        s,
+        r,
+        r.rows.map((row) => ({ sourceRow: row.sourceRow, action: 'new' })),
+      )
+    ).status,
+    400,
+  )
+})
+
+async function seedBankTransaction(
+  s,
+  id,
+  date,
+  amount,
+  reference = '',
+  account = 'bank',
+  kind = 'expense',
+) {
+  s.sqlite
+    .prepare(
+      "INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,from_account_id,to_account_id,transaction_date,status,source,external_id) VALUES (?,'one',?,'Existing payment',?,?,?,?, 'confirmed','manual',?)",
+    )
+    .run(
+      id,
+      kind,
+      amount,
+      kind === 'expense' ? account : null,
+      kind === 'expense' ? null : account,
+      date,
+      'sms-envelope-' + id,
+    )
+  if (reference)
+    s.sqlite
+      .prepare(
+        "INSERT INTO sms_messages(id,workspace_id,dedupe_key,sender,raw_text,received_at,transaction_id,bank_reference) VALUES (?,'one',?,'BANK','Synthetic SMS','2026-10-01',?,?)",
+      )
+      .run('sms-' + id, 'dedupe-' + id, id, reference)
+}
+
+test('unique exact bank matches work for fractional and whole amounts, using actual SMS references', async () => {
+  const s = await fixture()
+  await seedBankTransaction(
+    s,
+    'fractional',
+    '2026-10-01',
+    83362,
+    '628717519115',
+  )
+  await seedBankTransaction(s, 'whole', '2026-10-02', 20000)
+  const source = {
+    fileName: 'bank.csv',
+    sheetName: 'Statement',
+    rows: [
+      {
+        number: 1,
+        cells: ['01/10/2026', 'UPI/Google/628717519115/ICIabc', '833.62'],
+      },
+      { number: 2, cells: ['02/10/2026', 'Metro', '200.00'] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const r = await parseAI(
+    s,
+    b,
+    extraction([
+      parsedRow(1, '833.62'),
+      parsedRow(2, '200.00', { date: '2026-10-02' }),
+    ]),
+  )
+  assert.deepEqual(
+    r.rows.map((row) => row.status),
+    ['auto_matched', 'auto_matched'],
+  )
+  assert.equal(r.rows[0].autoMatch.id, 'fractional')
+  assert.match(r.rows[0].autoMatch.reason, /bank reference/)
+  assert.match(r.rows[1].autoMatch.reason, /same date/)
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
+    0,
+  )
+  const done = await commitAI(
+    s,
+    r,
+    r.rows.map((row) => ({
+      sourceRow: row.sourceRow,
+      action: 'match',
+      matchId: row.autoMatch.id,
+    })),
+  )
+  assert.equal(done.status, 200, JSON.stringify(done))
+  assert.equal(done.data.result.matched, 2)
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+    2,
+  )
+  assert.equal(
+    s.sqlite
+      .prepare("SELECT description FROM transactions WHERE id='fractional'")
+      .get().description,
+    'Existing payment',
+  )
+})
+
+test('duplicate amounts, competing rows, reference conflicts and date differences remain manual', async () => {
+  for (const scenario of [
+    'duplicate payments',
+    'competing rows',
+    'reference conflict',
+    'different date',
+  ]) {
+    const s = await fixture()
+    await seedBankTransaction(
+      s,
+      'one',
+      scenario === 'different date' ? '2026-10-02' : '2026-10-01',
+      30000,
+      scenario === 'reference conflict' ? '111111111111' : '',
+    )
+    if (scenario === 'duplicate payments')
+      await seedBankTransaction(s, 'two', '2026-10-01', 30000)
+    const b = await uploadAI(s)
+    const rows = [
+      parsedRow(2, '300.00', {
+        reference: scenario === 'reference conflict' ? '222222222222' : '',
+      }),
+    ]
+    if (scenario === 'competing rows')
+      rows.push(parsedRow(3, '300.00', { date: '2026-10-01' }))
+    if (scenario === 'competing rows')
+      s.sqlite
+        .prepare('UPDATE statement_imports SET source_json=? WHERE id=?')
+        .run(
+          JSON.stringify({
+            ...bankSource,
+            rows: [
+              ...bankSource.rows.slice(0, 2),
+              { number: 3, cells: ['01/10/2026', 'Shop again', '300.00'] },
+            ],
+          }),
+          b.id,
+        )
+    const r = await parseAI(s, b, extraction(rows))
+    assert.ok(
+      r.rows.every((row) => !row.autoMatch),
+      scenario,
+    )
+  }
+})
+
+test('a shared amount can be auto-matched by distinct references, while one candidate cannot serve two rows', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'one', '2026-10-01', 30000, '111111111111')
+  await seedBankTransaction(s, 'two', '2026-10-01', 30000, '222222222222')
+  const source = {
+    ...bankSource,
+    rows: [
+      { number: 1, cells: ['01/10/2026', 'UPI/Shop/111111111111/a', '300.00'] },
+      { number: 2, cells: ['01/10/2026', 'UPI/Shop/222222222222/b', '300.00'] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const r = await parseAI(s, b, extraction([parsedRow(1), parsedRow(2)]))
+  assert.deepEqual(
+    r.rows.map((row) => row.autoMatch?.id),
+    ['one', 'two'],
+  )
+  const duplicate = await commitAI(s, r, [
+    { sourceRow: 1, action: 'match', matchId: 'one' },
+    { sourceRow: 2, action: 'match', matchId: 'one' },
+  ])
+  assert.equal(duplicate.status, 400)
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
+    0,
+  )
+})
+
+test('partial bank imports keep unresolved rows pending and resume without recreating prior transactions', async () => {
+  const s = await fixture()
+  const b = await uploadAI(s)
+  const r = await parseAI(
+    s,
+    b,
+    extraction([
+      parsedRow(2),
+      parsedRow(3, '1000.00', {
+        date: '2026-10-02',
+        kind: 'income',
+        direction: 'credit',
+      }),
+    ]),
+  )
+  const first = await commitAI(s, r, [
+    { sourceRow: 2, action: 'new' },
+    { sourceRow: 3, action: 'pending' },
+  ])
+  assert.equal(first.status, 200, JSON.stringify(first))
+  assert.equal(first.data.status, 'review')
+  assert.equal(first.data.result.pending, 1)
+  assert.equal(first.data.rows[0].status, 'already_imported')
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+    1,
+  )
+  assert.equal(
+    (
+      await commitAI(s, r, [
+        { sourceRow: 2, action: 'new' },
+        { sourceRow: 3, action: 'pending' },
+      ])
+    ).status,
+    409,
+  )
+  const fresh = (await s.api('/statement-imports/' + b.id)).data
+  const second = await commitAI(s, fresh, [
+    { sourceRow: 2, action: 'skip' },
+    { sourceRow: 3, action: 'new' },
+  ])
+  assert.equal(second.status, 200, JSON.stringify(second))
+  assert.equal(second.data.status, 'committed')
+  assert.equal(second.data.result.pending, 0)
+  assert.equal(second.data.result.added, 2)
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+    2,
+  )
+})
+
+test('auto matches are revalidated when SMS reference evidence changes after review', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'one', '2026-10-01', 30000, '111111111111')
+  const b = await uploadAI(s)
+  const r = await parseAI(
+    s,
+    b,
+    extraction([parsedRow(2, '300.00', { reference: '111111111111' })]),
+  )
+  assert.equal(r.rows[0].status, 'auto_matched')
+  s.sqlite
+    .prepare(
+      "UPDATE sms_messages SET bank_reference='222222222222' WHERE transaction_id='one'",
+    )
+    .run()
+  assert.equal(
+    (await commitAI(s, r, [{ sourceRow: 2, action: 'match', matchId: 'one' }]))
+      .status,
+    409,
+  )
+  const fresh = (await s.api('/statement-imports/' + b.id)).data
+  assert.equal(fresh.rows[0].status, 'possible_match')
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
+    0,
+  )
+})
+
+test('equal amounts on separate dates auto-match independently and frontend defaults need no per-row confirmation', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'one', '2026-10-01', 30000)
+  await seedBankTransaction(s, 'two', '2026-10-02', 30000)
+  const source = {
+    ...bankSource,
+    rows: [
+      { number: 1, cells: ['01/10/2026', 'Shop first day', '300.00'] },
+      { number: 2, cells: ['02/10/2026', 'Shop second day', '300.00'] },
+      { number: 3, cells: ['03/10/2026', 'New shop', '1000.00'] },
+    ],
+  }
+  const b = await uploadAI(s, 'bank', 'bank', source)
+  const r = await parseAI(
+    s,
+    b,
+    extraction([
+      parsedRow(1),
+      parsedRow(2, '300.00', { date: '2026-10-02' }),
+      parsedRow(3, '1000.00', { date: '2026-10-03' }),
+    ]),
+  )
+  assert.deepEqual(
+    r.rows.map((row) => row.autoMatch?.id),
+    ['one', 'two', undefined],
+  )
+  const decisions = r.rows.map((row) => defaultStatementDecision(row, true))
+  assert.deepEqual(
+    decisions.map((d) => d.action),
+    ['match', 'match', 'new'],
+  )
+  const done = await commitAI(s, r, decisions)
+  assert.equal(done.status, 200, JSON.stringify(done))
+  assert.equal(done.data.result.matched, 2)
+  assert.equal(done.data.result.added, 1)
+})
+
+test('wrong account, direction, type and invalid parsed rows cannot receive automatic matches', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'foreign', '2026-10-01', 30000, '', 'foreign')
+  await seedBankTransaction(
+    s,
+    'credit',
+    '2026-10-01',
+    30000,
+    '',
+    'bank',
+    'income',
+  )
+  const b = await uploadAI(s)
+  const r = await parseAI(s, b, extraction([parsedRow(2)]))
+  assert.equal(r.rows[0].autoMatch, undefined)
+  assert.equal(r.rows[0].candidates.length, 0)
+  await seedBankTransaction(s, 'expense', '2026-10-01', 30000)
+  s.sqlite
+    .prepare('UPDATE statement_imports SET parsed_json=? WHERE id=?')
+    .run(
+      JSON.stringify(
+        extraction([parsedRow(2, '300.00', { kind: 'investment' })]),
+      ),
+      b.id,
+    )
+  const wrongType = (await s.api('/statement-imports/' + b.id)).data
+  assert.equal(wrongType.rows[0].autoMatch, undefined)
+  s.sqlite
+    .prepare('UPDATE statement_imports SET parsed_json=? WHERE id=?')
+    .run(
+      JSON.stringify(
+        extraction([
+          parsedRow(2, '300.00', { reviewReason: 'Confirm ambiguous source' }),
+        ]),
+      ),
+      b.id,
+    )
+  const flagged = (await s.api('/statement-imports/' + b.id)).data
+  assert.equal(
+    defaultStatementDecision(flagged.rows[0], true).action,
+    'pending',
+  )
+  assert.equal(flagged.rows[0].autoMatch, undefined)
+})
+
+test('a previously linked transaction cannot be matched again in another statement for the same account', async () => {
+  const s = await fixture()
+  await seedBankTransaction(s, 'one', '2026-10-01', 30000)
+  const b = await uploadAI(s)
+  const r = await parseAI(s, b, extraction([parsedRow(2)]))
+  await commitAI(s, r, [{ sourceRow: 2, action: 'match', matchId: 'one' }])
+  const otherSource = {
+    ...bankSource,
+    fileName: 'other.csv',
+    rows: [
+      { number: 1, cells: ['01/10/2026', 'Different narration', '300.00'] },
+    ],
+  }
+  const other = await uploadAI(s, 'bank', 'bank', otherSource)
+  const fresh = await parseAI(
+    s,
+    other,
+    extraction([
+      parsedRow(1, '300.00', { description: 'Different narration' }),
+    ]),
+  )
+  assert.equal(fresh.rows[0].autoMatch, undefined)
+  assert.equal(fresh.rows[0].candidates[0].alreadyLinked, true)
+  assert.equal(
+    (
+      await commitAI(s, fresh, [
+        { sourceRow: 1, action: 'match', matchId: 'one' },
+      ])
+    ).status,
+    400,
+  )
+  assert.equal(
+    s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
+    1,
+  )
 })

@@ -47,7 +47,7 @@ export async function statementCommit(
         state,
         batch.id,
         batch.parsed_json,
-        ...Array(7).fill(ws),
+        ...Array(8).fill(ws),
       ),
   ]
   const txs: any[] = [],
@@ -61,11 +61,21 @@ export async function statementCommit(
   let added = 0,
     matched = 0,
     skipped = 0,
+    pending = 0,
     delta = 0
   for (const row of review.rows) {
     const selection = selections.find((s) => s.sourceRow === row.sourceRow)!
-    if (!selection || !['new', 'match', 'skip'].includes(selection.action))
+    if (
+      !selection ||
+      !['new', 'match', 'skip', ...(bank ? ['pending'] : [])].includes(
+        selection.action,
+      )
+    )
       invalid('Choose New, Match or Skip for each row.')
+    if (selection.action === 'pending') {
+      pending++
+      continue
+    }
     if (selection.action === 'skip') {
       skipped++
       continue
@@ -103,6 +113,7 @@ export async function statementCommit(
         if (
           !candidate ||
           candidate.type !== 'transaction' ||
+          candidate.alreadyLinked ||
           chosenIds.has(candidate.id)
         )
           invalid(
@@ -211,7 +222,12 @@ export async function statementCommit(
             'Historical rows on/before the opening balance date require Preserve current account balance.',
           )
         transactionId = itemId
-        txs.push({ id: itemId, ...write, externalId: itemId })
+        txs.push({
+          id: itemId,
+          ...write,
+          externalId: itemId,
+          sourceRow: row.sourceRow,
+        })
         allowed[itemId] = selection.acknowledgeDuplicate
           ? row.candidates
               .filter((c) => c.type === 'transaction')
@@ -369,7 +385,7 @@ export async function statementCommit(
     invalid(
       'This snapshot cannot replace the holding valuation. Keep the newer value and import history only.',
     )
-  if (!receipts.length && !options.updateValuation)
+  if (!receipts.length && !options.updateValuation && (!bank || pending))
     invalid(
       'Select at least one new/matched row or a newer retirement valuation.',
     )
@@ -378,7 +394,7 @@ export async function statementCommit(
     statements.push(
       db
         .prepare(
-          "INSERT INTO import_batches(id,workspace_id,account_id,file_name,content_hash,payload_json,status,opening_adjustment_minor) VALUES (?,?,?,?,?,?,'committed',?)",
+          "INSERT INTO import_batches(id,workspace_id,account_id,file_name,content_hash,payload_json,status,opening_adjustment_minor) VALUES (?,?,?,?,?,?,'committed',?) ON CONFLICT(id) DO UPDATE SET opening_adjustment_minor=import_batches.opening_adjustment_minor+excluded.opening_adjustment_minor",
         )
         .bind(
           batch.id,
@@ -406,7 +422,7 @@ export async function statementCommit(
         .bind(ws, json),
       db
         .prepare(
-          `INSERT INTO import_rows(batch_id,row_number,transaction_id,fingerprint) SELECT ?,CAST(key AS INTEGER)+1,json_extract(value,'$.id'),json_extract(value,'$.id') FROM json_each(?)`,
+          `INSERT INTO import_rows(batch_id,row_number,transaction_id,fingerprint) SELECT ?,json_extract(value,'$.sourceRow'),json_extract(value,'$.id'),json_extract(value,'$.id') FROM json_each(?)`,
         )
         .bind(batch.id, json),
     )
@@ -507,19 +523,34 @@ export async function statementCommit(
         ),
     )
   }
+  const previous = batch.result_json ? JSON.parse(batch.result_json) : null
+  const skippedSourceRows = [
+    ...new Set<number>([
+      ...review.rows
+        .filter(
+          (r) =>
+            r.status !== 'already_imported' &&
+            selections.find((s) => s.sourceRow === r.sourceRow)?.action ===
+              'skip',
+        )
+        .map((r) => r.sourceRow),
+    ]),
+  ]
   const result = {
-    added,
-    matched,
-    skipped,
+    added: added + (previous?.added ?? 0),
+    matched: matched + (previous?.matched ?? 0),
+    skipped: bank ? skippedSourceRows.length : skipped,
+    ...(bank ? { pending, skippedSourceRows } : {}),
     valuationUpdated: options.updateValuation,
     balanceChangeMinor: bank && !options.preserveBalance ? delta : 0,
   }
   statements.push(
     db
       .prepare(
-        "UPDATE statement_imports SET status='committed',parsed_json=?,result_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        'UPDATE statement_imports SET status=?,parsed_json=?,result_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
       )
       .bind(
+        pending ? 'review' : 'committed',
         JSON.stringify(options.extraction),
         JSON.stringify(result),
         batch.id,

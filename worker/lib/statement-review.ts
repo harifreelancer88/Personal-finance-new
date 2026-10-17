@@ -7,6 +7,7 @@ import type {
   StatementCandidate,
 } from '../../shared/statement-import'
 import type { Env } from '../types'
+import { autoMatchBankRows } from '../../shared/statement-matching'
 import { parseMoney } from './statement-parser'
 import { normalizeStatementExtraction } from './statement-normalization'
 import { dateOnly, hash, todayIST, invalid } from './workflow-utils'
@@ -120,7 +121,7 @@ export async function reviewStatement(
   const [txs, credits, receipts, audit, activities, nps] = await Promise.all([
     env.DB.prepare(
       bank
-        ? 'SELECT * FROM transactions WHERE workspace_id=? AND (from_account_id=? OR to_account_id=?)'
+        ? "SELECT t.*, (SELECT json_group_array(DISTINCT s.bank_reference) FROM sms_messages s WHERE s.transaction_id=t.id AND s.workspace_id=t.workspace_id AND s.bank_reference IS NOT NULL AND trim(s.bank_reference)<>'') sms_references FROM transactions t WHERE workspace_id=? AND (from_account_id=? OR to_account_id=?)"
         : "SELECT * FROM transactions WHERE workspace_id=? AND transaction_type='investment' AND status='confirmed' AND instr(COALESCE(notes,''),?)>0 AND NOT EXISTS(SELECT 1 FROM nps_credit_matches m WHERE m.transaction_id=transactions.id)",
     )
       .bind(
@@ -280,6 +281,23 @@ export async function reviewStatement(
             revision: 0,
           })
     for (const t of txs.results) {
+      const references: string[] = bank
+        ? [
+            ...new Set<string>(
+              [
+                ...JSON.parse(t.sms_references ?? '[]'),
+                ...receipts.results
+                  .filter((r) => r.transaction_id === t.id)
+                  .flatMap((r) => {
+                    const ref = JSON.parse(r.data_json)?.parsed?.reference
+                    return typeof ref === 'string' && ref ? [ref] : []
+                  }),
+              ]
+                .map((r: string) => r.trim().toUpperCase())
+                .filter(Boolean),
+            ),
+          ]
+        : []
       const sameDirection = bank
         ? parsed.direction === 'debit'
           ? t.from_account_id === batch.target_id
@@ -299,7 +317,10 @@ export async function reviewStatement(
               Date.parse(t.transaction_date) - Date.parse(parsed.date),
             ) <=
               3 * 86400000) ||
-          (parsed.reference && t.external_id === parsed.reference))
+          (parsed.reference &&
+            (bank
+              ? references.includes(parsed.reference.trim().toUpperCase())
+              : t.external_id === parsed.reference)))
       ) {
         if (!bank && receipts.results.some((r) => r.transaction_id === t.id))
           continue
@@ -319,6 +340,15 @@ export async function reviewStatement(
           type: 'transaction',
           revision: t.category_revision ?? 0,
           categoryId: t.category_id,
+          ...(bank
+            ? {
+                transactionType: t.transaction_type,
+                references,
+                alreadyLinked: receipts.results.some(
+                  (r) => r.transaction_id === t.id,
+                ),
+              }
+            : {}),
         })
       }
     }
@@ -366,6 +396,7 @@ export async function reviewStatement(
         : {}),
     })
   }
+  if (bank && batch.status === 'review') autoMatchBankRows(rows)
   const blockers: string[] = [],
     warnings = [...extraction.warnings]
   if (new Set(rows.map((r) => r.sourceRow)).size !== rows.length)
@@ -571,11 +602,11 @@ export function decimal4(text: string) {
   return Number.isSafeInteger(n) ? n : null
 }
 export function stateQuery() {
-  return `SELECT json_object('activities',json((SELECT json_group_array(json_object('id',id,'type',activity_type,'date',activity_date,'amount',amount_minor)) FROM (SELECT a.* FROM investment_activity a JOIN investments i ON i.id=a.investment_id WHERE i.workspace_id=? ORDER BY a.id))),'accounts',json((SELECT json_group_array(json_object('id',id,'active',is_active,'opening',opening_balance_minor,'date',opening_balance_date)) FROM (SELECT * FROM accounts WHERE workspace_id=? ORDER BY id))),'holdings',json((SELECT json_group_array(json_object('id',id,'type',investment_type,'version',ledger_version,'basis',invested_minor,'value',current_value_minor,'date',valuation_date,'updated',updated_at)) FROM (SELECT * FROM investments WHERE workspace_id=? ORDER BY id))),'transactions',json((SELECT json_group_array(json_object('id',id,'type',transaction_type,'date',transaction_date,'amount',amount_minor,'from',from_account_id,'to',to_account_id,'status',status,'revision',category_revision,'notes',notes,'original',original_transaction_id,'reference',external_id)) FROM (SELECT * FROM transactions WHERE workspace_id=? ORDER BY id))),'payroll',json((SELECT json_group_array(json_object('id',id,'revision',revision,'credit',credited_date,'amount',amount_minor,'holding',investment_id,'month',payroll_month,'parentRevision',parent_revision)) FROM (SELECT c.*,p.payroll_month,p.revision parent_revision FROM payroll_contributions c JOIN payroll_records p ON p.id=c.payroll_id WHERE p.workspace_id=? ORDER BY c.id))),'receipts',json((SELECT json_group_array(id) FROM (SELECT id FROM statement_import_items WHERE workspace_id=? ORDER BY id))),'categories',json((SELECT json_group_array(json_object('id',id,'active',is_active)) FROM (SELECT * FROM categories WHERE workspace_id=? ORDER BY id)))) state`
+  return `SELECT json_object('sms',json((SELECT json_group_array(json_object('id',id,'transaction',transaction_id,'reference',bank_reference)) FROM (SELECT id,transaction_id,bank_reference FROM sms_messages WHERE workspace_id=? AND transaction_id IS NOT NULL ORDER BY id))),'activities',json((SELECT json_group_array(json_object('id',id,'type',activity_type,'date',activity_date,'amount',amount_minor)) FROM (SELECT a.* FROM investment_activity a JOIN investments i ON i.id=a.investment_id WHERE i.workspace_id=? ORDER BY a.id))),'accounts',json((SELECT json_group_array(json_object('id',id,'active',is_active,'opening',opening_balance_minor,'date',opening_balance_date)) FROM (SELECT * FROM accounts WHERE workspace_id=? ORDER BY id))),'holdings',json((SELECT json_group_array(json_object('id',id,'type',investment_type,'version',ledger_version,'basis',invested_minor,'value',current_value_minor,'date',valuation_date,'updated',updated_at)) FROM (SELECT * FROM investments WHERE workspace_id=? ORDER BY id))),'transactions',json((SELECT json_group_array(json_object('id',id,'type',transaction_type,'date',transaction_date,'amount',amount_minor,'from',from_account_id,'to',to_account_id,'status',status,'revision',category_revision,'notes',notes,'original',original_transaction_id,'reference',external_id)) FROM (SELECT * FROM transactions WHERE workspace_id=? ORDER BY id))),'payroll',json((SELECT json_group_array(json_object('id',id,'revision',revision,'credit',credited_date,'amount',amount_minor,'holding',investment_id,'month',payroll_month,'parentRevision',parent_revision)) FROM (SELECT c.*,p.payroll_month,p.revision parent_revision FROM payroll_contributions c JOIN payroll_records p ON p.id=c.payroll_id WHERE p.workspace_id=? ORDER BY c.id))),'receipts',json((SELECT json_group_array(id) FROM (SELECT id FROM statement_import_items WHERE workspace_id=? ORDER BY id))),'categories',json((SELECT json_group_array(json_object('id',id,'active',is_active)) FROM (SELECT * FROM categories WHERE workspace_id=? ORDER BY id)))) state`
 }
 export async function statementState(env: Env, _batch: StatementBatch) {
   const row = await env.DB.prepare(stateQuery())
-    .bind(...Array(7).fill(env.DEFAULT_WORKSPACE_ID))
+    .bind(...Array(8).fill(env.DEFAULT_WORKSPACE_ID))
     .first<{ state: string }>()
   return row!.state
 }

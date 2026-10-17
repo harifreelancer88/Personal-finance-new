@@ -316,3 +316,91 @@
     min-width: 0;
   }
 }
+
+.bank-review-groups {
+  display: grid;
+  gap: 20px;
+}
+.bank-review-group {
+  border-top: 1px solid #dedfd9;
+  padding-top: 16px;
+}
+.bank-review-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.bank-review-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bank-review-heading h4 {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.bank-review-row p {
+  margin: 8px 0;
+}
+.bank-review-row .bank-reference {
+  color: #58635c;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.bank-auto-match {
+  background: #e5f3e8;
+  color: #205b35;
+  flex-shrink: 0;
+}
+.bank-match-reason {
+  color: #205b35;
+}
+.bank-selected-match,
+.bank-candidates {
+  background: #f5f7f3;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.bank-candidate {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #dedfd9;
+}
+.bank-candidate:last-child {
+  border-bottom: none;
+}
+.bank-candidate small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.bank-candidate button {
+  align-self: center;
+  flex-shrink: 0;
+}
+.bank-reconciliation {
+  background: #f5f7f3;
+  border-radius: 8px;
+  padding: 14px;
+}
+.bank-reconciliation.error {
+  background: #fff2ed;
+  color: #8c3023;
+}
+@media (max-width: 600px) {
+  .bank-review-heading,
+  .bank-candidate {
+    flex-direction: column;
+  }
+  .bank-candidate button {
+    align-self: stretch;
+  }
+  .bank-row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

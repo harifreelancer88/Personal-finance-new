@@ -60,6 +60,9 @@ export interface StatementCandidate {
   type: 'transaction' | 'payroll' | 'activity'
   revision: number
   categoryId?: string | null
+  transactionType?: StatementKind
+  references?: string[]
+  alreadyLinked?: boolean
 }
 export interface ReviewedStatementRow extends ParsedStatementRow {
   sourceCells: string[]
@@ -70,7 +73,13 @@ export interface ReviewedStatementRow extends ParsedStatementRow {
   pensionMinor: number | null
   errors: string[]
   candidates: StatementCandidate[]
-  status: 'new' | 'possible_match' | 'already_imported' | 'needs_review'
+  status:
+    | 'new'
+    | 'auto_matched'
+    | 'possible_match'
+    | 'already_imported'
+    | 'needs_review'
+  autoMatch?: { id: string; reason: string }
   receipt?: {
     transactionId: string | null
     activityId: string | null
@@ -112,11 +121,13 @@ export interface StatementReview {
     matched: number
     skipped: number
     valuationUpdated: boolean
+    pending?: number
+    skippedSourceRows?: number[]
   }
 }
 export interface StatementSelection {
   sourceRow: number
-  action: 'new' | 'match' | 'skip'
+  action: 'new' | 'match' | 'skip' | 'pending'
   matchId?: string
   date?: string
   description?: string
