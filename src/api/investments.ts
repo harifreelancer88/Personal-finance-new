@@ -98,8 +98,8 @@ export function holdingToApi(item: Investment) {
   }
   return value
 }
-export const getInvestments = async () =>
-  (await apiRequest<HoldingDTO[]>('/api/investments')).map(holdingFromApi)
+export const getInvestments = async (signal?: AbortSignal) =>
+  (await apiRequest<HoldingDTO[]>('/api/investments', { signal })).map(holdingFromApi)
 export const saveInvestment = async (item: Investment, editing: boolean) =>
   holdingFromApi(
     await apiRequest<HoldingDTO>(
