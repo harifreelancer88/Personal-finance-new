@@ -27,3 +27,14 @@ export function canonicalSmsTime(receivedAt: string): string {
 export async function smsContentKey(sender: string | null, receivedAt: string, message: string): Promise<string> {
   return `content:v2:${await sha256(`${sender ?? ''}\n${canonicalSmsTime(receivedAt)}\n${message}`)}`
 }
+
+// The group identifies identical source evidence, not necessarily one payment.
+// Keep receipt instants in the unique identity so indistinguishable genuine
+// payments are preserved; the group is used only to hold repeats for review.
+export async function smsContentGroup(sender: string | null, message: string, transactionDate: string): Promise<string> {
+  return `content:v3:${await sha256(JSON.stringify([sender, message, transactionDate]))}:`
+}
+
+export async function smsReceiptIdentity(group: string, receivedAt: string): Promise<string> {
+  return group + await sha256(canonicalSmsTime(receivedAt))
+}

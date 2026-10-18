@@ -14,10 +14,15 @@ export interface ParsedSms {
   notes: string
 }
 
-/** Extract a bank-issued UPI transaction reference, never an unlabelled number. */
+/** Extract explicitly labelled bank references, never account or phone numbers.
+ * Multiple conflicting references are ambiguous and must not drive a merge.
+ */
 export function extractBankReference(message: string): string | null {
-  const match = message.match(/\bUPI\s*(?:Ref(?:erence)?(?:\s+No\.?)?\s*)?:\s*([0-9]+)\b/i)
-  return match?.[1] ?? null
+  const references = new Set<string>()
+  for (const match of message.matchAll(/\bUPI\s*(?:Ref(?:erence)?(?:\s+No\.?)?\s*)?:\s*([0-9]+)\b/gi)) references.add(match[1])
+  for (const match of message.matchAll(/\bUPI\s*-\s*(\d{12})(?!\d)/gi)) references.add(match[1])
+  for (const match of message.matchAll(/\b(?:UTR|RRN|Ref(?:erence)?(?:\s+(?:No\.?|Number))?)\s*[:#-]?\s*(\d{12})(?!\d)/gi)) references.add(match[1])
+  return references.size === 1 ? [...references][0] : null
 }
 
 export function resolveDirectionalTransaction(sourceAccountIds: string[], destinationAccountIds: string[]): {

@@ -47,6 +47,11 @@ test('supports only explicitly labelled UPI reference forms',()=>{
   for (const text of ['UPI:663943782683','UPI Ref:663943782683','UPI Ref No: 663943782683','UPI reference:663943782683']) assert.equal(extractBankReference(text),'663943782683')
   assert.equal(extractBankReference('Call 18002662, account 981, INR 3.00 on 30-Sep-26'),null)
 })
+test('supports hyphenated UPI and explicit RRN/UTR/reference labels without inventing IDs',()=>{
+  for (const text of ['UPI-123456789012-EXAMPLE','upi - 123456789012','RRN:123456789012','UTR 123456789012','Ref 123456789012','Reference No. 123456789012']) assert.equal(extractBankReference(text),'123456789012',text)
+  for (const text of ['UPI-12345-SHOP','UPI-1234567890123-SHOP','Call 911234567890','Acc XX981 InfoBIL*INFT*ABCD.Avl Bal Rs.100.00','UPI:123456789012 UTR:222222222222']) assert.equal(extractBankReference(text),null,text)
+  assert.equal(extractBankReference('UPI-123456789012 RRN:123456789012'),'123456789012')
+})
 test('does not treat UPI, phone, or BLOCK numbers as account suffixes',()=>{
   assert.deepEqual(extractDirectionalAccountSuffixes('UPI:663820638117 Call 18002662 or SMS BLOCK 981 to 9215676766'),{sourceAccountLast4:null,destinationAccountLast4:null})
 })

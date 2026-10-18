@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
 import { ingestSms } from '../.sms-ingestion-test-dist/ingestion.mjs'
 
-function setup() {
+function setup(beforeReadReturn = async () => {}) {
   const db = new DatabaseSync(':memory:')
   for (const file of ['0001_initial_schema.sql','0002_allow_short_last4.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'))
   db.exec(readFileSync(new URL('../bootstrap.sql',import.meta.url),'utf8'))
@@ -13,7 +13,7 @@ function setup() {
     ('source','development-workspace','Source','ICICI','bank','981'),
     ('destination','development-workspace','Destination','ICICI','bank','973'),
     ('card','development-workspace','Card','ICICI','credit_card','0005');`)
-  const adapter = {prepare(sql) {let args=[];return {bind(...values){args=values;return this},async first(){return db.prepare(sql).get(...args)??null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){const info=db.prepare(sql).run(...args);return {meta:{changes:Number(info.changes)}}}}}}
+  const adapter = {prepare(sql) {let args=[];return {bind(...values){args=values;return this},async first(){const row=db.prepare(sql).get(...args)??null;await beforeReadReturn(sql,args);return row},async all(){return {results:db.prepare(sql).all(...args)}},async run(){const info=db.prepare(sql).run(...args);return {meta:{changes:Number(info.changes)}}}}}}
   const env={DB:adapter,DEFAULT_WORKSPACE_ID:'development-workspace',SMS_INGEST_TOKEN:'local-test-only'}
   const send=async(message,externalId,receivedAt='2026-10-12T15:00:00Z',sender='ICICI')=>{
     const response=await ingestSms(new Request('https://test.invalid/api/ingest/sms',{method:'POST',headers:{Authorization:'Bearer local-test-only','Content-Type':'application/json'},body:JSON.stringify({message,externalId,receivedAt,sender})}),env)
@@ -142,4 +142,90 @@ test('controlled recovery is linked to SMS without creating a second expense',as
   assert.equal(result.transactionId,'recovered')
   assert.equal(db.prepare('SELECT count(*) AS n FROM transactions').get().n,1)
   assert.equal(db.prepare('SELECT source FROM transactions').get().source,'sms')
+})
+
+function simultaneousTransactionLookups() {
+  let arrived=0,release
+  const barrier=new Promise(resolve=>{release=resolve})
+  return async(sql)=>{
+    if(!sql.includes("source = 'sms' AND external_id = ?")) return
+    if(++arrived===2) release()
+    await barrier
+  }
+}
+const cardReference='ICICI Bank Credit Card XX0005 debited for INR 725.50 on 12-Oct-26 for UPI-123456789012-EXAMPLE. To dispute call 18001080.'
+const bankWithoutReference='ICICI Bank Acc XX981 debited Rs. 725.50 on 12-Oct-26 InfoBIL*INFT*ABCD.Avl Bal Rs. 12,345.67.To dispute call 18002662.'
+
+test('hyphenated card UPI reference survives changed delivery IDs/times and serializes simultaneous inserts',async()=>{
+  for(const simultaneous of [false,true]) {
+    const {db,send}=setup(simultaneous?simultaneousTransactionLookups():undefined)
+    const one=()=>send(cardReference,'direct','2026-10-12T07:00:00Z','JD-ICICIT-S')
+    const two=()=>send(cardReference,'forwarder','2026-10-12T07:00:07Z','JD-ICICIT-S')
+    const results=simultaneous?await Promise.all([one(),two()]):[await one(),await two()]
+    assert.equal(results[0].transactionId,results[1].transactionId)
+    assert.ok(results.some(r=>r.duplicate))
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n,1)
+    assert.equal(db.prepare("SELECT SUM(amount_minor) amount FROM transactions WHERE status='confirmed'").get().amount,72550)
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM sms_messages').get().n,2)
+  }
+})
+
+test('reference-less identical evidence with different receipt times cannot auto-confirm two expenses, even in a forced race',async()=>{
+  for(const simultaneous of [false,true]) {
+    const {db,send}=setup(simultaneous?simultaneousTransactionLookups():undefined)
+    const one=()=>send(bankWithoutReference,'direct','2026-10-12T07:00:00Z','VA-ICICIT-S')
+    const two=()=>send(bankWithoutReference,'forwarder','2026-10-12T07:00:07Z','VA-ICICIT-S')
+    const results=simultaneous?await Promise.all([one(),two()]):[await one(),await two()]
+    assert.notEqual(results[0].transactionId,results[1].transactionId,'Ambiguous payments must not be silently merged')
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n,2)
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM transactions WHERE status='confirmed'").get().n,1)
+    assert.equal(db.prepare("SELECT SUM(amount_minor) amount FROM transactions WHERE status='confirmed'").get().amount,72550)
+    assert.ok(results.some(r=>r.parseStatus==='needs_review'))
+    assert.match(db.prepare("SELECT notes FROM transactions WHERE status='pending'").get().notes,/Possible repeated SMS/)
+    const replay=await send(bankWithoutReference,'retry','2026-10-12T07:00:07Z','VA-ICICIT-S')
+    assert.ok(replay.duplicate)
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n,2)
+  }
+})
+
+test('distinct references or changed balance evidence preserve legitimate same-date same-amount payments',async()=>{
+  const {db,send}=setup()
+  await send(cardReference,'card-one')
+  await send(cardReference.replace('123456789012','222222222222'),'card-two')
+  await send(bankWithoutReference,'bank-one')
+  await send(bankWithoutReference.replace('12,345.67','11,620.17'),'bank-two')
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM transactions WHERE status='confirmed'").get().n,4)
+})
+
+test('a reference reused on a different explicit transaction date is a separate payment',async()=>{
+  const {db,send}=setup()
+  const first=await send(cardReference,'one','2026-10-12T07:00:00Z')
+  const next=await send(cardReference.replace('12-Oct-26','13-Oct-26'),'two','2026-10-13T07:00:00Z')
+  assert.notEqual(first.transactionId,next.transactionId)
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM transactions WHERE status='confirmed'").get().n,2)
+})
+
+test('new reference formats adopt old evidence without rewriting human decisions or inserting a new payment',async()=>{
+  const {db,send}=setup()
+  const first=await send(cardReference,'legacy','2026-10-12T07:00:00Z','JD-ICICIT-S')
+  db.prepare("UPDATE transactions SET external_id='content:legacy',transaction_type='investment',notes='Human classified',category_id='cat-groceries' WHERE id=?").run(first.transactionId)
+  db.prepare('UPDATE sms_messages SET bank_reference=NULL WHERE transaction_id=?').run(first.transactionId)
+  const replay=await send(cardReference,'new-route','2026-10-12T07:00:09Z','JD-ICICIT-S')
+  assert.equal(replay.transactionId,first.transactionId)
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n,1)
+  const row=db.prepare('SELECT * FROM transactions').get()
+  assert.equal(row.transaction_type,'investment');assert.equal(row.notes,'Human classified');assert.equal(row.category_id,'cat-groceries')
+})
+
+test('ambiguous legacy repeat is held without touching an earlier payment, and group protection stays workspace scoped',async()=>{
+  const {db,send,env}=setup()
+  const first=await send(bankWithoutReference,'legacy','2026-10-12T07:00:00Z','VA-ICICIT-S')
+  db.prepare("UPDATE transactions SET external_id='content:legacy',notes='Human confirmed' WHERE id=?").run(first.transactionId)
+  const next=await send(bankWithoutReference,'new-route','2026-10-12T07:00:09Z','VA-ICICIT-S')
+  assert.equal(next.parseStatus,'needs_review')
+  assert.equal(db.prepare('SELECT notes FROM transactions WHERE id=?').get(first.transactionId).notes,'Human confirmed')
+  db.exec("INSERT INTO workspaces(id,name) VALUES ('other','Other'); INSERT INTO accounts(id,workspace_id,name,institution,account_type,last4) VALUES ('other-bank','other','Bank','ICICI','bank','981')")
+  const response=await ingestSms(new Request('https://test.invalid/api/ingest/sms',{method:'POST',headers:{Authorization:'Bearer local-test-only','Content-Type':'application/json'},body:JSON.stringify({message:bankWithoutReference,sender:'VA-ICICIT-S',externalId:'other',receivedAt:'2026-10-12T07:00:09Z'})}),{...env,DEFAULT_WORKSPACE_ID:'other'})
+  assert.ok(response.ok)
+  assert.equal(db.prepare("SELECT status FROM transactions WHERE workspace_id='other'").get().status,'confirmed')
 })
