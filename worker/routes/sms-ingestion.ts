@@ -10,10 +10,11 @@ import { assignCategory } from '../repositories/category-rules'
 import {
   getRecentSmsByBankReference,
   getLinkedSmsByContent,
+  getPossibleSmsRepeat,
   getSmsByDedupe,
 } from '../repositories/sms-messages'
 import type { Env } from '../types'
-import { isSmsAuthorized, smsDedupeKey, smsContentKey } from '../lib/sms-security'
+import { isSmsAuthorized, smsDedupeKey, smsContentGroup, smsReceiptIdentity } from '../lib/sms-security'
 import {
   canAutoConfirmSms,
   mayReconcileSms,
@@ -22,6 +23,7 @@ import {
 
 const MAX_BODY_BYTES = 32 * 1024
 const MAX_MESSAGE_CHARS = 10_000
+const POSSIBLE_REPEAT_NOTE = 'Possible repeated SMS delivery. Compare the original messages before confirming another payment.'
 
 function result(
   row: Awaited<ReturnType<typeof getSmsByDedupe>>,
@@ -223,10 +225,11 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     'id, transaction_type, status, amount_minor, notes, from_account_id, to_account_id'
   // Both delivery paths and both sides of a UPI transfer use the same identity.
   // The existing unique external-ID index also serializes simultaneous inserts.
+  const contentGroup = bankReference ? null : await smsContentGroup(sender, message, parsed.transactionDate)
   const identity =
     bankReference && parsed.amountMinor
       ? `bankref:${bankReference}:${parsed.transactionDate}:${parsed.amountMinor}`
-      : await smsContentKey(sender, receivedAt, message)
+      : await smsReceiptIdentity(contentGroup!, receivedAt)
   if (bankReference && parsed.amountMinor) {
     const deletedReference = await env.DB.prepare(
       "SELECT * FROM sms_messages WHERE workspace_id=? AND parse_status='deleted' AND bank_reference=? AND parsed_amount_minor=? AND parsed_transaction_date=? LIMIT 1",
@@ -255,8 +258,9 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
       )
     }
   }
-  const contentSms = !bankReference
-    ? await getLinkedSmsByContent(env.DB,workspaceId,sender,message,receivedAt,smsId)
+  const contentSms = await getLinkedSmsByContent(env.DB,workspaceId,sender,message,receivedAt,smsId,bankReference,parsed.transactionDate)
+  const possibleRepeat = contentGroup && !contentSms
+    ? await getPossibleSmsRepeat(env.DB,workspaceId,sender,message,parsed.transactionDate,smsId)
     : null
   const pairedSms = bankReference
     ? await getRecentSmsByBankReference(
@@ -266,18 +270,20 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
         parsed.amountMinor,
         receivedAt,
         smsId,
+        parsed.transactionDate,
       )
     : contentSms
+  const evidenceSms = pairedSms?.transaction_id ? pairedSms : contentSms
   let transaction = await env.DB.prepare(
     `SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'sms' AND external_id = ?`,
   )
     .bind(workspaceId, identity)
     .first<Transaction>()
-  if (!transaction && pairedSms?.transaction_id)
+  if (!transaction && evidenceSms?.transaction_id)
     transaction = await env.DB.prepare(
       `SELECT ${fields} FROM transactions WHERE workspace_id = ? AND id = ?`,
     )
-      .bind(workspaceId, pairedSms.transaction_id)
+      .bind(workspaceId, evidenceSms.transaction_id)
       .first<Transaction>()
   // A controlled API recovery can temporarily create a manual record while
   // production is awaiting the parser deployment. Adopt only an exact recovery
@@ -320,6 +326,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     }
   }
 
+  let reusedTransaction = !!transaction
   if (
     parseStatus === 'parsed' &&
     parsed.transactionType &&
@@ -328,10 +335,20 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
   ) {
     if (!transaction) {
       const id = crypto.randomUUID()
-      await env.DB.prepare(
+      const confirmNew = approve && !possibleRepeat
+      // The unique external-ID constraint serializes exact replays. For
+      // different receipt instants, check the shared evidence group in this
+      // INSERT itself: parallel requests cannot both auto-confirm a repeat.
+      const noRepeat = `(? IS NULL OR NOT EXISTS (
+        SELECT 1 FROM transactions WHERE workspace_id=? AND source='sms'
+          AND external_id LIKE ? AND external_id<>?
+      ))`
+      const inserted = await env.DB.prepare(
         `INSERT OR IGNORE INTO transactions (id, workspace_id, transaction_type, description, amount_minor, category_id,
         from_account_id, to_account_id, transaction_date, source, external_id, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sms', ?, ?, ?)`,
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sms', ?,
+          CASE WHEN ? AND ${noRepeat} THEN 'confirmed' ELSE 'pending' END,
+          CASE WHEN ${noRepeat} THEN ? ELSE ? END`,
       )
         .bind(
           id,
@@ -344,10 +361,14 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
           destinationId,
           parsed.transactionDate,
           identity,
-          approve ? 'confirmed' : 'pending',
-          approve ? SMS_AUTO_CONFIRM_NOTE : null,
+          confirmNew ? 1 : 0,
+          contentGroup, workspaceId, contentGroup ? contentGroup + '%' : null, identity,
+          contentGroup, workspaceId, contentGroup ? contentGroup + '%' : null, identity,
+          possibleRepeat ? POSSIBLE_REPEAT_NOTE : approve ? SMS_AUTO_CONFIRM_NOTE : null,
+          POSSIBLE_REPEAT_NOTE,
         )
         .run()
+      reusedTransaction = (inserted.meta.changes ?? 0) === 0
       transaction = await env.DB.prepare(
         `SELECT ${fields} FROM transactions WHERE workspace_id = ? AND source = 'sms' AND external_id = ?`,
       )
@@ -393,12 +414,15 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
       parseStatus = 'pairing_conflict'
       pairingNote =
         ' Conflicting bank-reference transaction retained for review.'
+    } else if (transaction.status === 'pending' && transaction.notes === POSSIBLE_REPEAT_NOTE) {
+      parseStatus = 'needs_review'
+      pairingNote = ' ' + POSSIBLE_REPEAT_NOTE
     } else {
       if (
-        pairedSms?.transaction_id ||
+        evidenceSms?.transaction_id ||
         transaction.notes === SMS_AUTO_CONFIRM_NOTE
       )
-        parseStatus = pairedSms?.transaction_id ? 'paired' : 'parsed'
+        parseStatus = evidenceSms?.transaction_id ? 'paired' : 'parsed'
       pairingNote = approve
         ? ' Automatically confirmed after unique account matching.'
         : ' Incomplete or ambiguous account mapping remains in review.'
@@ -408,7 +432,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
         `UPDATE sms_messages SET transaction_id = ?, parse_status = 'paired',
         parse_notes = COALESCE(parse_notes || ' ', '') || ?, updated_at = CURRENT_TIMESTAMP
         WHERE workspace_id = ? AND bank_reference = ? AND id <> ? AND transaction_id IS NULL
-          AND parse_status <> 'deleted' AND parsed_amount_minor = ? AND julianday(received_at) BETWEEN julianday(?) - 3 AND julianday(?) + 3`,
+          AND parse_status <> 'deleted' AND parsed_amount_minor = ? AND parsed_transaction_date = ? AND julianday(received_at) BETWEEN julianday(?) - 3 AND julianday(?) + 3`,
       )
         .bind(
           transaction.id,
@@ -417,6 +441,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
           bankReference,
           smsId,
           parsed.amountMinor,
+          parsed.transactionDate,
           receivedAt,
           receivedAt,
         )
@@ -445,7 +470,7 @@ export async function ingestSms(request: Request, env: Env): Promise<Response> {
     .run()
   if (transactionId && !categoryId) try { await enqueueAi(env,transactionId) } catch { /* SMS persistence is independent of AI availability. */ }
   return success(
-    result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), !!existing || !!contentSms),
+    result(await getSmsByDedupe(env.DB, workspaceId, dedupeKey), !!existing || !!contentSms || reusedTransaction),
     { status: existing ? 200 : 201 },
   )
 }

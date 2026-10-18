@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isSmsAuthorized, smsDedupeKey, smsContentKey, canonicalSmsTime } from '../.sms-test-dist/sms-security.js'
+import { isSmsAuthorized, smsDedupeKey, smsContentKey, canonicalSmsTime, smsContentGroup, smsReceiptIdentity } from '../.sms-test-dist/sms-security.js'
 
 test('accepts bearer authentication', async()=>assert.equal(await isSmsAuthorized(new Request('https://example.test',{headers:{Authorization:'Bearer correct'}}),'correct'),true))
 test('accepts X-SMS-Token authentication', async()=>assert.equal(await isSmsAuthorized(new Request('https://example.test',{headers:{'X-SMS-Token':'correct'}}),'correct'),true))
@@ -15,4 +15,13 @@ test('no-reference content key ignores delivery route and normalises equivalent 
   assert.equal(local,await smsContentKey('SMS','2026-10-13T13:54:09.123+0530','Synthetic payment'))
   assert.notEqual(local,await smsContentKey('SMS','2026-10-13T13:54:10','Synthetic payment'))
   assert.equal(canonicalSmsTime('2026-10-13T00:15:00'),'2026-10-12T18:45:00Z')
+})
+test('repeat evidence groups do not confuse source facts with receipt identity',async()=>{
+  const group=await smsContentGroup('BANK','Synthetic debit','2026-10-01')
+  assert.match(group,/^content:v3:[a-f0-9]{64}:$/)
+  assert.notEqual(group,await smsContentGroup('OTHER','Synthetic debit','2026-10-01'))
+  assert.notEqual(group,await smsContentGroup('BANK','Synthetic debit changed','2026-10-01'))
+  assert.notEqual(group,await smsContentGroup('BANK','Synthetic debit','2026-10-02'))
+  assert.equal(await smsReceiptIdentity(group,'2026-10-01T12:30:00'),await smsReceiptIdentity(group,'2026-10-01T07:00:00Z'))
+  assert.notEqual(await smsReceiptIdentity(group,'2026-10-01T07:00:00Z'),await smsReceiptIdentity(group,'2026-10-01T07:00:01Z'))
 })
