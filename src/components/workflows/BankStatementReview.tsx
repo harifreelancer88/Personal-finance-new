@@ -1,4 +1,5 @@
 import { rupees, type Lookup } from '../../api/workflows'
+import { bankReferencesMatch } from '../../../shared/statement-matching'
 import type {
   ParsedStatementRow,
   ReviewedStatementRow,
@@ -209,9 +210,9 @@ function BankRow({
                         </small>
                       )}
                       {row.reference &&
-                        c.references?.length &&
-                        !c.references.includes(
-                          row.reference.trim().toUpperCase(),
+                        !!c.references?.length &&
+                        !c.references.some((reference) =>
+                          bankReferencesMatch(reference, row.reference),
                         ) && (
                           <small>
                             Bank references differ. Check carefully before
