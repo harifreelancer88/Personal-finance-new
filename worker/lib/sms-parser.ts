@@ -38,6 +38,9 @@ export function resolveDirectionalTransaction(sourceAccountIds: string[], destin
 }
 
 const amountPattern = /(?:₹|\bINR\s*|\bRs\.?\s*)([0-9][0-9,]*(?:\.[0-9]{1,2})?)(?![\d.])/i
+// HDFC completed UPI alerts use "Sent" rather than "debited". Require the
+// complete bank-alert structure so generic messages saying "sent" stay excluded.
+const sentBankPaymentPattern = /^Sent\s+(?:Rs\.?|INR|₹)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*\r?\nFrom HDFC Bank A\/C\s+\*([0-9]{4})\s*\r?\nTo [^\r\n]+\r?\nOn \d{1,2}\/\d{1,2}\/(?:20\d{2}|\d{2})\s*\r?\nRef \d{12}(?!\d)(?:\s|$)/i
 const privateOrPromotionalPattern = /\b(?:OTP|one[ -]time password|verification code|login code|password reset|promo(?:tional)?|offer|discount|sale)\b/i
 const transactionPattern = /\b(?:debited|credited|spent|payment|paid|received|withdrawn|refund(?:ed)?|reversed|reversal|purchase(?:d)?|transferred)\b/i
 // These words describe a completed movement of money, rather than (for example)
@@ -47,9 +50,10 @@ const creditCardRepaymentPattern = /(?:payment(?:\s+of\s+(?:₹|INR|Rs\.?)?\s*[\
 
 export function isFinancialSmsCandidate(message: string): boolean {
   const hasAmount = parseAmountMinor(message) !== null
-  const hasTransaction = transactionPattern.test(message)
+  const sentBankPayment = sentBankPaymentPattern.test(message)
+  const hasTransaction = transactionPattern.test(message) || sentBankPayment
   if (!hasAmount || !hasTransaction) return false
-  if (privateOrPromotionalPattern.test(message) && !completedTransactionPattern.test(message) && !creditCardRepaymentPattern.test(message)) return false
+  if (privateOrPromotionalPattern.test(message) && !completedTransactionPattern.test(message) && !creditCardRepaymentPattern.test(message) && !sentBankPayment) return false
   return true
 }
 
@@ -77,9 +81,10 @@ function extractCreditCardLast4(message: string): string | null {
 /** Extract only suffixes which are grammatically attached to their transaction direction. */
 export function extractDirectionalAccountSuffixes(message: string): { sourceAccountLast4: string | null; destinationAccountLast4: string | null } {
   const account = String.raw`(?:acct(?:ount)?|a\/c|card(?:\s+(?:no\.?|ending))?)\s*[:#-]?\s*\**x*([0-9]{1,4})`
+  const sentSource = message.match(sentBankPaymentPattern)
   const source = message.match(new RegExp(`${account}\\s+(?:was\\s+)?debited\\b`, 'i'))
   const destination = message.match(new RegExp(`${account}\\s+(?:was\\s+)?credited\\b`, 'i'))
-  return { sourceAccountLast4: source?.[1] ?? null, destinationAccountLast4: destination?.[1] ?? null }
+  return { sourceAccountLast4: source?.[1] ?? sentSource?.[1] ?? null, destinationAccountLast4: destination?.[1] ?? null }
 }
 
 function validDate(year: number, month: number, day: number): string | null {
@@ -91,8 +96,8 @@ function validDate(year: number, month: number, day: number): string | null {
 function transactionDate(message: string, receivedAt: string): { date: string; explicit: boolean } {
   const iso = message.match(/\b(20\d{2})[-/]([01]?\d)[-/]([0-3]?\d)\b/)
   if (iso) { const date = validDate(+iso[1], +iso[2], +iso[3]); if (date) return { date, explicit: true } }
-  const indian = message.match(/\b([0-3]?\d)[/-]([01]?\d)[/-](20\d{2})\b/)
-  if (indian) { const date = validDate(+indian[3], +indian[2], +indian[1]); if (date) return { date, explicit: true } }
+  const indian = message.match(/\b([0-3]?\d)[/-]([01]?\d)[/-](20\d{2}|\d{2})\b/)
+  if (indian) { const date = validDate(indian[3].length === 2 ? 2000 + +indian[3] : +indian[3], +indian[2], +indian[1]); if (date) return { date, explicit: true } }
   const monthNames: Record<string, number> = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 }
   const named = message.match(/\b([0-3]?\d)[-\s](JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[-\s](\d{2}|20\d{2})\b/i)
   if (named) {
@@ -122,7 +127,7 @@ export function parseSms(message: string, receivedAt: string, sender?: string | 
   const amountMinor = parseAmountMinor(message)
   if (!isFinancialSmsCandidate(message)) return { status: 'non_financial', transactionType: null, amountMinor, description: null, transactionDate: date.date, accountLast4, ...directional, isCreditCardRepayment: false, confidence: 0.98, notes: 'No completed financial transaction was detected.' }
   const refund = /\b(?:refund(?:ed)?|reversed|reversal|credited back)\b/i.test(message)
-  const expense = /\b(?:spent|debited|purchase(?:d)?|paid|withdrawn)\b/i.test(message)
+  const expense = sentBankPaymentPattern.test(message) || /\b(?:spent|debited|purchase(?:d)?|paid|withdrawn)\b/i.test(message)
   const income = /\b(?:credited|received|deposited|salary credited)\b/i.test(message)
   const directionalPair = !refund && expense && income && !!directional.sourceAccountLast4 && !!directional.destinationAccountLast4
   const matches = [refund, expense, income].filter(Boolean).length
