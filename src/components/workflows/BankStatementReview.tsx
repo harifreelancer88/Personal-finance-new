@@ -1,3 +1,5 @@
+import { Fragment, useState } from 'react'
+import './statement-review-table.css'
 import { rupees, type Lookup } from '../../api/workflows'
 import type {
   ParsedStatementRow,
@@ -23,79 +25,378 @@ interface Props {
   correct: (n: number, field: keyof Correction, value: unknown) => void
 }
 
+export function reviewGroup(
+  row: ReviewedStatementRow,
+  decision?: StatementSelection,
+) {
+  if (row.status === 'already_imported') return 'done'
+  if (row.errors.length || row.reviewReason) return 'manual'
+  if (decision?.action === 'skip') return 'skip'
+  if (
+    row.autoMatch &&
+    decision?.action === 'match' &&
+    decision.matchId === row.autoMatch.id
+  )
+    return 'auto'
+  if (decision?.action === 'match') return 'matched'
+  if (
+    row.status === 'new' &&
+    decision?.action === 'new' &&
+    !['transfer', 'refund'].includes(row.kind)
+  )
+    return 'new'
+  return 'manual'
+}
+const groupLabels = {
+  manual: 'Needs your review',
+  auto: 'Auto-matched',
+  new: 'New transactions',
+  matched: 'Match selected',
+  skip: 'Skipped',
+  done: 'Already reconciled',
+}
+
 export default function BankStatementReview(props: Props) {
   const { rows, decisions, busy, choose } = props
-  const groups = {
-    manual: [] as ReviewedStatementRow[],
-    auto: [] as ReviewedStatementRow[],
-    new: [] as ReviewedStatementRow[],
-    done: [] as ReviewedStatementRow[],
-  }
-  for (const row of rows) {
-    const decision = decisions[row.sourceRow]
-    if (row.status === 'already_imported') groups.done.push(row)
-    else if (
-      row.autoMatch &&
-      decision?.action === 'match' &&
-      decision.matchId === row.autoMatch.id
-    )
-      groups.auto.push(row)
-    else if (row.status === 'new' && !['transfer', 'refund'].includes(row.kind))
-      groups.new.push(row)
-    else groups.manual.push(row)
-  }
-  const render = (row: ReviewedStatementRow) => (
-    <BankRow key={row.sourceRow} row={row} {...props} />
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState<number[]>([])
+  const counts = Object.fromEntries(
+    Object.keys(groupLabels).map((g) => [
+      g,
+      rows.filter((r) => reviewGroup(r, decisions[r.sourceRow]) === g).length,
+    ]),
   )
+  const filtered = rows.filter(
+    (r) =>
+      (filter === 'all' || reviewGroup(r, decisions[r.sourceRow]) === filter) &&
+      `${r.description} ${r.reference ?? ''} ${r.date ?? ''} ${r.amount}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  )
+  const lastPage = Math.max(0, Math.ceil(filtered.length / 25) - 1),
+    currentPage = Math.min(page, lastPage)
+  const visible = filtered.slice(currentPage * 25, currentPage * 25 + 25)
+  const eligible = visible.filter((r) => r.status !== 'already_imported')
+  const selectedRows = rows.filter(
+    (r) => selected.includes(r.sourceRow) && r.status !== 'already_imported',
+  )
+  const allSelected =
+    eligible.length > 0 && eligible.every((r) => selected.includes(r.sourceRow))
+  const bulk = (action: 'skip' | 'pending') => {
+    for (const row of selectedRows) choose({ sourceRow: row.sourceRow, action })
+    setSelected([])
+  }
   return (
-    <div className="bank-review-groups">
-      <section aria-label="Needs your review">
-        <h3>Needs your review · {groups.manual.length}</h3>
-        <p>
-          Choose a match, add a separate transaction, or skip. Rows marked
-          “Review later” stay pending.
-        </p>
-        {groups.manual.length ? (
-          <div className="statement-review-list">
-            {groups.manual.map(render)}
-          </div>
-        ) : (
-          <p>No uncertain rows to resolve.</p>
-        )}
-      </section>
-      <details className="bank-review-group">
-        <summary>Auto-matched · {groups.auto.length} — view matches</summary>
-        <p>
-          Selected for confirmation. These link to existing payments; they do
-          not create another transaction.
-        </p>
-        <div className="statement-review-list">{groups.auto.map(render)}</div>
-      </details>
-      <details className="bank-review-group" open={groups.new.length > 0}>
-        <summary>New transactions · {groups.new.length}</summary>
-        <div className="statement-review-list">{groups.new.map(render)}</div>
-      </details>
-      {!!groups.done.length && (
-        <details className="bank-review-group">
-          <summary>Already reconciled · {groups.done.length}</summary>
-          <p>Previously linked. These will not be added again.</p>
-          <div className="statement-review-list">{groups.done.map(render)}</div>
-        </details>
-      )}
-      {!!rows.length && (
+    <section
+      className="statement-grid"
+      aria-label="Statement confirmation table"
+    >
+      <div className="statement-grid-title">
+        <div>
+          <h3>Review transactions</h3>
+          <p>
+            Confirm new payments and existing matches. Nothing is imported until
+            you click Import Now.
+          </p>
+        </div>
+        <span>{rows.length} statement rows</span>
+      </div>
+      <div
+        className="statement-grid-filters"
+        role="group"
+        aria-label="Filter statement decisions"
+      >
         <button
-          className="secondary-button"
-          disabled={busy}
+          type="button"
+          aria-pressed={filter === 'all'}
           onClick={() => {
-            for (const row of rows)
-              if (row.status !== 'already_imported')
-                choose({ sourceRow: row.sourceRow, action: 'pending' })
+            setFilter('all')
+            setPage(0)
           }}
         >
-          Review all decisions myself
+          All · {rows.length}
         </button>
-      )}
-    </div>
+        {Object.entries(groupLabels).map(([key, label]) => (
+          <button
+            type="button"
+            key={key}
+            aria-pressed={filter === key}
+            onClick={() => {
+              setFilter(key)
+              setPage(0)
+            }}
+          >
+            {label} · {counts[key]}
+          </button>
+        ))}
+      </div>
+      <div className="statement-grid-toolbar">
+        <label>
+          Search transactions
+          <input
+            type="search"
+            placeholder="Description, reference, date or amount"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(0)
+            }}
+          />
+        </label>
+        <span role="status">
+          {selectedRows.length} selected
+          {selectedRows.some((r) => !visible.includes(r))
+            ? ' (includes rows outside this page)'
+            : ''}
+        </span>
+        <button
+          type="button"
+          disabled={busy || !selectedRows.length}
+          onClick={() => bulk('pending')}
+        >
+          Review selected later
+        </button>
+        <button
+          type="button"
+          disabled={busy || !selectedRows.length}
+          onClick={() => bulk('skip')}
+        >
+          Skip selected
+        </button>
+        {selected.length > 0 && (
+          <button type="button" disabled={busy} onClick={() => setSelected([])}>
+            Clear selection
+          </button>
+        )}
+      </div>
+      <div
+        className="statement-grid-scroll"
+        role="region"
+        aria-label="Scrollable statement transactions"
+        tabIndex={0}
+      >
+        <table>
+          <caption className="statement-grid-sr">
+            AI parsed statement transactions and import decisions
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                <input
+                  type="checkbox"
+                  aria-label="Select this page"
+                  disabled={busy || !eligible.length}
+                  checked={allSelected}
+                  onChange={(e) =>
+                    setSelected((old) =>
+                      e.target.checked
+                        ? [
+                            ...new Set([
+                              ...old,
+                              ...eligible.map((r) => r.sourceRow),
+                            ]),
+                          ]
+                        : old.filter(
+                            (n) => !eligible.some((r) => r.sourceRow === n),
+                          ),
+                    )
+                  }
+                />
+              </th>
+              {[
+                'Date',
+                'Transaction',
+                'Type / Category',
+                'Amount',
+                'Status',
+                'Decision',
+              ].map((h) => (
+                <th scope="col" key={h}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row) => {
+              const decision = decisions[row.sourceRow],
+                group = reviewGroup(row, decision),
+                fix = props.corrections[row.sourceRow]
+              const match = row.candidates.find(
+                (c) => c.id === decision?.matchId,
+              )
+              const locked = row.status === 'already_imported',
+                blocked = !!row.errors.length || !!row.reviewReason
+              return (
+                <Fragment key={row.sourceRow}>
+                  <tr
+                    className={
+                      selected.includes(row.sourceRow) ? 'is-selected' : ''
+                    }
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select row ${row.sourceRow}`}
+                        checked={!locked && selected.includes(row.sourceRow)}
+                        disabled={busy || locked}
+                        onChange={(e) =>
+                          setSelected((old) =>
+                            e.target.checked
+                              ? [...old, row.sourceRow]
+                              : old.filter((n) => n !== row.sourceRow),
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="statement-grid-date">
+                      {fix?.date ?? row.date ?? 'Missing date'}
+                      <small>Row {row.sourceRow}</small>
+                    </td>
+                    <td className="statement-grid-description">
+                      <strong>{fix?.description ?? row.description}</strong>
+                      <small>
+                        {row.reference
+                          ? `Ref: ${fix?.reference ?? row.reference}`
+                          : 'No bank reference'}
+                      </small>
+                      {match && decision?.action === 'match' && (
+                        <small>Links to: {match.label}</small>
+                      )}
+                      {fix && (
+                        <small className="statement-grid-warning">
+                          Corrections staged — validate before importing
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      <span className="statement-grid-kind">
+                        {fix?.kind ?? row.kind}
+                      </span>
+                      <small>
+                        {props.categories.find(
+                          (c) =>
+                            c.id ===
+                            (fix && 'categoryId' in fix
+                              ? fix.categoryId
+                              : row.categoryId),
+                        )?.name ?? 'Uncategorized'}
+                      </small>
+                    </td>
+                    <td className={`statement-grid-amount ${row.direction}`}>
+                      <strong>
+                        {row.direction === 'debit' ? '−' : '+'}
+                        {rupees(row.amountMinor)}
+                      </strong>
+                      <small>
+                        {row.direction === 'debit' ? 'Money out' : 'Money in'}
+                      </small>
+                    </td>
+                    <td>
+                      <span className={`statement-grid-status ${group}`}>
+                        {groupLabels[group]}
+                      </span>
+                      {blocked && (
+                        <small className="statement-grid-warning">
+                          Check statement fields
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      <select
+                        aria-label={`Decision for row ${row.sourceRow}`}
+                        disabled={busy || locked}
+                        value={
+                          locked ? 'done' : (decision?.action ?? 'pending')
+                        }
+                        onChange={(e) => {
+                          if (e.target.value === 'match') return
+                          choose({
+                            sourceRow: row.sourceRow,
+                            action: e.target
+                              .value as StatementSelection['action'],
+                          })
+                        }}
+                      >
+                        {locked ? (
+                          <option value="done">Already imported</option>
+                        ) : (
+                          <>
+                            <option value="pending">Review later</option>
+                            {decision?.action === 'match' && (
+                              <option value="match">
+                                {group === 'auto'
+                                  ? 'Auto-match selected'
+                                  : 'Match selected'}
+                              </option>
+                            )}
+                            <option value="new" disabled={blocked}>
+                              Add as new
+                            </option>
+                            <option value="skip">Skip</option>
+                          </>
+                        )}
+                      </select>
+                    </td>
+                  </tr>
+                  <tr className="statement-grid-detail">
+                    <td colSpan={7}>
+                      <details className="statement-grid-row-details">
+                        <summary>
+                          {locked
+                            ? 'View source and details'
+                            : row.candidates.length
+                              ? `Review row ${row.sourceRow} · ${row.candidates.length} possible ${row.candidates.length === 1 ? 'match' : 'matches'}`
+                              : `Review row ${row.sourceRow} · edit fields or view source`}
+                          {group === 'auto' ? ' · auto-match explanation' : ''}
+                        </summary>
+                        <BankRow row={row} {...props} />
+                      </details>
+                    </td>
+                  </tr>
+                </Fragment>
+              )
+            })}
+            {!visible.length && (
+              <tr>
+                <td colSpan={7} className="statement-grid-empty">
+                  No transactions match this view. Change the filter or search.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <footer className="statement-grid-footer">
+        <span>
+          {filtered.length
+            ? `${currentPage * 25 + 1}–${Math.min((currentPage + 1) * 25, filtered.length)}`
+            : '0'}{' '}
+          of {filtered.length} rows · 25 per page
+        </span>
+        <div>
+          <button
+            type="button"
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {currentPage + 1} of {lastPage + 1}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage >= lastPage}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </footer>
+    </section>
   )
 }
 

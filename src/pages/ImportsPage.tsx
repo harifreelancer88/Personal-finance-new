@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import {
@@ -709,6 +709,7 @@ export default function ImportsPage() {
               )}
               {bank ? (
                 <BankStatementReview
+                  key={review.id}
                   rows={review.rows}
                   decisions={decisions}
                   corrections={corrections}
@@ -728,432 +729,628 @@ export default function ImportsPage() {
                   }}
                 />
               ) : (
-                <div className="statement-review-list">
-                  {review.rows
-                    .filter((r) => filter === 'all' || r.status === filter)
-                    .slice(page * 25, (page + 1) * 25)
-                    .map((row) => {
-                      const decision = decisions[row.sourceRow] ?? {
-                          sourceRow: row.sourceRow,
-                          action: 'skip',
-                        },
-                        fix = corrections[row.sourceRow] ?? {},
-                        locked = row.status === 'already_imported',
-                        payroll = row.candidates.filter(
-                          (c) => c.type === 'payroll',
-                        )
-                      return (
-                        <article
-                          className="statement-review-row"
-                          key={row.sourceRow}
-                        >
-                          <div className="workflow-toolbar">
-                            <h3>
-                              Row {row.sourceRow} · {row.description}
-                            </h3>
-                            <span className="workflow-chip">
-                              {row.status.replaceAll('_', ' ')}
-                            </span>
-                          </div>
-                          <p>
-                            {row.date ?? 'Date missing'} · {row.direction} ·{' '}
-                            <strong>{rupees(row.amountMinor)}</strong>
-                            {row.salaryMonth
-                              ? ' · salary ' + row.salaryMonth
-                              : ''}
-                          </p>
-                          {row.reviewReason && <p>{row.reviewReason}</p>}
-                          {row.errors.map((e, i) => (
-                            <p className="workflow-error" key={i}>
-                              {e}
-                            </p>
+                <div className="statement-grid">
+                  <div className="statement-grid-title">
+                    <div>
+                      <h3>Review statement entries</h3>
+                      <p>
+                        Expand a row to confirm contribution matches or correct
+                        parsed fields.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className="statement-grid-scroll"
+                    role="region"
+                    aria-label="Retirement statement table"
+                    tabIndex={0}
+                  >
+                    <table>
+                      <caption className="statement-grid-sr">
+                        Retirement contribution review
+                      </caption>
+                      <thead>
+                        <tr>
+                          {[
+                            'Date',
+                            'Entry',
+                            'Amount',
+                            'Status',
+                            'Decision',
+                          ].map((h) => (
+                            <th scope="col" key={h}>
+                              {h}
+                            </th>
                           ))}
-                          <div className="workflow-fields">
-                            <label>
-                              Decision for row {row.sourceRow}
-                              <select
-                                disabled={busy || locked}
-                                value={decision.action}
-                                onChange={(e) =>
-                                  change(
-                                    row.sourceRow,
-                                    'action',
-                                    e.target.value,
-                                  )
-                                }
-                              >
-                                <option value="skip">Skip</option>
-                                <option value="new">
-                                  Add new {bank ? 'transaction' : 'evidence'}
-                                </option>
-                                <option value="match">Match existing</option>
-                              </select>
-                            </label>
-                            {decision.action === 'match' && (
-                              <label>
-                                Existing evidence
-                                <select
-                                  value={decision.matchId ?? ''}
-                                  onChange={(e) =>
-                                    change(
-                                      row.sourceRow,
-                                      'matchId',
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={busy}
-                                >
-                                  <option value="">
-                                    Choose evidence
-                                    {!bank ? ' (or payroll below)' : ''}
-                                  </option>
-                                  {row.candidates
-                                    .filter((c) => c.type !== 'payroll')
-                                    .map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.date} · {c.label} ·{' '}
-                                        {rupees(c.amountMinor)}
-                                      </option>
-                                    ))}
-                                </select>
-                              </label>
-                            )}
-                            {decision.action === 'new' &&
-                              row.candidates.length > 0 && (
-                                <label className="workflow-check">
-                                  <input
-                                    type="checkbox"
-                                    checked={
-                                      decision.acknowledgeDuplicate ?? false
-                                    }
-                                    disabled={busy}
-                                    onChange={(e) =>
-                                      change(
-                                        row.sourceRow,
-                                        'acknowledgeDuplicate',
-                                        e.target.checked,
-                                      )
-                                    }
-                                  />
-                                  I checked the possible matches; this is a
-                                  separate movement.
-                                </label>
-                              )}
-                          </div>
-                          {!bank &&
-                            decision.action === 'match' &&
-                            payroll.length > 0 && (
-                              <div className="workflow-fields">
-                                {(row.employeeMinor !== null &&
-                                row.employerMinor !== null
-                                  ? [
-                                      'employee',
-                                      'employer',
-                                      ...(row.pensionMinor ? ['pension'] : []),
-                                    ]
-                                  : [
-                                      'total',
-                                      ...(row.pensionMinor ? ['pension'] : []),
-                                    ]
-                                ).map((component) => (
-                                  <label key={component}>
-                                    {component} payroll match
-                                    <select
-                                      value={
-                                        decision.payrollMatches?.find(
-                                          (m) => m.component === component,
-                                        )?.id ?? ''
-                                      }
-                                      disabled={busy}
-                                      onChange={(e) =>
-                                        change(
-                                          row.sourceRow,
-                                          'payrollMatches',
-                                          [
-                                            ...(
-                                              decision.payrollMatches ?? []
-                                            ).filter(
-                                              (m) => m.component !== component,
-                                            ),
-                                            ...(e.target.value
-                                              ? [
-                                                  {
-                                                    component,
-                                                    id: e.target.value,
-                                                  },
-                                                ]
-                                              : []),
-                                          ],
-                                        )
-                                      }
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {review.rows
+                          .filter(
+                            (r) => filter === 'all' || r.status === filter,
+                          )
+                          .slice(page * 25, (page + 1) * 25)
+                          .map((row) => {
+                            const decision = decisions[row.sourceRow] ?? {
+                                sourceRow: row.sourceRow,
+                                action: 'skip',
+                              },
+                              fix = corrections[row.sourceRow] ?? {},
+                              locked = row.status === 'already_imported',
+                              payroll = row.candidates.filter(
+                                (c) => c.type === 'payroll',
+                              )
+                            return (
+                              <Fragment key={row.sourceRow}>
+                                <tr>
+                                  <td className="statement-grid-date">
+                                    {fix.date ?? row.date ?? 'Missing date'}
+                                    <small>Row {row.sourceRow}</small>
+                                  </td>
+                                  <td className="statement-grid-description">
+                                    <strong>
+                                      {fix.description ?? row.description}
+                                    </strong>
+                                    <small>
+                                      {row.salaryMonth
+                                        ? 'Salary month: ' + row.salaryMonth
+                                        : (row.reference ??
+                                          'Contribution entry')}
+                                    </small>
+                                    {corrections[row.sourceRow] && (
+                                      <small>
+                                        Corrections staged — validate before
+                                        importing
+                                      </small>
+                                    )}
+                                  </td>
+                                  <td className="statement-grid-amount">
+                                    <strong>{rupees(row.amountMinor)}</strong>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`statement-grid-status ${locked ? 'done' : row.errors.length || row.reviewReason ? 'manual' : 'new'}`}
                                     >
-                                      <option value="">Leave unmatched</option>
-                                      {payroll
-                                        .filter(
-                                          (c) =>
-                                            component === 'total' ||
-                                            c.label.startsWith(component),
-                                        )
-                                        .map((c) => (
-                                          <option key={c.id} value={c.id}>
-                                            {c.label} · {rupees(c.amountMinor)}
-                                          </option>
+                                      {row.status.replaceAll('_', ' ')}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    {locked
+                                      ? 'Already reconciled'
+                                      : decision.action === 'new'
+                                        ? 'Add as new'
+                                        : decision.action === 'match'
+                                          ? 'Match selected'
+                                          : decision.action === 'skip'
+                                            ? 'Skipped'
+                                            : 'Review later'}
+                                  </td>
+                                </tr>
+                                <tr className="statement-grid-detail">
+                                  <td colSpan={5}>
+                                    <details className="statement-grid-row-details">
+                                      <summary>
+                                        Review row {row.sourceRow} · matches,
+                                        contribution details and corrections
+                                      </summary>
+                                      <article
+                                        className="statement-review-row"
+                                        key={row.sourceRow}
+                                      >
+                                        <div className="workflow-toolbar">
+                                          <h3>
+                                            Row {row.sourceRow} ·{' '}
+                                            {row.description}
+                                          </h3>
+                                          <span className="workflow-chip">
+                                            {row.status.replaceAll('_', ' ')}
+                                          </span>
+                                        </div>
+                                        <p>
+                                          {row.date ?? 'Date missing'} ·{' '}
+                                          {row.direction} ·{' '}
+                                          <strong>
+                                            {rupees(row.amountMinor)}
+                                          </strong>
+                                          {row.salaryMonth
+                                            ? ' · salary ' + row.salaryMonth
+                                            : ''}
+                                        </p>
+                                        {row.reviewReason && (
+                                          <p>{row.reviewReason}</p>
+                                        )}
+                                        {row.errors.map((e, i) => (
+                                          <p className="workflow-error" key={i}>
+                                            {e}
+                                          </p>
                                         ))}
-                                    </select>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
-                          <details>
-                            <summary>Inspect / correct parsed fields</summary>
-                            <div className="workflow-fields">
-                              <label>
-                                Date
-                                <input
-                                  type="date"
-                                  value={fix.date ?? row.date ?? ''}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'date',
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </label>
-                              <label>
-                                Amount ₹
-                                <input
-                                  value={fix.amount ?? row.amount ?? ''}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'amount',
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </label>
-                              <label>
-                                Description
-                                <input
-                                  maxLength={200}
-                                  value={fix.description ?? row.description}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'description',
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </label>
-                              <label>
-                                Direction
-                                <select
-                                  value={fix.direction ?? row.direction}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'direction',
-                                      e.target.value,
-                                    )
-                                  }
-                                >
-                                  <option value="debit">Debit</option>
-                                  <option value="credit">Credit</option>
-                                </select>
-                              </label>
-                              <label>
-                                Reference
-                                <input
-                                  maxLength={200}
-                                  value={fix.reference ?? row.reference}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'reference',
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </label>
-                              <label>
-                                Movement type
-                                <select
-                                  value={fix.kind ?? row.kind}
-                                  disabled={busy || locked}
-                                  onChange={(e) =>
-                                    correct(
-                                      row.sourceRow,
-                                      'kind',
-                                      e.target.value as StatementKind,
-                                    )
-                                  }
-                                >
-                                  {(bank
-                                    ? [
-                                        'expense',
-                                        'income',
-                                        'transfer',
-                                        'investment',
-                                        'refund',
-                                      ]
-                                    : [
-                                        'contribution',
-                                        'interest',
-                                        'fee',
-                                        'withdrawal',
-                                      ]
-                                  ).map((k) => (
-                                    <option key={k}>{k}</option>
-                                  ))}
-                                </select>
-                              </label>
-                              {bank ? (
-                                <label>
-                                  Category
-                                  <select
-                                    value={
-                                      'categoryId' in fix
-                                        ? (fix.categoryId ?? '')
-                                        : (row.categoryId ?? '')
-                                    }
-                                    disabled={busy || locked}
-                                    onChange={(e) =>
-                                      correct(
-                                        row.sourceRow,
-                                        'categoryId',
-                                        e.target.value || null,
-                                      )
-                                    }
-                                  >
-                                    <option value="">Uncategorized</option>
-                                    {choices.categories.map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              ) : (
-                                <>
-                                  <label>
-                                    Salary month
-                                    <input
-                                      type="month"
-                                      value={
-                                        fix.salaryMonth ?? row.salaryMonth ?? ''
-                                      }
-                                      disabled={busy || locked}
-                                      onChange={(e) =>
-                                        correct(
-                                          row.sourceRow,
-                                          'salaryMonth',
-                                          e.target.value || null,
-                                        )
-                                      }
-                                    />
-                                  </label>
-                                  {(
-                                    ['employee', 'employer', 'pension'] as const
-                                  ).map((k) => (
-                                    <label key={k}>
-                                      {k} ₹
-                                      <input
-                                        value={fix[k] ?? row[k] ?? ''}
-                                        disabled={busy || locked}
-                                        onChange={(e) =>
-                                          correct(
-                                            row.sourceRow,
-                                            k,
-                                            e.target.value || null,
-                                          )
-                                        }
-                                      />
-                                    </label>
-                                  ))}
-                                </>
-                              )}
-                            </div>
-                            <label className="workflow-check">
-                              <input
-                                type="checkbox"
-                                checked={fix.confirmed ?? false}
-                                disabled={busy || locked}
-                                onChange={(e) =>
-                                  correct(
-                                    row.sourceRow,
-                                    'confirmed',
-                                    e.target.checked,
-                                  )
-                                }
-                              />
-                              I checked this row against the original statement.
-                            </label>
-                          </details>
-                          {bank &&
-                            (fix.kind ?? row.kind) === 'transfer' &&
-                            decision.action === 'new' && (
-                              <label>
-                                Other transfer account
-                                <select
-                                  value={decision.otherAccountId ?? ''}
-                                  onChange={(e) =>
-                                    change(
-                                      row.sourceRow,
-                                      'otherAccountId',
-                                      e.target.value,
-                                    )
-                                  }
-                                >
-                                  <option value="">Choose account</option>
-                                  {choices.accounts
-                                    .filter((a) => a.id !== review.targetId)
-                                    .map((a) => (
-                                      <option key={a.id} value={a.id}>
-                                        {a.name}
-                                      </option>
-                                    ))}
-                                </select>
-                              </label>
-                            )}
-                          {bank &&
-                            (fix.kind ?? row.kind) === 'refund' &&
-                            decision.action === 'new' && (
-                              <label>
-                                Original expense transaction ID
-                                <input
-                                  value={decision.originalTransactionId ?? ''}
-                                  onChange={(e) =>
-                                    change(
-                                      row.sourceRow,
-                                      'originalTransactionId',
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </label>
-                            )}
-                          {sourceOpen && (
-                            <pre className="statement-audit">
-                              {JSON.stringify(row.sourceCells, null, 2)}
-                            </pre>
-                          )}
-                          {locked && (
-                            <p>
-                              Recorded evidence is already linked. This row will
-                              not be added again.
-                            </p>
-                          )}
-                        </article>
-                      )
-                    })}
+                                        <div className="workflow-fields">
+                                          <label>
+                                            Decision for row {row.sourceRow}
+                                            <select
+                                              disabled={busy || locked}
+                                              value={decision.action}
+                                              onChange={(e) =>
+                                                change(
+                                                  row.sourceRow,
+                                                  'action',
+                                                  e.target.value,
+                                                )
+                                              }
+                                            >
+                                              <option value="skip">Skip</option>
+                                              <option value="new">
+                                                Add new{' '}
+                                                {bank
+                                                  ? 'transaction'
+                                                  : 'evidence'}
+                                              </option>
+                                              <option value="match">
+                                                Match existing
+                                              </option>
+                                            </select>
+                                          </label>
+                                          {decision.action === 'match' && (
+                                            <label>
+                                              Existing evidence
+                                              <select
+                                                value={decision.matchId ?? ''}
+                                                onChange={(e) =>
+                                                  change(
+                                                    row.sourceRow,
+                                                    'matchId',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                disabled={busy}
+                                              >
+                                                <option value="">
+                                                  Choose evidence
+                                                  {!bank
+                                                    ? ' (or payroll below)'
+                                                    : ''}
+                                                </option>
+                                                {row.candidates
+                                                  .filter(
+                                                    (c) => c.type !== 'payroll',
+                                                  )
+                                                  .map((c) => (
+                                                    <option
+                                                      key={c.id}
+                                                      value={c.id}
+                                                    >
+                                                      {c.date} · {c.label} ·{' '}
+                                                      {rupees(c.amountMinor)}
+                                                    </option>
+                                                  ))}
+                                              </select>
+                                            </label>
+                                          )}
+                                          {decision.action === 'new' &&
+                                            row.candidates.length > 0 && (
+                                              <label className="workflow-check">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    decision.acknowledgeDuplicate ??
+                                                    false
+                                                  }
+                                                  disabled={busy}
+                                                  onChange={(e) =>
+                                                    change(
+                                                      row.sourceRow,
+                                                      'acknowledgeDuplicate',
+                                                      e.target.checked,
+                                                    )
+                                                  }
+                                                />
+                                                I checked the possible matches;
+                                                this is a separate movement.
+                                              </label>
+                                            )}
+                                        </div>
+                                        {!bank &&
+                                          decision.action === 'match' &&
+                                          payroll.length > 0 && (
+                                            <div className="workflow-fields">
+                                              {(row.employeeMinor !== null &&
+                                              row.employerMinor !== null
+                                                ? [
+                                                    'employee',
+                                                    'employer',
+                                                    ...(row.pensionMinor
+                                                      ? ['pension']
+                                                      : []),
+                                                  ]
+                                                : [
+                                                    'total',
+                                                    ...(row.pensionMinor
+                                                      ? ['pension']
+                                                      : []),
+                                                  ]
+                                              ).map((component) => (
+                                                <label key={component}>
+                                                  {component} payroll match
+                                                  <select
+                                                    value={
+                                                      decision.payrollMatches?.find(
+                                                        (m) =>
+                                                          m.component ===
+                                                          component,
+                                                      )?.id ?? ''
+                                                    }
+                                                    disabled={busy}
+                                                    onChange={(e) =>
+                                                      change(
+                                                        row.sourceRow,
+                                                        'payrollMatches',
+                                                        [
+                                                          ...(
+                                                            decision.payrollMatches ??
+                                                            []
+                                                          ).filter(
+                                                            (m) =>
+                                                              m.component !==
+                                                              component,
+                                                          ),
+                                                          ...(e.target.value
+                                                            ? [
+                                                                {
+                                                                  component,
+                                                                  id: e.target
+                                                                    .value,
+                                                                },
+                                                              ]
+                                                            : []),
+                                                        ],
+                                                      )
+                                                    }
+                                                  >
+                                                    <option value="">
+                                                      Leave unmatched
+                                                    </option>
+                                                    {payroll
+                                                      .filter(
+                                                        (c) =>
+                                                          component ===
+                                                            'total' ||
+                                                          c.label.startsWith(
+                                                            component,
+                                                          ),
+                                                      )
+                                                      .map((c) => (
+                                                        <option
+                                                          key={c.id}
+                                                          value={c.id}
+                                                        >
+                                                          {c.label} ·{' '}
+                                                          {rupees(
+                                                            c.amountMinor,
+                                                          )}
+                                                        </option>
+                                                      ))}
+                                                  </select>
+                                                </label>
+                                              ))}
+                                            </div>
+                                          )}
+                                        <details>
+                                          <summary>
+                                            Inspect / correct parsed fields
+                                          </summary>
+                                          <div className="workflow-fields">
+                                            <label>
+                                              Date
+                                              <input
+                                                type="date"
+                                                value={
+                                                  fix.date ?? row.date ?? ''
+                                                }
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'date',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </label>
+                                            <label>
+                                              Amount ₹
+                                              <input
+                                                value={
+                                                  fix.amount ?? row.amount ?? ''
+                                                }
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'amount',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </label>
+                                            <label>
+                                              Description
+                                              <input
+                                                maxLength={200}
+                                                value={
+                                                  fix.description ??
+                                                  row.description
+                                                }
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'description',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </label>
+                                            <label>
+                                              Direction
+                                              <select
+                                                value={
+                                                  fix.direction ?? row.direction
+                                                }
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'direction',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              >
+                                                <option value="debit">
+                                                  Debit
+                                                </option>
+                                                <option value="credit">
+                                                  Credit
+                                                </option>
+                                              </select>
+                                            </label>
+                                            <label>
+                                              Reference
+                                              <input
+                                                maxLength={200}
+                                                value={
+                                                  fix.reference ?? row.reference
+                                                }
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'reference',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </label>
+                                            <label>
+                                              Movement type
+                                              <select
+                                                value={fix.kind ?? row.kind}
+                                                disabled={busy || locked}
+                                                onChange={(e) =>
+                                                  correct(
+                                                    row.sourceRow,
+                                                    'kind',
+                                                    e.target
+                                                      .value as StatementKind,
+                                                  )
+                                                }
+                                              >
+                                                {(bank
+                                                  ? [
+                                                      'expense',
+                                                      'income',
+                                                      'transfer',
+                                                      'investment',
+                                                      'refund',
+                                                    ]
+                                                  : [
+                                                      'contribution',
+                                                      'interest',
+                                                      'fee',
+                                                      'withdrawal',
+                                                    ]
+                                                ).map((k) => (
+                                                  <option key={k}>{k}</option>
+                                                ))}
+                                              </select>
+                                            </label>
+                                            {bank ? (
+                                              <label>
+                                                Category
+                                                <select
+                                                  value={
+                                                    'categoryId' in fix
+                                                      ? (fix.categoryId ?? '')
+                                                      : (row.categoryId ?? '')
+                                                  }
+                                                  disabled={busy || locked}
+                                                  onChange={(e) =>
+                                                    correct(
+                                                      row.sourceRow,
+                                                      'categoryId',
+                                                      e.target.value || null,
+                                                    )
+                                                  }
+                                                >
+                                                  <option value="">
+                                                    Uncategorized
+                                                  </option>
+                                                  {choices.categories.map(
+                                                    (c) => (
+                                                      <option
+                                                        key={c.id}
+                                                        value={c.id}
+                                                      >
+                                                        {c.name}
+                                                      </option>
+                                                    ),
+                                                  )}
+                                                </select>
+                                              </label>
+                                            ) : (
+                                              <>
+                                                <label>
+                                                  Salary month
+                                                  <input
+                                                    type="month"
+                                                    value={
+                                                      fix.salaryMonth ??
+                                                      row.salaryMonth ??
+                                                      ''
+                                                    }
+                                                    disabled={busy || locked}
+                                                    onChange={(e) =>
+                                                      correct(
+                                                        row.sourceRow,
+                                                        'salaryMonth',
+                                                        e.target.value || null,
+                                                      )
+                                                    }
+                                                  />
+                                                </label>
+                                                {(
+                                                  [
+                                                    'employee',
+                                                    'employer',
+                                                    'pension',
+                                                  ] as const
+                                                ).map((k) => (
+                                                  <label key={k}>
+                                                    {k} ₹
+                                                    <input
+                                                      value={
+                                                        fix[k] ?? row[k] ?? ''
+                                                      }
+                                                      disabled={busy || locked}
+                                                      onChange={(e) =>
+                                                        correct(
+                                                          row.sourceRow,
+                                                          k,
+                                                          e.target.value ||
+                                                            null,
+                                                        )
+                                                      }
+                                                    />
+                                                  </label>
+                                                ))}
+                                              </>
+                                            )}
+                                          </div>
+                                          <label className="workflow-check">
+                                            <input
+                                              type="checkbox"
+                                              checked={fix.confirmed ?? false}
+                                              disabled={busy || locked}
+                                              onChange={(e) =>
+                                                correct(
+                                                  row.sourceRow,
+                                                  'confirmed',
+                                                  e.target.checked,
+                                                )
+                                              }
+                                            />
+                                            I checked this row against the
+                                            original statement.
+                                          </label>
+                                        </details>
+                                        {bank &&
+                                          (fix.kind ?? row.kind) ===
+                                            'transfer' &&
+                                          decision.action === 'new' && (
+                                            <label>
+                                              Other transfer account
+                                              <select
+                                                value={
+                                                  decision.otherAccountId ?? ''
+                                                }
+                                                onChange={(e) =>
+                                                  change(
+                                                    row.sourceRow,
+                                                    'otherAccountId',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              >
+                                                <option value="">
+                                                  Choose account
+                                                </option>
+                                                {choices.accounts
+                                                  .filter(
+                                                    (a) =>
+                                                      a.id !== review.targetId,
+                                                  )
+                                                  .map((a) => (
+                                                    <option
+                                                      key={a.id}
+                                                      value={a.id}
+                                                    >
+                                                      {a.name}
+                                                    </option>
+                                                  ))}
+                                              </select>
+                                            </label>
+                                          )}
+                                        {bank &&
+                                          (fix.kind ?? row.kind) === 'refund' &&
+                                          decision.action === 'new' && (
+                                            <label>
+                                              Original expense transaction ID
+                                              <input
+                                                value={
+                                                  decision.originalTransactionId ??
+                                                  ''
+                                                }
+                                                onChange={(e) =>
+                                                  change(
+                                                    row.sourceRow,
+                                                    'originalTransactionId',
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </label>
+                                          )}
+                                        {sourceOpen && (
+                                          <pre className="statement-audit">
+                                            {JSON.stringify(
+                                              row.sourceCells,
+                                              null,
+                                              2,
+                                            )}
+                                          </pre>
+                                        )}
+                                        {locked && (
+                                          <p>
+                                            Recorded evidence is already linked.
+                                            This row will not be added again.
+                                          </p>
+                                        )}
+                                      </article>
+                                    </details>
+                                  </td>
+                                </tr>
+                              </Fragment>
+                            )
+                          })}
+                        {!visibleRows.length && (
+                          <tr>
+                            <td colSpan={5} className="statement-grid-empty">
+                              No entries match this filter.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
               {!bank && visibleRows.length > 25 && (
