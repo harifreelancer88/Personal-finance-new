@@ -1,3 +1,4 @@
+import { zerodhaRoute } from './zerodha'
 import { statementImportsRoute } from './statement-imports'
 import { billsRoute } from './bills'
 import { splitsRoute } from './splits'
@@ -336,6 +337,12 @@ export async function handleApiRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url)
   try {
+    const kiteMatch=pathname.match(/^\/api\/zerodha\/(status|connect|callback|disconnect|preview|apply)$/)
+    if(kiteMatch) {
+      const response=await zerodhaRoute(request,env,kiteMatch[1])
+      response.headers.set('Cache-Control','no-store')
+      return response
+    }
     const aiAuditMatch = pathname.match(/^\/api\/ai-categories\/([^/]+)$/)
     if (aiAuditMatch) return await aiAuditDetailsRoute(request,env,decodeURIComponent(aiAuditMatch[1]))
     if (pathname === '/api/ai-categories') return await aiCategoriesRoute(request,env)

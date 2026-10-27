@@ -1,3 +1,4 @@
+import { ZerodhaSync } from '../components/investments/ZerodhaSync'
 import {
   Menu,
   Plus,
@@ -124,6 +125,7 @@ export function InvestmentsPage() {
         </div>
       </header>
       <main className="wealth-page">
+        <ZerodhaSync onSaved={()=>void load()}/>
         <RetirementNotice onReview={id=>setViewing(items.find(item=>item.id===id))}/>
         {error && (
           <p className="wealth-error" role="alert">

@@ -1,4 +1,8 @@
 export interface Env {
+  KITE_API_KEY?: string
+  KITE_API_SECRET?: string
+  KITE_CLIENT_ID?: string
+  KITE_TOKEN_ENCRYPTION_KEY?: string
   RECOVERY_TOKEN?: string
   ASSETS: Fetcher
   DB: D1Database
