@@ -1,74 +1,61 @@
 import type {
   ReviewedStatementRow,
-  StatementCandidate,
   StatementSelection,
 } from './statement-import'
 
-const reference = (v: string) => v.trim().toUpperCase()
-function compatible(row: ReviewedStatementRow, c: StatementCandidate) {
-  return (
-    c.type === 'transaction' &&
-    !c.alreadyLinked &&
-    c.transactionType === row.kind &&
-    !(
-      row.reference &&
-      c.references?.length &&
-      !c.references.some((r) => reference(r) === reference(row.reference))
-    )
-  )
-}
-
-// Suggest only. The owner still confirms the final import, and the server
-// rebuilds candidates against fresh data before committing any decisions.
+// Candidates are scoped to account, amount and direction by the server.
+// Require uniqueness on both the statement and database side for this date.
 export function autoMatchBankRows(rows: ReviewedStatementRow[]): void {
-  const claims = new Map<string, number>()
+  const counts = new Map<string, number>()
+  const key = (r: ReviewedStatementRow) => `${r.date}:${r.amountMinor}`
+  for (const row of rows)
+    if (row.status !== 'already_imported')
+      counts.set(key(row), (counts.get(key(row)) ?? 0) + 1)
   for (const row of rows) {
     if (row.status === 'already_imported') continue
-    for (const c of row.candidates.filter(
-      (c) =>
-        compatible(row, c) &&
-        (c.date === row.date ||
-          (row.reference &&
-            c.references?.some(
-              (r) => reference(r) === reference(row.reference),
-            ))),
-    ))
-      claims.set(c.id, (claims.get(c.id) ?? 0) + 1)
-  }
-  for (const row of rows) {
+    delete row.autoMatch
+    if (row.status === 'auto_matched') row.status = 'possible_match'
+    if (row.errors.length || row.reviewReason || counts.get(key(row)) !== 1)
+      continue
+    const exact = row.candidates.filter(
+      (c) => c.date === row.date && c.amountMinor === row.amountMinor,
+    )
+    if (exact.length !== 1) continue
+    const c = exact[0]
     if (
-      row.status === 'already_imported' ||
-      row.errors.length ||
-      row.reviewReason
+      c.type !== 'transaction' ||
+      c.alreadyLinked ||
+      c.transactionType !== row.kind
     )
       continue
-    const candidates = row.candidates.filter((c) => compatible(row, c))
-    const exactReference = candidates.filter(
-      (c) =>
-        row.reference &&
-        c.references?.length === 1 &&
-        reference(c.references[0]) === reference(row.reference),
-    )
-    const exactDate = row.candidates.filter((c) => c.date === row.date)
-    let candidate: StatementCandidate | undefined
-    let reason = ''
-    if (exactReference.length === 1) {
-      candidate = exactReference[0]
-      reason = 'Same bank reference, account, amount and direction.'
-    } else if (
-      !exactReference.length &&
-      exactDate.length === 1 &&
-      candidates.includes(exactDate[0]) &&
-      (exactDate[0].references?.length ?? 0) <= 1
-    ) {
-      candidate = exactDate[0]
-      reason = 'Unique match with the same date, account, amount and direction.'
-    }
-    if (candidate && claims.get(candidate.id) === 1) {
-      row.status = 'auto_matched'
-      row.autoMatch = { id: candidate.id, reason }
+    row.status = 'auto_matched'
+    row.autoMatch = {
+      id: c.id,
+      reason:
+        'Automatically confirmed: unique date and amount in this account and direction.',
     }
   }
+}
+
+export function importBlockers(
+  blockers: string[],
+  bank: boolean,
+  selections: StatementSelection[],
+): string[] {
+  const matchesOnly =
+    bank &&
+    selections.some((s) => s?.action === 'match') &&
+    selections.every(
+      (s) => s && ['match', 'skip', 'pending'].includes(s.action),
+    )
+  return blockers.filter(
+    (b) =>
+      !(
+        matchesOnly &&
+        b ===
+          'Opening balance + statement movements does not match closing balance.'
+      ),
+  )
 }
 
 export function defaultStatementDecision(

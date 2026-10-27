@@ -1,3 +1,4 @@
+import { importBlockers } from '../../shared/statement-matching'
 import type { Env } from '../types'
 import type {
   StatementExtraction,
@@ -374,7 +375,12 @@ export async function statementImportsRoute(
         'Records changed since review. Refresh matches and confirm again.',
         409,
       )
-    if (review.blockers.length) invalid(review.blockers.join(' '))
+    const blockers = importBlockers(
+      review.blockers,
+      review.statementType === 'bank',
+      Array.isArray(b.selections) ? b.selections : [],
+    )
+    if (blockers.length) invalid(blockers.join(' '))
     if (
       !Array.isArray(b.selections) ||
       b.selections.length !== review.rows.length ||
