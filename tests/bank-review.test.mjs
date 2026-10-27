@@ -62,7 +62,7 @@ const render = (
     }),
   )
 
-test('simple bank review renders automatic matches collapsed and uncertain candidates as direct actions', () => {
+test('statement table labels automatic matches and keeps candidate actions in expandable details', () => {
   const html = render([
     row(1, {
       status: 'auto_matched',
@@ -80,13 +80,15 @@ test('simple bank review renders automatic matches collapsed and uncertain candi
     row(3),
   ])
   assert.match(html, /Auto-matched · 1/)
-  assert.match(html, /<details class="bank-review-group"><summary>Auto-matched/)
+  assert.match(html, /<table>/)
+  assert.match(html, /Scrollable statement transactions/)
+  assert.match(html, /statement-grid-row-details/)
   assert.match(html, /Needs your review · 1/)
   assert.match(html, /New transactions · 1/)
   assert.match(html, /Same|same date/)
   assert.match(html, /Match this/)
   assert.match(html, /Existing transaction/)
-  assert.doesNotMatch(html, /Decision for row/)
+  assert.match(html, /Decision for row 2/)
 })
 
 test('changing a suggested match to review later moves it to exceptions and displays the alternatives', () => {
@@ -117,4 +119,35 @@ test('already linked and conflicting-reference suggestions explain why manual at
   assert.match(html, /Already linked to a statement row/)
   assert.match(html, /Bank references differ/)
   assert.match(html, /disabled="">Match this/)
+})
+
+test('table paginates long statements and locks previously reconciled rows', () => {
+  const html = render(
+    Array.from({ length: 30 }, (_, i) =>
+      row(i + 1, i === 0 ? { status: 'already_imported' } : {}),
+    ),
+  )
+  assert.match(html, /Select this page/)
+  assert.match(
+    html,
+    /disabled="" aria-label="Select row 1"|aria-label="Select row 1"[^>]*disabled=""/,
+  )
+  assert.match(html, /Decision for row 25/)
+  assert.doesNotMatch(html, /Decision for row 26/)
+  assert.match(html, /25 per page/)
+  assert.match(html, /Skip selected/)
+})
+test('validation errors stay in needs-review instead of appearing as safe new rows', () => {
+  const html = render([row(1, { errors: ['Check the amount'] })], {
+    1: { sourceRow: 1, action: 'new' },
+  })
+  assert.match(html, /Needs your review · 1/)
+  assert.match(html, /Check statement fields/)
+  assert.match(html, /<option value="new" disabled="" selected="">Add as new/)
+})
+test('empty review explains its state without showing actionable transactions', () => {
+  const html = render([])
+  assert.match(html, /No transactions match this view/)
+  assert.match(html, /disabled="">Skip selected/)
+  assert.doesNotMatch(html, /Decision for row 1/)
 })
