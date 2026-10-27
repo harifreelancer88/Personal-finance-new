@@ -1142,8 +1142,8 @@ test('unique exact bank matches work for fractional and whole amounts, using act
     ['auto_matched', 'auto_matched'],
   )
   assert.equal(r.rows[0].autoMatch.id, 'fractional')
-  assert.match(r.rows[0].autoMatch.reason, /bank reference/)
-  assert.match(r.rows[1].autoMatch.reason, /same date/)
+  assert.match(r.rows[0].autoMatch.reason, /unique date and amount/)
+  assert.match(r.rows[1].autoMatch.reason, /unique date and amount/)
   assert.equal(
     s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
     0,
@@ -1171,7 +1171,7 @@ test('unique exact bank matches work for fractional and whole amounts, using act
   )
 })
 
-test('duplicate amounts, competing rows, reference conflicts and date differences remain manual', async () => {
+test('only unique same-date amounts auto-confirm; duplicate amounts and date differences remain manual', async () => {
   for (const scenario of [
     'duplicate payments',
     'competing rows',
@@ -1211,13 +1211,15 @@ test('duplicate amounts, competing rows, reference conflicts and date difference
         )
     const r = await parseAI(s, b, extraction(rows))
     assert.ok(
-      r.rows.every((row) => !row.autoMatch),
+      r.rows.every((row) =>
+        scenario === 'reference conflict' ? !!row.autoMatch : !row.autoMatch,
+      ),
       scenario,
     )
   }
 })
 
-test('a shared amount can be auto-matched by distinct references, while one candidate cannot serve two rows', async () => {
+test('shared date and amount require manual review even with distinct references', async () => {
   const s = await fixture()
   await seedBankTransaction(s, 'one', '2026-10-01', 30000, '111111111111')
   await seedBankTransaction(s, 'two', '2026-10-01', 30000, '222222222222')
@@ -1232,7 +1234,7 @@ test('a shared amount can be auto-matched by distinct references, while one cand
   const r = await parseAI(s, b, extraction([parsedRow(1), parsedRow(2)]))
   assert.deepEqual(
     r.rows.map((row) => row.autoMatch?.id),
-    ['one', 'two'],
+    [undefined, undefined],
   )
   const duplicate = await commitAI(s, r, [
     { sourceRow: 1, action: 'match', matchId: 'one' },
@@ -1317,7 +1319,7 @@ test('auto matches are revalidated when SMS reference evidence changes after rev
     409,
   )
   const fresh = (await s.api('/statement-imports/' + b.id)).data
-  assert.equal(fresh.rows[0].status, 'possible_match')
+  assert.equal(fresh.rows[0].status, 'auto_matched')
   assert.equal(
     s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
     0,
@@ -1441,4 +1443,59 @@ test('a previously linked transaction cannot be matched again in another stateme
     s.sqlite.prepare('SELECT count(*) n FROM statement_import_items').get().n,
     1,
   )
+})
+
+test('matches-only confirmation ignores balance difference without changing cash, while new rows remain blocked', async () => {
+  for (const action of ['match', 'new']) {
+    const s = await fixture()
+    await seedBankTransaction(s, 'existing', '2026-10-01', 30000)
+    const source = {
+      ...bankSource,
+      rows: [
+        ...bankSource.rows,
+        { number: 4, cells: ['Opening', '500.00'] },
+        { number: 5, cells: ['Closing', '123.00'] },
+      ],
+    }
+    const batch = await uploadAI(s, 'bank', 'bank', source)
+    const r = await parseAI(
+      s,
+      batch,
+      extraction([parsedRow(2)], {
+        openingBalance: '500.00',
+        closingBalance: '123.00',
+      }),
+    )
+    assert.ok(
+      r.blockers.includes(
+        'Opening balance + statement movements does not match closing balance.',
+      ),
+    )
+    const before = s.sqlite
+      .prepare("SELECT opening_balance_minor FROM accounts WHERE id='bank'")
+      .get().opening_balance_minor
+    const result = await commitAI(s, r, [
+      {
+        sourceRow: 2,
+        action,
+        matchId: action === 'match' ? 'existing' : undefined,
+        acknowledgeDuplicate: true,
+      },
+    ])
+    assert.equal(
+      result.status,
+      action === 'match' ? 200 : 400,
+      JSON.stringify(result),
+    )
+    assert.equal(
+      s.sqlite.prepare('SELECT count(*) n FROM transactions').get().n,
+      1,
+    )
+    assert.equal(
+      s.sqlite
+        .prepare("SELECT opening_balance_minor FROM accounts WHERE id='bank'")
+        .get().opening_balance_minor,
+      before,
+    )
+  }
 })

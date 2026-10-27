@@ -9,7 +9,10 @@ import {
   type Lookup,
 } from '../api/workflows'
 import BankStatementReview from '../components/workflows/BankStatementReview'
-import { defaultStatementDecision } from '../../shared/statement-matching'
+import {
+  defaultStatementDecision,
+  importBlockers,
+} from '../../shared/statement-matching'
 import { WorkflowShell, Feedback } from '../components/workflows/WorkflowShell'
 import { readStatementFile, type StatementSheet } from '../lib/statement-upload'
 import type {
@@ -332,6 +335,11 @@ export default function ImportsPage() {
     pendingRows = selectedDecisions.filter(
       (d) => d.action === 'pending',
     ).length,
+    activeBlockers = importBlockers(
+      review?.blockers ?? [],
+      bank,
+      selectedDecisions,
+    ),
     missingDetails =
       bank &&
       (review?.rows ?? []).some((row) => {
@@ -1479,6 +1487,24 @@ export default function ImportsPage() {
                   Complete the selected row’s details or mark it Review later.
                 </p>
               )}
+              {activeBlockers.length > 0 && (
+                <div className="workflow-error" role="alert">
+                  <strong>Cannot apply yet:</strong>
+                  {activeBlockers.map((b, i) => (
+                    <p key={i}>{b}</p>
+                  ))}
+                </div>
+              )}
+              {bank &&
+                selectedNew === 0 &&
+                selectedMatches > 0 &&
+                review.blockers.length > activeBlockers.length && (
+                  <p role="status">
+                    Only existing transactions will be linked. The statement
+                    balance difference does not block these matches; no balances
+                    or payments will change.
+                  </p>
+                )}
               <button
                 className="primary-button"
                 disabled={
@@ -1489,7 +1515,7 @@ export default function ImportsPage() {
                       missingDetails ||
                       (selectedNew + selectedMatches === 0 &&
                         pendingRows > 0))) ||
-                  review.blockers.length > 0
+                  activeBlockers.length > 0
                 }
                 onClick={() => void commit()}
               >

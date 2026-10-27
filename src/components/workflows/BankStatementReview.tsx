@@ -362,7 +362,8 @@ export default function BankStatementReview(props: Props) {
             {!visible.length && (
               <tr>
                 <td colSpan={7} className="statement-grid-empty">
-                  No transactions match this view. Change the filter or search.
+                  No transactions match this view. Use All to see auto-confirmed
+                  matches and new transactions.
                 </td>
               </tr>
             )}
