@@ -1,4 +1,8 @@
 import {
+  readTransactionFilters,
+  writeTransactionFilters,
+} from '../lib/transaction-filters'
+import {
   Menu,
   Plus,
   RefreshCw,
@@ -34,7 +38,6 @@ import {
 import { ConfirmDialog } from '../components/transactions/ConfirmDialog'
 import { TransactionDetails } from '../components/transactions/TransactionDetails'
 import {
-  emptyFilters,
   TransactionFilters,
   type FilterState,
 } from '../components/transactions/TransactionFilters'
@@ -169,17 +172,11 @@ export function TransactionsPage() {
     else next.delete('tab')
     setSearchParams(next, { replace: true })
   }
-  const [filters, setFilters] = useState<FilterState>(() => ({
-      ...emptyFilters,
-      search: searchParams.get('search') ?? '',
-      type: ['income', 'expense', 'investment', 'refund', 'transfer'].includes(
-        searchParams.get('type') ?? '',
-      )
-        ? (titleCase(searchParams.get('type')!) as FilterState['type'])
-        : 'All',
-      status: searchParams.get('status') === 'confirmed' ? 'Confirmed' : 'All',
-    })),
-    [offset, setOffset] = useState(0),
+  const filters = useMemo(
+    () => readTransactionFilters(searchParams),
+    [searchParams],
+  )
+  const [offset, setOffset] = useState(0),
     [reviewOffset, setReviewOffset] = useState(0)
   const [page, setPage] = useState<TransactionPage>(),
     [reviewPage, setReviewPage] = useState<TransactionPage>()
@@ -220,6 +217,19 @@ export function TransactionsPage() {
       active = false
     }
   }, [refresh])
+  const filterScope = JSON.stringify([bounds, filters])
+  const previousFilterScope = useRef(filterScope)
+  useEffect(() => {
+    if (previousFilterScope.current === filterScope) return
+    previousFilterScope.current = filterScope
+    setOffset(0)
+    setReviewOffset(0)
+    setPage(undefined)
+    setReviewPage(undefined)
+    setSelected([])
+    setSelecting(false)
+    setBulkNotice('')
+  }, [filterScope])
   const query = useMemo(
     () => ({ ...queryFor(filters), ...bounds }),
     [filters, bounds],
@@ -294,7 +304,9 @@ export function TransactionsPage() {
   const refreshData = () => setRefresh((value) => value + 1)
   const changeFilters = (next: FilterState) => {
     resetSelection()
-    setFilters(next)
+    setSearchParams(writeTransactionFilters(searchParams, next), {
+      replace: next.search !== filters.search,
+    })
     setOffset(0)
     setPage(undefined)
     setLoading(true)
@@ -417,7 +429,7 @@ export function TransactionsPage() {
     setMonthSummary(undefined)
   }, [month])
   const total = page?.total ?? 0,
-    summary = monthSummary,
+    summary = reviewActive ? monthSummary : page?.summary,
     ready = referenceReady && !referenceError
   useEffect(() => {
     if (ready && searchParams.get('new') === '1') {
@@ -532,67 +544,77 @@ export function TransactionsPage() {
           )}
         </div>
         {summary && !loading && (
-          <section
-            className="transaction-summary"
-            aria-label="Confirmed income, spending and investment totals for the selected dates, excluding transfers"
-          >
-            <article>
-              <p>Money Out</p>
-              <strong>{formatMinorCurrency(summary.expenseMinor)}</strong>
-            </article>
-            <article>
-              <p>Money In</p>
-              <strong className="positive-text">
-                {formatMinorCurrency(summary.incomeMinor)}
-              </strong>
-            </article>
-            <article className="net-flow">
-              <p>Net cash flow</p>
-              <strong
-                className={
-                  summary.netCashFlowMinor >= 0
-                    ? 'positive-text'
-                    : 'negative-text'
-                }
-              >
-                {summary.netCashFlowMinor < 0 ? '−' : ''}
-                {formatMinorCurrency(summary.netCashFlowMinor)}
-              </strong>
-            </article>
-            <article className="invested-summary">
-              <p>Invested</p>
-              <div className="invested-total">
-                <strong>{formatMinorCurrency(summary.investedMinor)}</strong>
-                <span
-                  className="invested-percentage"
-                  aria-label={
-                    summary.incomeMinor > 0
-                      ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}% of Money In`
-                      : 'Percentage unavailable because Money In is zero'
+          <>
+            <p className="transaction-summary-scope">
+              {reviewActive
+                ? 'Confirmed totals for the selected dates'
+                : 'Confirmed totals for matching transactions'}{' '}
+              · Transfers excluded
+            </p>
+            <section
+              className="transaction-summary"
+              aria-label="Confirmed income, spending and investment totals for the selected dates and activity filters, excluding transfers"
+            >
+              <article>
+                <p>Money Out</p>
+                <strong>{formatMinorCurrency(summary.expenseMinor)}</strong>
+              </article>
+              <article>
+                <p>Money In</p>
+                <strong className="positive-text">
+                  {formatMinorCurrency(summary.incomeMinor)}
+                </strong>
+              </article>
+              <article className="net-flow">
+                <p>Net cash flow</p>
+                <strong
+                  className={
+                    summary.netCashFlowMinor >= 0
+                      ? 'positive-text'
+                      : 'negative-text'
                   }
                 >
-                  (
-                  {summary.incomeMinor > 0
-                    ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}%`
-                    : '—'}
-                  )
-                </span>
-              </div>
-            </article>
-          </section>
+                  {summary.netCashFlowMinor < 0 ? '−' : ''}
+                  {formatMinorCurrency(summary.netCashFlowMinor)}
+                </strong>
+              </article>
+              <article className="invested-summary">
+                <p>Invested</p>
+                <div className="invested-total">
+                  <strong>{formatMinorCurrency(summary.investedMinor)}</strong>
+                  <span
+                    className="invested-percentage"
+                    aria-label={
+                      summary.incomeMinor > 0
+                        ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}% of Money In`
+                        : 'Percentage unavailable because Money In is zero'
+                    }
+                  >
+                    (
+                    {summary.incomeMinor > 0
+                      ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}%`
+                      : '—'}
+                    )
+                  </span>
+                </div>
+              </article>
+            </section>
+          </>
         )}
         {bulkNotice && (
           <p className="category-save-notice" role="status">
             {bulkNotice}
           </p>
         )}
-        <TransactionFilters
-          value={filters}
-          onChange={changeFilters}
-          categories={categories}
-          accounts={accounts}
-          monthScoped
-        />
+        {!reviewActive && (
+          <TransactionFilters
+            value={filters}
+            onChange={changeFilters}
+            categories={categories}
+            accounts={accounts}
+            monthScoped
+          />
+        )}
         <div
           className="activity-tabs"
           role="tablist"
@@ -805,6 +827,19 @@ export function TransactionsPage() {
           hidden={reviewActive}
           aria-busy={loading}
         >
+          <div className="transaction-table-toolbar">
+            <div>
+              <h2>Transactions</h2>
+              <p role="status">
+                {loading
+                  ? 'Updating results…'
+                  : page
+                    ? `${page.total} matching ${page.total === 1 ? 'transaction' : 'transactions'} · selected dates`
+                    : 'Results unavailable'}
+              </p>
+            </div>
+            <span>Newest first · accounting dates for income</span>
+          </div>
           {loading ? (
             <div className="empty-state">
               <h3>Loading transactions…</h3>
