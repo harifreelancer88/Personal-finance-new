@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownLeft,
   ArrowRight,
@@ -46,6 +46,10 @@ import {
   type RecordedWorth,
 } from '../lib/dashboard-preview'
 import '../dashboard-preview.css'
+
+const PreviewTransactionPanel = lazy(
+  () => import('../components/dashboard/preview/PreviewTransactionPanel'),
+)
 
 const pinKey = 'personal-finance:dashboard-preview:pins:v1'
 const privacyKey = 'personal-finance:dashboard-preview:privacy:v1'
@@ -171,6 +175,7 @@ export default function DashboardPreviewPage() {
   const { fromDate, toDate } = range
   const rangeKey = `${fromDate}:${toDate}`
   const rangeLabel = activityRangeLabel(range)
+  const [viewing, setViewing] = useState<string>()
   const [refresh, setRefresh] = useState(0)
   const [hidden, setHidden] = useState(readHidden)
   const [pins, setPins] = useState(readPins)
@@ -515,12 +520,12 @@ export default function DashboardPreviewPage() {
                         transaction.transactionType === 'income' ||
                         transaction.transactionType === 'refund'
                       return (
-                        <Link
+                        <button
+                          type="button"
                           className="dp-transaction"
                           key={transaction.id}
-                          to={activityLink(range, {
-                            search: transaction.description,
-                          })}
+                          aria-haspopup="dialog"
+                          onClick={() => setViewing(transaction.id)}
                         >
                           <span
                             className={`dp-transaction-icon ${positive ? 'income' : ''}`}
@@ -556,7 +561,7 @@ export default function DashboardPreviewPage() {
                             </strong>
                             <small>{transaction.transactionType}</small>
                           </span>
-                        </Link>
+                        </button>
                       )
                     })
                   ) : (
@@ -671,6 +676,21 @@ export default function DashboardPreviewPage() {
             </Link>
           </footer>
         </div>
+        {viewing && (
+          <Suspense
+            fallback={<p role="status">Opening transaction details…</p>}
+          >
+            <PreviewTransactionPanel
+              key={viewing}
+              id={viewing}
+              accounts={data.accounts ?? []}
+              categories={data.categories ?? []}
+              range={range}
+              onClose={() => setViewing(undefined)}
+              togglePrivacy={toggleHidden}
+            />
+          </Suspense>
+        )}
       </div>
     </PreviewPrivacy>
   )
