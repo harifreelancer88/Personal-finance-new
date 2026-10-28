@@ -1,24 +1,8 @@
 import { useState } from 'react'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
-import type { TransactionType } from '../../types/finance'
-export type FilterState = {
-  search: string
-  type: 'All' | TransactionType
-  category: string
-  account: string
-  range: 'All' | '7' | '30' | '90'
-  source: 'All' | 'SMS' | 'Manual' | 'Import'
-  status: 'All' | 'Pending' | 'Confirmed' | 'Ignored'
-}
-export const emptyFilters: FilterState = {
-  search: '',
-  type: 'All',
-  category: 'All',
-  account: 'All',
-  range: 'All',
-  source: 'All',
-  status: 'All',
-}
+import { Search, SlidersHorizontal } from 'lucide-react'
+import { FilterChips, type FilterChip } from '../shared/FilterChips'
+import { emptyFilters, type FilterState } from '../../lib/transaction-filters'
+export { emptyFilters, type FilterState } from '../../lib/transaction-filters'
 const types: FilterState['type'][] = [
   'All',
   'Expense',
@@ -46,13 +30,48 @@ export function TransactionFilters({
   const activeCount = Object.entries(value).filter(
     ([key, val]) => key !== 'search' && val !== 'All',
   ).length
-  const dirty = JSON.stringify(value) !== JSON.stringify(emptyFilters)
+  const chips: FilterChip[] = []
+  if (value.search)
+    chips.push({
+      key: 'search',
+      label: `Search: ${value.search}`,
+      remove: () => set('search', ''),
+    })
+  for (const key of [
+    'type',
+    'category',
+    'account',
+    'source',
+    'status',
+  ] as const) {
+    if (value[key] === 'All') continue
+    const label =
+      key === 'category'
+        ? (categories.find((c) => c.id === value.category)?.name ??
+          'Unavailable category')
+        : key === 'account'
+          ? (accounts.find((a) => a.id === value.account)?.name ??
+            'Unavailable account')
+          : value[key]
+    chips.push({
+      key,
+      label: `${key[0].toUpperCase() + key.slice(1)}: ${label}`,
+      remove: () => set(key, 'All'),
+    })
+  }
+  if (!monthScoped && value.range !== 'All')
+    chips.push({
+      key: 'range',
+      label: `Last ${value.range} days`,
+      remove: () => set('range', 'All'),
+    })
   return (
     <div className="filters-area">
       <label className="search-box">
         <Search />
         <span className="sr-only">Search transactions</span>
         <input
+          type="search"
           value={value.search}
           onChange={(e) => set('search', e.target.value)}
           placeholder="Search transactions…"
@@ -155,16 +174,12 @@ export function TransactionFilters({
             <option>Ignored</option>
           </select>
         </label>
-        {dirty && (
-          <button
-            className="clear-filters"
-            onClick={() => onChange(emptyFilters)}
-          >
-            <X />
-            Clear filters
-          </button>
-        )}
       </div>
+      <FilterChips
+        chips={chips}
+        clear={() => onChange({ ...emptyFilters })}
+        hint={monthScoped ? 'Selected dates stay unchanged.' : undefined}
+      />
     </div>
   )
 }

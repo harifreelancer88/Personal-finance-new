@@ -26,7 +26,8 @@
     "test:dashboard-preview": "bash scripts/test-dashboard-preview.sh",
     "test:nps": "bash scripts/test-nps.sh",
     "test:investment-ledger": "bash scripts/test-investment-ledger.sh",
-    "test:workflows": "bash scripts/test-workflows.sh"
+    "test:workflows": "bash scripts/test-workflows.sh",
+    "test:transaction-filters": "bash scripts/test-transaction-filters.sh"
   },
   "dependencies": {
     "lucide-react": "latest",

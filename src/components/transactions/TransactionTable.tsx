@@ -38,7 +38,10 @@ export function TransactionTable({
     )
   const groups = new Map<string, Transaction[]>()
   for (const item of items) {
-    const key = item.type === 'Income' ? item.accountingDate ?? item.date.slice(0, 10) : item.date.slice(0, 10)
+    const key =
+      item.type === 'Income'
+        ? (item.accountingDate ?? item.date.slice(0, 10))
+        : item.date.slice(0, 10)
     const group = groups.get(key) ?? []
     group.push(item)
     groups.set(key, group)
@@ -65,11 +68,11 @@ export function TransactionTable({
                   <span className="sr-only">Select transaction</span>
                 </th>
               )}
-              <th>Merchant</th>
-              <th>Category</th>
-              <th>Account</th>
+              <th scope="col">Description</th>
+              <th scope="col">Category</th>
+              <th scope="col">Account</th>
               <th className="amount-heading">Amount</th>
-              <th>Status</th>
+              <th scope="col">Status</th>
               <th>
                 <span className="sr-only">Actions</span>
               </th>
@@ -115,10 +118,22 @@ export function TransactionTable({
                             onClick={() => onView(item)}
                           >
                             {item.description}
-                          </button>{item.accountingDate && item.accountingDate !== item.date.slice(0, 10) && <small>Received {formatDate(item.date)}</small>}
+                          </button>
+                          {item.accountingDate &&
+                            item.accountingDate !== item.date.slice(0, 10) && (
+                              <small>Received {formatDate(item.date)}</small>
+                            )}
                         </div>
                       </td>
-                      <td>{item.category}{item.categoryOrigin === 'ai' && <small className="ai-category-badge"> · AI categorised</small>}</td>
+                      <td>
+                        {item.category}
+                        {item.categoryOrigin === 'ai' && (
+                          <small className="ai-category-badge">
+                            {' '}
+                            · AI categorised
+                          </small>
+                        )}
+                      </td>
                       <td className="account-cell">{item.account}</td>
                       <td className="amount-cell">
                         <strong
