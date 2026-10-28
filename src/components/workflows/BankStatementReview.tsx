@@ -48,8 +48,8 @@ export function reviewGroup(
   return 'manual'
 }
 const groupLabels = {
-  manual: 'Needs your review',
-  auto: 'Auto-matched',
+  manual: 'Needs review',
+  auto: 'Auto-confirmed',
   new: 'New transactions',
   matched: 'Match selected',
   skip: 'Skipped',
@@ -59,7 +59,12 @@ const groupLabels = {
 export default function BankStatementReview(props: Props) {
   const { rows, decisions, busy, choose } = props
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState(() =>
+    rows.some((r) => reviewGroup(r, decisions[r.sourceRow]) === 'manual')
+      ? 'manual'
+      : 'all',
+  )
+  const [expanded, setExpanded] = useState<number[]>([])
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<number[]>([])
   const counts = Object.fromEntries(
@@ -90,15 +95,15 @@ export default function BankStatementReview(props: Props) {
   }
   return (
     <section
-      className="statement-grid"
+      className="statement-grid statement-grid-bank"
       aria-label="Statement confirmation table"
     >
       <div className="statement-grid-title">
         <div>
           <h3>Review transactions</h3>
           <p>
-            Confirm new payments and existing matches. Nothing is imported until
-            you click Import Now.
+            Review exceptions, then import. Auto-confirmed rows are ready;
+            nothing is saved until Import now.
           </p>
         </div>
         <span>{rows.length} statement rows</span>
@@ -118,7 +123,7 @@ export default function BankStatementReview(props: Props) {
         >
           All · {rows.length}
         </button>
-        {Object.entries(groupLabels).map(([key, label]) => (
+        {(['manual', 'auto', 'new'] as const).map((key) => (
           <button
             type="button"
             key={key}
@@ -128,11 +133,29 @@ export default function BankStatementReview(props: Props) {
               setPage(0)
             }}
           >
-            {label} · {counts[key]}
+            {groupLabels[key]} · {counts[key]}
           </button>
         ))}
       </div>
       <div className="statement-grid-toolbar">
+        <label className="statement-grid-status-filter">
+          More statuses
+          <select
+            aria-label="More statuses"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value)
+              setPage(0)
+            }}
+          >
+            <option value="all">All statuses</option>
+            {Object.entries(groupLabels).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label} · {counts[key]}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Search transactions
           <input
@@ -145,7 +168,7 @@ export default function BankStatementReview(props: Props) {
             }}
           />
         </label>
-        <span role="status">
+        <span role="status" hidden={!selectedRows.length}>
           {selectedRows.length} selected
           {selectedRows.some((r) => !visible.includes(r))
             ? ' (includes rows outside this page)'
@@ -153,6 +176,7 @@ export default function BankStatementReview(props: Props) {
         </span>
         <button
           type="button"
+          hidden={!selectedRows.length}
           disabled={busy || !selectedRows.length}
           onClick={() => bulk('pending')}
         >
@@ -160,6 +184,7 @@ export default function BankStatementReview(props: Props) {
         </button>
         <button
           type="button"
+          hidden={!selectedRows.length}
           disabled={busy || !selectedRows.length}
           onClick={() => bulk('skip')}
         >
@@ -205,13 +230,15 @@ export default function BankStatementReview(props: Props) {
                   }
                 />
               </th>
+              <th scope="col">
+                <span className="statement-grid-sr">Details</span>
+              </th>
               {[
                 'Date',
                 'Transaction',
                 'Type / Category',
                 'Amount',
                 'Status',
-                'Decision',
               ].map((h) => (
                 <th scope="col" key={h}>
                   {h}
@@ -224,6 +251,15 @@ export default function BankStatementReview(props: Props) {
               const decision = decisions[row.sourceRow],
                 group = reviewGroup(row, decision),
                 fix = props.corrections[row.sourceRow]
+              const open = expanded.includes(row.sourceRow)
+              const used = new Set(
+                Object.values(decisions)
+                  .filter(
+                    (d) =>
+                      d.sourceRow !== row.sourceRow && d.action === 'match',
+                  )
+                  .map((d) => d.matchId),
+              )
               const match = row.candidates.find(
                 (c) => c.id === decision?.matchId,
               )
@@ -251,18 +287,41 @@ export default function BankStatementReview(props: Props) {
                         }
                       />
                     </td>
+                    <td className="statement-grid-expand">
+                      <button
+                        type="button"
+                        aria-label={`${open ? 'Collapse' : 'Expand'} row ${row.sourceRow}`}
+                        aria-expanded={open}
+                        aria-controls={`statement-details-${row.sourceRow}`}
+                        onClick={() =>
+                          setExpanded((old) =>
+                            open
+                              ? old.filter((n) => n !== row.sourceRow)
+                              : [...old, row.sourceRow],
+                          )
+                        }
+                      >
+                        {open ? '⌃' : '⌄'}
+                      </button>
+                    </td>
                     <td className="statement-grid-date">
                       {fix?.date ?? row.date ?? 'Missing date'}
-                      <small>Row {row.sourceRow}</small>
                     </td>
                     <td className="statement-grid-description">
                       <strong>{fix?.description ?? row.description}</strong>
-                      <small>
-                        {row.reference
-                          ? `Ref: ${fix?.reference ?? row.reference}`
-                          : 'No bank reference'}
+                      <small className="statement-mobile-date">
+                        {fix?.date ?? row.date ?? 'Missing date'}
                       </small>
-                      {match && decision?.action === 'match' && (
+                      {(fix?.reference ?? row.reference) && (
+                        <small>Ref: {fix?.reference ?? row.reference}</small>
+                      )}
+                      {group === 'manual' && row.candidates.length > 0 && (
+                        <small>
+                          {row.candidates.length} possible{' '}
+                          {row.candidates.length === 1 ? 'match' : 'matches'}
+                        </small>
+                      )}
+                      {match && group === 'matched' && (
                         <small>Links to: {match.label}</small>
                       )}
                       {fix && (
@@ -271,7 +330,7 @@ export default function BankStatementReview(props: Props) {
                         </small>
                       )}
                     </td>
-                    <td>
+                    <td className="statement-grid-category">
                       <span className="statement-grid-kind">
                         {fix?.kind ?? row.kind}
                       </span>
@@ -290,9 +349,6 @@ export default function BankStatementReview(props: Props) {
                         {row.direction === 'debit' ? '−' : '+'}
                         {rupees(row.amountMinor)}
                       </strong>
-                      <small>
-                        {row.direction === 'debit' ? 'Money out' : 'Money in'}
-                      </small>
                     </td>
                     <td>
                       <span className={`statement-grid-status ${group}`}>
@@ -304,56 +360,87 @@ export default function BankStatementReview(props: Props) {
                         </small>
                       )}
                     </td>
-                    <td>
-                      <select
-                        aria-label={`Decision for row ${row.sourceRow}`}
-                        disabled={busy || locked}
-                        value={
-                          locked ? 'done' : (decision?.action ?? 'pending')
-                        }
-                        onChange={(e) => {
-                          if (e.target.value === 'match') return
-                          choose({
-                            sourceRow: row.sourceRow,
-                            action: e.target
-                              .value as StatementSelection['action'],
-                          })
-                        }}
-                      >
-                        {locked ? (
-                          <option value="done">Already imported</option>
-                        ) : (
-                          <>
-                            <option value="pending">Review later</option>
-                            {decision?.action === 'match' && (
-                              <option value="match">
-                                {group === 'auto'
-                                  ? 'Auto-match selected'
-                                  : 'Match selected'}
-                              </option>
-                            )}
-                            <option value="new" disabled={blocked}>
-                              Add as new
-                            </option>
-                            <option value="skip">Skip</option>
-                          </>
-                        )}
-                      </select>
-                    </td>
                   </tr>
-                  <tr className="statement-grid-detail">
+                  <tr
+                    className="statement-grid-detail"
+                    hidden={!open}
+                    id={`statement-details-${row.sourceRow}`}
+                  >
                     <td colSpan={7}>
-                      <details className="statement-grid-row-details">
-                        <summary>
-                          {locked
-                            ? 'View source and details'
-                            : row.candidates.length
-                              ? `Review row ${row.sourceRow} · ${row.candidates.length} possible ${row.candidates.length === 1 ? 'match' : 'matches'}`
-                              : `Review row ${row.sourceRow} · edit fields or view source`}
-                          {group === 'auto' ? ' · auto-match explanation' : ''}
-                        </summary>
+                      <div className="statement-grid-row-details">
+                        <div
+                          className="statement-candidate-list"
+                          aria-label={`Possible matches for row ${row.sourceRow}`}
+                        >
+                          {row.candidates.map((c) => {
+                            const unavailable =
+                              c.alreadyLinked ||
+                              used.has(c.id) ||
+                              c.transactionType !== (fix?.kind ?? row.kind)
+                            const chosen =
+                              decision?.action === 'match' &&
+                              decision.matchId === c.id
+                            return (
+                              <div
+                                className={`statement-candidate-line ${chosen ? 'chosen' : ''}`}
+                                key={c.id}
+                              >
+                                <span className="statement-candidate-date">
+                                  {c.date}
+                                </span>
+                                <div>
+                                  <strong>{c.label}</strong>
+                                  <small>
+                                    Existing transaction
+                                    {c.references?.length
+                                      ? ` · Ref: ${c.references.join(', ')}`
+                                      : ''}
+                                  </small>
+                                  {unavailable && (
+                                    <small>
+                                      {c.alreadyLinked
+                                        ? 'Already linked to a statement row'
+                                        : used.has(c.id)
+                                          ? 'Selected for another row'
+                                          : 'Different transaction type — inspect the parsed fields'}
+                                    </small>
+                                  )}
+                                  {row.reference &&
+                                  c.references?.length &&
+                                  !c.references.includes(
+                                    row.reference.trim().toUpperCase(),
+                                  ) ? (
+                                    <small>
+                                      Bank references differ. Check before
+                                      matching.
+                                    </small>
+                                  ) : null}
+                                </div>
+                                <span className="statement-grid-amount">
+                                  {rupees(c.amountMinor)}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-pressed={chosen}
+                                  disabled={
+                                    busy || locked || blocked || unavailable
+                                  }
+                                  onClick={() =>
+                                    choose({
+                                      sourceRow: row.sourceRow,
+                                      action: 'match',
+                                      matchId: c.id,
+                                    })
+                                  }
+                                >
+                                  {chosen ? 'Selected' : 'Match this'}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
                         <BankRow row={row} {...props} />
-                      </details>
+                      </div>
                     </td>
                   </tr>
                 </Fragment>
@@ -420,57 +507,19 @@ function BankRow({
   }
   const fix = corrections[row.sourceRow] ?? {}
   const locked = row.status === 'already_imported'
-  const selected = row.candidates.find((c) => c.id === decision.matchId)
-  const used = new Set(
-    Object.values(decisions)
-      .filter((d) => d.sourceRow !== row.sourceRow && d.action === 'match')
-      .map((d) => d.matchId),
-  )
   const automatic =
     decision.action === 'match' && decision.matchId === row.autoMatch?.id
-  const status = locked
-    ? 'Already reconciled'
-    : automatic
-      ? 'Auto-matched'
-      : decision.action === 'match'
-        ? 'Match selected'
-        : decision.action === 'new'
-          ? 'New transaction'
-          : decision.action === 'skip'
-            ? 'Skipped'
-            : 'Review later'
   const blocked = row.errors.length > 0 || !!row.reviewReason
   return (
     <article
       className="statement-review-row bank-review-row"
       aria-label={`Statement row ${row.sourceRow}`}
     >
-      <div className="bank-review-heading">
-        <div>
-          <h4>{row.description}</h4>
-          <p>
-            {row.date ?? 'Date missing'} ·{' '}
-            {row.direction === 'debit' ? 'Debit' : 'Credit'} ·{' '}
-            <strong>{rupees(row.amountMinor)}</strong>
-          </p>
-        </div>
-        <span className={`workflow-chip ${automatic ? 'bank-auto-match' : ''}`}>
-          {status}
-        </span>
-      </div>
       {row.reference && (
         <p className="bank-reference">Reference: {row.reference}</p>
       )}
       {automatic && (
         <p className="bank-match-reason">{row.autoMatch?.reason}</p>
-      )}
-      {selected && decision.action === 'match' && (
-        <div className="bank-selected-match">
-          <strong>Existing transaction</strong>
-          <p>
-            {selected.date} · {selected.label} · {rupees(selected.amountMinor)}
-          </p>
-        </div>
       )}
       {row.reviewReason && <p className="workflow-error">{row.reviewReason}</p>}
       {row.errors.map((e) => (
@@ -480,67 +529,6 @@ function BankRow({
       ))}
       {!locked && (
         <>
-          {!automatic && row.candidates.length > 0 && (
-            <div
-              className="bank-candidates"
-              aria-label={`Possible matches for row ${row.sourceRow}`}
-            >
-              <strong>Possible existing transactions</strong>
-              {row.candidates.map((c) => {
-                const unavailable =
-                  c.alreadyLinked ||
-                  used.has(c.id) ||
-                  c.transactionType !== (fix.kind ?? row.kind)
-                return (
-                  <div className="bank-candidate" key={c.id}>
-                    <div>
-                      <p>
-                        {c.date} · {c.label} ·{' '}
-                        <strong>{rupees(c.amountMinor)}</strong>
-                      </p>
-                      {c.references?.length ? (
-                        <small>Reference: {c.references.join(', ')}</small>
-                      ) : null}
-                      {unavailable && (
-                        <small>
-                          {c.alreadyLinked
-                            ? 'Already linked to a statement row'
-                            : used.has(c.id)
-                              ? 'Selected for another row'
-                              : 'Different transaction type — inspect the parsed fields'}
-                        </small>
-                      )}
-                      {row.reference &&
-                        c.references?.length &&
-                        !c.references.includes(
-                          row.reference.trim().toUpperCase(),
-                        ) && (
-                          <small>
-                            Bank references differ. Check carefully before
-                            matching.
-                          </small>
-                        )}
-                    </div>
-                    <button
-                      className="secondary-button"
-                      disabled={busy || blocked || unavailable}
-                      onClick={() =>
-                        choose({
-                          sourceRow: row.sourceRow,
-                          action: 'match',
-                          matchId: c.id,
-                        })
-                      }
-                    >
-                      {decision.matchId === c.id && decision.action === 'match'
-                        ? 'Selected'
-                        : 'Match this'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
           <div className="workflow-toolbar bank-row-actions">
             {automatic ? (
               <button

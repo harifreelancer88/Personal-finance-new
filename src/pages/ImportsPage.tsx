@@ -377,8 +377,11 @@ export default function ImportsPage() {
           Configure OPENAI_API_KEY to enable Submit to AI.
         </p>
       )}
-      <section className="panel workflow-form">
-        <h2>1. Upload and choose destination</h2>
+      <details
+        className="panel workflow-form statement-upload"
+        open={!review || review.status !== 'review'}
+      >
+        <summary>1. Upload and choose destination</summary>
         <label>
           Statement file
           <input
@@ -479,7 +482,7 @@ export default function ImportsPage() {
         >
           {busy ? 'Processing…' : 'Submit to AI'}
         </button>
-      </section>
+      </details>
       {review && (
         <section className="panel workflow-form">
           <h2>2. Review parsed statement</h2>
@@ -1457,74 +1460,72 @@ export default function ImportsPage() {
                   matching.
                 </p>
               )}
-              <p>
-                {
-                  Object.values(decisions).filter((d) => d.action === 'new')
-                    .length
-                }{' '}
-                new ·{' '}
-                {
-                  Object.values(decisions).filter((d) => d.action === 'match')
-                    .length
-                }{' '}
-                matches ·{' '}
-                {
-                  Object.values(decisions).filter((d) => d.action === 'skip')
-                    .length
-                }{' '}
-                skipped
-                {bank && pendingRows > 0
-                  ? ` · ${pendingRows} pending (kept for later)`
-                  : ''}
-              </p>
-              {bank && validationDirty && (
+              <div className="statement-import-bar">
                 <p role="status">
-                  Validate corrections & refresh matches before confirming.
+                  {
+                    Object.values(decisions).filter((d) => d.action === 'new')
+                      .length
+                  }{' '}
+                  new ·{' '}
+                  {
+                    Object.values(decisions).filter((d) => d.action === 'match')
+                      .length
+                  }{' '}
+                  matches ·{' '}
+                  {
+                    Object.values(decisions).filter((d) => d.action === 'skip')
+                      .length
+                  }{' '}
+                  skipped
+                  {bank && pendingRows > 0
+                    ? ` · ${pendingRows} pending (kept for later)`
+                    : ''}
                 </p>
-              )}
-              {bank && missingDetails && (
-                <p role="status">
-                  Complete the selected row’s details or mark it Review later.
-                </p>
-              )}
-              {activeBlockers.length > 0 && (
-                <div className="workflow-error" role="alert">
-                  <strong>Cannot apply yet:</strong>
-                  {activeBlockers.map((b, i) => (
-                    <p key={i}>{b}</p>
-                  ))}
-                </div>
-              )}
-              {bank &&
-                selectedNew === 0 &&
-                selectedMatches > 0 &&
-                review.blockers.length > activeBlockers.length && (
+                {bank && validationDirty && (
                   <p role="status">
-                    Only existing transactions will be linked. The statement
-                    balance difference does not block these matches; no balances
-                    or payments will change.
+                    Validate corrections & refresh matches before confirming.
                   </p>
                 )}
-              <button
-                className="primary-button"
-                disabled={
-                  busy ||
-                  (!bank && (!confirmTarget || !confirmReview)) ||
-                  (bank &&
-                    (validationDirty ||
-                      missingDetails ||
-                      (selectedNew + selectedMatches === 0 &&
-                        pendingRows > 0))) ||
-                  activeBlockers.length > 0
-                }
-                onClick={() => void commit()}
-              >
-                {busy
-                  ? 'Importing…'
-                  : bank
-                    ? `Confirm & import: ${selectedMatches} matches + ${selectedNew} new`
-                    : 'Import Now'}
-              </button>
+                {bank && missingDetails && (
+                  <p role="status">
+                    Complete the selected row’s details or mark it Review later.
+                  </p>
+                )}
+                {activeBlockers.length > 0 && (
+                  <div className="workflow-error" role="alert">
+                    <strong>Cannot apply yet:</strong>
+                    {activeBlockers.map((b, i) => (
+                      <p key={i}>{b}</p>
+                    ))}
+                  </div>
+                )}
+                {bank &&
+                  selectedNew === 0 &&
+                  selectedMatches > 0 &&
+                  review.blockers.length > activeBlockers.length && (
+                    <p role="status">
+                      Only existing transactions will be linked. The statement
+                      balance difference does not block these matches; no
+                      balances or payments will change.
+                    </p>
+                  )}
+                <button
+                  className="primary-button"
+                  disabled={
+                    busy ||
+                    (!bank && (!confirmTarget || !confirmReview)) ||
+                    (bank &&
+                      (validationDirty ||
+                        missingDetails ||
+                        (selectedNew + selectedMatches === 0 &&
+                          pendingRows > 0))) ||
+                    activeBlockers.length > 0
+                  }
+                  onClick={() => void commit()}
+                >
+                  {busy ? 'Importing…' : bank ? 'Import now' : 'Import Now'}
+                </button>
+              </div>
             </>
           )}
           {review.status === 'committed' && (
