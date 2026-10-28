@@ -129,3 +129,94 @@ test('shared metric cards keep amounts private and missing figures distinct from
   assert.doesNotMatch(html, /12,345|₹0/)
   assert.match(html, /income unavailable/)
 })
+
+// Synthetic records only; original message text deliberately includes an amount.
+const detailItem = {
+  id: 'example-detail',
+  transactionType: 'expense' as const,
+  description: 'Example shared payment',
+  amountMinor: 1234500,
+  categoryId: 'home',
+  categoryOrigin: 'manual' as const,
+  fromAccountId: 'example-bank',
+  toAccountId: null,
+  transactionDate: '2026-10-20',
+  accountingDate: null,
+  notes: 'Receipt total 12345.00',
+  source: 'sms',
+  originalTransactionId: null,
+  status: 'confirmed' as const,
+  createdAt: '',
+  updatedAt: '',
+  sms: {
+    sender: 'EXAMPLE',
+    rawText: 'Paid Rs.12345.00 for an example payment',
+    receivedAt: '2026-10-20T10:00:00Z',
+    parseStatus: 'confirmed',
+    parseConfidence: 1,
+  },
+}
+const { PreviewTransactionContent } = await import(
+  '../src/components/dashboard/preview/PreviewTransactionPanel'
+)
+test('transaction panel content keeps notes, original SMS and allocation amounts out of privacy markup', () => {
+  const html = renderToStaticMarkup(
+    <PreviewPrivacy value={true}>
+      <PreviewTransactionContent
+        item={detailItem}
+        splits={[
+          { category_id: 'food', category_name: 'Food', amount_minor: 234500 },
+        ]}
+        accounts={[]}
+        categories={[]}
+      />
+    </PreviewPrivacy>,
+  )
+  assert.match(html, /Amount hidden/)
+  assert.match(html, /Original message hidden/)
+  assert.match(html, /Notes hidden/)
+  assert.doesNotMatch(html, /12345|12,345|2,345|10,000|Paid Rs|Receipt total|₹/)
+})
+test('transaction panel displays split remainder once, original SMS and account details', () => {
+  const html = renderToStaticMarkup(
+    <PreviewTransactionContent
+      item={detailItem}
+      splits={[
+        { category_id: 'food', category_name: 'Food', amount_minor: 234500 },
+      ]}
+      accounts={[{ id: 'example-bank', name: 'Example bank' } as any]}
+      categories={[{ id: 'home', name: 'Home' } as any]}
+    />,
+  )
+  assert.match(html, /Home · remainder/)
+  assert.match(html, /10,000/)
+  assert.match(html, /2,345/)
+  assert.match(html, /Total payment/)
+  assert.match(html, /Example bank/)
+  assert.match(html, /Paid Rs.12345.00/)
+  assert.match(html, /IST/)
+  assert.doesNotMatch(html, /Save splits|Confirm|Ignore|Edit transaction/)
+})
+test('transaction panel distinguishes missing allocations, failed allocations and unavailable source SMS', () => {
+  const render = (props: any) =>
+    renderToStaticMarkup(
+      <PreviewTransactionContent
+        item={{ ...detailItem, sms: null }}
+        accounts={[]}
+        categories={[]}
+        {...props}
+      />,
+    )
+  assert.match(render({}), /Loading allocations/)
+  assert.match(render({ splitError: true }), /Allocations could not load/)
+  assert.match(render({ splits: [] }), /No category splits recorded/)
+  assert.match(render({ splits: [] }), /original SMS is unavailable/)
+  assert.match(
+    render({
+      splits: [
+        { category_id: 'food', category_name: 'Food', amount_minor: 1234501 },
+      ],
+    }),
+    /Allocation totals need review/,
+  )
+})
