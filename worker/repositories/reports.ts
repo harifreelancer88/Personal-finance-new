@@ -69,13 +69,14 @@ export async function getReport(
   kind: string,
   limit = 10,
   now = new Date(),
+  explicitRange?: { start: string; end: string },
 ) {
   const transactions = await reportData(db, workspaceId)
   const earliest = transactions
     .filter((t) => t.status === 'confirmed')
     .map(effectiveTransactionDate)
     .sort()[0]
-  const range = resolveReportPeriod(period, now, earliest)
+  const range = explicitRange ? { ...explicitRange, previousStart: null, previousEnd: null } : resolveReportPeriod(period, now, earliest)
   if (kind === 'sankey')
     return reportSankey(transactions, range.start, range.end)
   if (kind === 'summary')

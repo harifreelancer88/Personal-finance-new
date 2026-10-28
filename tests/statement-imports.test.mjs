@@ -53,6 +53,7 @@ function setup() {
           return { results: stmt.all(...values) }
         },
         async run() {
+          if (/^\s*(SELECT|WITH)\b/i.test(sql)) return { results: stmt.all(...values) }
           return { meta: { changes: Number(stmt.run(...values).changes) } }
         },
       }
@@ -1498,4 +1499,35 @@ test('matches-only confirmation ignores balance difference without changing cash
       before,
     )
   }
+})
+
+test('custom cash-flow dates clip both boundary months and retain financial semantics and workspace isolation', async () => {
+  const { api, sqlite } = await fixture()
+  sqlite.exec("INSERT INTO accounts(id,workspace_id,name,institution,account_type) VALUES ('range-other','one','Other example account','Example','bank')")
+  const insert = sqlite.prepare("INSERT INTO transactions(id,workspace_id,transaction_type,description,amount_minor,from_account_id,to_account_id,transaction_date,accounting_date,status,original_transaction_id) VALUES (?,?,?,'Synthetic range fixture',?,?,?,?,?,?,?)")
+  const add = (id, date, amount, type='expense', status='confirmed', accounting=null, original=null, workspace='one') => insert.run(id,workspace,type,amount,['income','refund'].includes(type)?null:workspace==='one'?'bank':'foreign',type==='transfer'?'range-other':['income','refund'].includes(type)?'bank':null,date,accounting,status,original)
+  add('before','2026-09-14',999999)
+  add('start','2026-09-15',10000)
+  add('september','2026-09-30',20000)
+  add('refund','2026-09-28',5000,'refund','confirmed',null,'start')
+  add('end','2026-10-10',30000)
+  add('after','2026-10-11',999999)
+  add('salary','2026-09-20',500000,'income','confirmed','2026-10-01')
+  add('transfer','2026-09-21',700000,'transfer')
+  add('pending','2026-09-20',88888,'expense','pending')
+  add('foreign-range','2026-09-20',999999,'expense','confirmed',null,null,'two')
+  const result = await api('/reports/cash-flow?fromDate=2026-09-15&toDate=2026-10-10')
+  assert.equal(result.status,200)
+  assert.deepEqual(result.data,[{month:'2026-09',incomeMinor:0,expenseMinor:25000},{month:'2026-10',incomeMinor:500000,expenseMinor:30000}])
+  const transactions = await api('/transactions?paginated=true&status=confirmed&fromDate=2026-09-15&toDate=2026-10-10&limit=5')
+  assert.equal(transactions.status,200)
+  assert.equal(transactions.data.summary.incomeMinor,500000)
+  assert.equal(transactions.data.summary.expenseMinor,55000)
+})
+test('cash-flow API refuses invalid, incomplete, reversed and unbounded date ranges', async () => {
+  const { api } = await fixture()
+  for (const query of ['fromDate=2026-02-30&toDate=2026-03-01','fromDate=2026-09-01','fromDate=2026-10-01&toDate=2026-09-01','fromDate=1900-01-01&toDate=2026-10-01']) {
+    assert.equal((await api('/reports/cash-flow?'+query)).status,400)
+  }
+  assert.equal((await api('/reports/summary?fromDate=2026-09-01&toDate=2026-09-30')).status,400)
 })

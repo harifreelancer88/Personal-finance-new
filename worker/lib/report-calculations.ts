@@ -70,7 +70,7 @@ export function reportCashFlow(transactions: ReportTransaction[], start: string,
   cursor.setUTCDate(1)
   while (cursor <= last) {
     const month = monthKey(cursor)
-    const totals = reportTotals(transactions, `${month}-01`, month === end.slice(0, 7) ? end : iso(utcDate(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)))
+    const totals = reportTotals(transactions, month === start.slice(0, 7) ? start : `${month}-01`, month === end.slice(0, 7) ? end : iso(utcDate(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)))
     result.push({ month, incomeMinor: totals.totalIncomeMinor, expenseMinor: totals.totalExpenseMinor })
     cursor.setUTCMonth(cursor.getUTCMonth() + 1)
   }
