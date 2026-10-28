@@ -1,17 +1,15 @@
-import { ZerodhaSync } from '../components/investments/ZerodhaSync'
+import { InvestmentExplorer } from '../components/investments/InvestmentExplorer'
 import {
-  Menu,
-  Plus,
-  RefreshCw,
-  Search,
-  ChevronDown,
-  Eye,
-  Pencil,
-  Trash2,
-  Layers,
-} from 'lucide-react'
+  exploreHoldings,
+  holdingTotals,
+  holdingSorts,
+  freshnessLabels,
+} from '../lib/investment-explorer'
+import { todayInIndia } from '../lib/dashboard-preview'
+import { ZerodhaSync } from '../components/investments/ZerodhaSync'
+import { Menu, Plus, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import {
   getInvestments,
   investmentTypes,
@@ -22,7 +20,10 @@ import { RetirementNotice } from '../components/payroll/RetirementNotice'
 import { InvestmentForm } from '../components/investments/InvestmentForm'
 import { InvestmentDetails } from '../components/investments/InvestmentDetails'
 import { Modal } from '../components/transactions/Modal'
-import { formatWholeCurrency as formatCurrency, formatWholeSignedCurrency as formatSignedCurrency } from '../lib/format'
+import {
+  formatWholeCurrency as formatCurrency,
+  formatWholeSignedCurrency as formatSignedCurrency,
+} from '../lib/format'
 import type { Investment } from '../types/finance'
 const colors = [
   '#5594bd',
@@ -39,14 +40,11 @@ export function InvestmentsPage() {
     [items, setItems] = useState<Investment[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
-    [search, setSearch] = useState(''),
-    [filter, setFilter] = useState('All types'),
     [editing, setEditing] = useState<Investment | null>(),
     [viewing, setViewing] = useState<Investment>(),
     [deleting, setDeleting] = useState<Investment>(),
     [busy, setBusy] = useState(false),
-    [deleteError, setDeleteError] = useState(''),
-    [collapsed, setCollapsed] = useState<string[]>([])
+    [deleteError, setDeleteError] = useState('')
   const load = async () => {
     setLoading(true)
     setError('')
@@ -61,27 +59,34 @@ export function InvestmentsPage() {
   useEffect(() => {
     void load()
   }, [])
-  const invested =
-      items.reduce((sum, i) => sum + Math.round(i.investedAmount * 100), 0) /
-      100,
-    value =
-      items.reduce((sum, i) => sum + Math.round(i.currentValue * 100), 0) / 100,
-    gainItems = items.filter(i=>i.basisKind!=='unknown' && i.basisKind!=='opening_valuation'),
-    gainBasis = gainItems.reduce((s,i)=>s+Math.round(i.investedAmount*100),0)/100,
-    gain = gainItems.reduce((s,i)=>s+Math.round(i.currentValue*100)-Math.round(i.investedAmount*100),0)/100
+  const [params, setParams] = useSearchParams()
+  const search = params.get('search') ?? ''
+  const type = investmentTypes.includes(
+    params.get('assetType') as (typeof investmentTypes)[number],
+  )
+    ? params.get('assetType')!
+    : 'all'
+  const freshness = Object.hasOwn(
+    freshnessLabels,
+    params.get('freshness') ?? '',
+  )
+    ? (params.get('freshness') as keyof typeof freshnessLabels)
+    : 'all'
+  const sort = Object.hasOwn(holdingSorts, params.get('sort') ?? '')
+    ? (params.get('sort') as keyof typeof holdingSorts)
+    : 'valueDesc'
+  const asOf = todayInIndia()
+  const matching = exploreHoldings(items, search, type, freshness, sort, asOf)
+  const totals = holdingTotals(matching)
+  const invested = totals.basisMinor / 100,
+    value = totals.valueMinor / 100,
+    gain = totals.gainMinor / 100,
+    gainBasis = totals.gainBasisMinor / 100
   const groups = investmentTypes
     .map((type, index) => ({
       type,
       color: colors[index],
-      items: items.filter((i) => i.type === type),
-      visible: items.filter(
-        (i) =>
-          i.type === type &&
-          (filter === 'All types' || filter === type) &&
-          `${i.name} ${i.institution}`
-            .toLowerCase()
-            .includes(search.toLowerCase()),
-      ),
+      items: matching.filter((i) => i.type === type),
     }))
     .filter((g) => g.items.length)
   let cumulative = 0
@@ -125,8 +130,10 @@ export function InvestmentsPage() {
         </div>
       </header>
       <main className="wealth-page">
-        <ZerodhaSync onSaved={()=>void load()}/>
-        <RetirementNotice onReview={id=>setViewing(items.find(item=>item.id===id))}/>
+        <ZerodhaSync onSaved={() => void load()} />
+        <RetirementNotice
+          onReview={(id) => setViewing(items.find((item) => item.id === id))}
+        />
         {error && (
           <p className="wealth-error" role="alert">
             {error} <button onClick={() => void load()}>Try again</button>
@@ -139,11 +146,20 @@ export function InvestmentsPage() {
         ) : (
           !error && (
             <>
+              <p className="wealth-caption" role="status">
+                Showing {matching.length} of {items.length} holdings. Summary
+                and allocation follow your filters.
+              </p>
               <div className="wealth-metrics investment-overview">
                 {[
                   ['Current value', formatCurrency(value)],
                   ['Recorded basis', formatCurrency(invested)],
-                  ['Gain on comparable holdings', gainItems.length?formatSignedCurrency(gain):'Unavailable'],
+                  [
+                    'Gain on comparable holdings',
+                    totals.comparableCount
+                      ? formatSignedCurrency(gain)
+                      : 'Unavailable',
+                  ],
                   [
                     'Return',
                     gainBasis > 0
@@ -155,7 +171,9 @@ export function InvestmentsPage() {
                     <span>{label}</span>
                     <strong
                       className={
-                        index > 1
+                        index > 1 &&
+                        totals.comparableCount > 0 &&
+                        (index === 2 || gainBasis > 0)
                           ? gain >= 0
                             ? 'wealth-positive'
                             : 'wealth-negative'
@@ -168,161 +186,41 @@ export function InvestmentsPage() {
                 ))}
               </div>
               <p className="wealth-caption">
-                Amounts shown in whole rupees; calculations retain paise. Return is change against the recorded basis, not annualized.
-                Opening valuations and holdings with unknown purchase cost are excluded from gain and return. Imported EPF opening balances can include prior interest; recorded-basis change is not lifetime return.
+                Amounts shown in whole rupees; calculations retain paise. Return
+                is change against the recorded basis, not annualized. Opening
+                valuations and holdings with unknown purchase cost are excluded
+                from gain and return. Imported EPF opening balances can include
+                prior interest; recorded-basis change is not lifetime return.
               </p>
               <div className="wealth-grid">
                 <section className="wealth-holdings">
-                  <div className="wealth-toolbar">
-                    <label className="wealth-search">
-                      <Search />
-                      <input
-                        aria-label="Search holdings"
-                        placeholder="Search holdings…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </label>
-                    <select
-                      aria-label="Filter asset type"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                    >
-                      <option>All types</option>
-                      {investmentTypes.map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {!items.length ? (
-                    <div className="wealth-empty">
-                      <Layers />
-                      <h2>Your portfolio starts here</h2>
-                      <p>
-                        Add a holding and record its invested amount and current
-                        value.
-                      </p>
-                      <button
-                        className="wealth-add"
-                        onClick={() => setEditing(null)}
-                      >
-                        <Plus />
-                        Add your first holding
-                      </button>
-                    </div>
-                  ) : !groups.some((g) => g.visible.length) ? (
-                    <p className="wealth-empty">
-                      No holdings match your search.
-                    </p>
-                  ) : (
-                    groups
-                      .filter((g) => g.visible.length)
-                      .map((g) => (
-                        <section className="wealth-group" key={g.type}>
-                          <button
-                            className="wealth-group-title"
-                            aria-expanded={!collapsed.includes(g.type)}
-                            onClick={() =>
-                              setCollapsed((old) =>
-                                old.includes(g.type)
-                                  ? old.filter((t) => t !== g.type)
-                                  : [...old, g.type],
-                              )
-                            }
-                          >
-                            <span>
-                              <span
-                                className="wealth-dot"
-                                style={{ background: g.color }}
-                              />
-                              {g.type}
-                              <small>{g.visible.length}</small>
-                            </span>
-                            <span>
-                              {formatCurrency(
-                                g.visible.reduce(
-                                  (s, i) => s + i.currentValue,
-                                  0,
-                                ),
-                              )}
-                              <ChevronDown
-                                className={
-                                  collapsed.includes(g.type) ? 'rotated' : ''
-                                }
-                              />
-                            </span>
-                          </button>
-                          {!collapsed.includes(g.type) &&
-                            g.visible.map((i) => (
-                              <div className="wealth-row" key={i.id}>
-                                <button
-                                  className="wealth-holding-title"
-                                  onClick={() => setViewing(i)}
-                                >
-                                  <span
-                                    className="wealth-avatar"
-                                    style={{
-                                      color: g.color,
-                                      background: g.color + '18',
-                                    }}
-                                  >
-                                    <Layers />
-                                  </span>
-                                  <span>
-                                    <strong>{i.name}</strong>
-                                    <small>{i.institution}</small>
-                                  </span>
-                                </button>
-                                <div className="wealth-holding-value">
-                                  <strong>
-                                    {formatCurrency(i.currentValue)}
-                                  </strong>
-                                  <small
-                                    className={
-                                      i.currentValue >= i.investedAmount
-                                        ? 'wealth-positive'
-                                        : 'wealth-negative'
-                                    }
-                                  >
-                                    {i.basisKind==='unknown'||i.basisKind==='opening_valuation'?'Historical profit unavailable':formatSignedCurrency(i.currentValue-i.investedAmount)}
-                                    {i.basisKind!=='unknown'&&i.basisKind!=='opening_valuation'&&i.investedAmount > 0
-                                      ? ` (${(((i.currentValue - i.investedAmount) / i.investedAmount) * 100).toFixed(1)}%)`
-                                      : ''}
-                                  </small>
-                                </div>
-                                <details className="wealth-row-actions">
-                                  <summary aria-label={`Actions for ${i.name}`}>
-                                    •••
-                                  </summary>
-                                  <div>
-                                    <button onClick={() => setViewing(i)}>
-                                      <Eye />
-                                      View holding
-                                    </button>
-                                    <button onClick={() => setEditing(i)}>
-                                      <Pencil />
-                                      Edit holding
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setDeleteError('')
-                                        setDeleting(i)
-                                      }}
-                                    >
-                                      <Trash2 />
-                                      Delete holding
-                                    </button>
-                                  </div>
-                                </details>
-                              </div>
-                            ))}
-                        </section>
-                      ))
-                  )}
+                  <InvestmentExplorer
+                    rows={matching}
+                    total={items.length}
+                    search={search}
+                    type={type}
+                    freshness={freshness}
+                    sort={sort}
+                    asOf={asOf}
+                    change={(changes) => {
+                      const next = new URLSearchParams(params)
+                      for (const [key, value] of Object.entries(changes)) {
+                        if (value === '' || value === 'all') next.delete(key)
+                        else next.set(key, value)
+                      }
+                      setParams(next, { replace: 'search' in changes })
+                    }}
+                    onView={setViewing}
+                    onEdit={setEditing}
+                    onDelete={(i) => {
+                      setDeleteError('')
+                      setDeleting(i)
+                    }}
+                  />
                 </section>
                 <aside className="wealth-allocation wealth-panel">
                   <h2>Asset allocation</h2>
-                  <p>By recorded current value</p>
+                  <p>Matching holdings · recorded current value</p>
                   {value > 0 ? (
                     <>
                       <div
@@ -332,7 +230,7 @@ export function InvestmentsPage() {
                         style={{ background: `conic-gradient(${gradient})` }}
                       >
                         <div>
-                          <small>Portfolio value</small>
+                          <small>Matching value</small>
                           <strong>{formatCurrency(value, true)}</strong>
                         </div>
                       </div>
@@ -388,7 +286,10 @@ export function InvestmentsPage() {
       )}
       {viewing && (
         <InvestmentDetails
-            onSaved={()=>{setViewing(undefined);void load()}}
+          onSaved={() => {
+            setViewing(undefined)
+            void load()
+          }}
           investment={viewing}
           onClose={() => setViewing(undefined)}
           onEdit={() => {

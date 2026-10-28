@@ -27,7 +27,8 @@
     "test:nps": "bash scripts/test-nps.sh",
     "test:investment-ledger": "bash scripts/test-investment-ledger.sh",
     "test:workflows": "bash scripts/test-workflows.sh",
-    "test:transaction-filters": "bash scripts/test-transaction-filters.sh"
+    "test:transaction-filters": "bash scripts/test-transaction-filters.sh",
+    "test:investment-explorer": "bash scripts/test-investment-explorer.sh"
   },
   "dependencies": {
     "lucide-react": "latest",
