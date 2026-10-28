@@ -22,6 +22,7 @@ import {
   type TransactionPage,
   type TransactionQuery,
 } from '../api/transactions'
+import { validActivityRange, activityRangeLabel } from '../lib/dashboard-range'
 import { Modal } from '../components/transactions/Modal'
 import {
   currentMonthKey,
@@ -112,9 +113,20 @@ function toView(
 }
 export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const fromDate = searchParams.get('fromDate'),
+    toDate = searchParams.get('toDate')
+  const customRange = useMemo(
+    () => validActivityRange(fromDate, toDate),
+    [fromDate, toDate],
+  )
   const rawMonth = searchParams.get('month'),
-    month = validMonthKey(rawMonth) ? rawMonth : currentMonthKey()
-  const bounds = useMemo(() => monthBounds(month), [month])
+    month = validMonthKey(rawMonth)
+      ? rawMonth
+      : (customRange?.toDate.slice(0, 7) ?? currentMonthKey())
+  const bounds = useMemo(
+    () => customRange ?? monthBounds(month),
+    [customRange, month],
+  )
   const [monthSummary, setMonthSummary] = useState<TransactionPage['summary']>()
   const [selecting, setSelecting] = useState(false),
     [selected, setSelected] = useState<string[]>([])
@@ -133,6 +145,8 @@ export function TransactionsPage() {
     if (!validMonthKey(nextMonth)) return
     const next = new URLSearchParams(searchParams)
     next.set('month', nextMonth)
+    next.delete('fromDate')
+    next.delete('toDate')
     setSearchParams(next)
     setOffset(0)
     setReviewOffset(0)
@@ -158,6 +172,12 @@ export function TransactionsPage() {
   const [filters, setFilters] = useState<FilterState>(() => ({
       ...emptyFilters,
       search: searchParams.get('search') ?? '',
+      type: ['income', 'expense', 'investment', 'refund', 'transfer'].includes(
+        searchParams.get('type') ?? '',
+      )
+        ? (titleCase(searchParams.get('type')!) as FilterState['type'])
+        : 'All',
+      status: searchParams.get('status') === 'confirmed' ? 'Confirmed' : 'All',
     })),
     [offset, setOffset] = useState(0),
     [reviewOffset, setReviewOffset] = useState(0)
@@ -459,7 +479,9 @@ export function TransactionsPage() {
         )}
         <div
           className="transaction-month-navigation"
-          aria-label="Transaction month"
+          aria-label={
+            customRange ? 'Transaction date range' : 'Transaction month'
+          }
           onTouchStart={(event) => {
             const point = event.touches[0]
             touch.current = { x: point.clientX, y: point.clientY }
@@ -485,8 +507,12 @@ export function TransactionsPage() {
           >
             <ChevronLeft />
           </button>
-          <time dateTime={month} aria-live="polite">
-            {monthLabel(month)}
+          <time
+            className={customRange ? 'transaction-custom-range' : undefined}
+            dateTime={customRange ? undefined : month}
+            aria-live="polite"
+          >
+            {customRange ? activityRangeLabel(customRange) : monthLabel(month)}
           </time>
           <button
             className="month-arrow"
@@ -496,7 +522,7 @@ export function TransactionsPage() {
           >
             <ChevronRight />
           </button>
-          {month !== currentMonthKey() && (
+          {(customRange || month !== currentMonthKey()) && (
             <button
               className="month-today"
               onClick={() => changeMonth(currentMonthKey())}
@@ -508,7 +534,7 @@ export function TransactionsPage() {
         {summary && !loading && (
           <section
             className="transaction-summary"
-            aria-label="Confirmed income, spending and investment totals for the selected month, excluding transfers"
+            aria-label="Confirmed income, spending and investment totals for the selected dates, excluding transfers"
           >
             <article>
               <p>Money Out</p>
@@ -539,13 +565,17 @@ export function TransactionsPage() {
                 <strong>{formatMinorCurrency(summary.investedMinor)}</strong>
                 <span
                   className="invested-percentage"
-                  aria-label={summary.incomeMinor > 0
-                    ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}% of Money In`
-                    : 'Percentage unavailable because Money In is zero'}
+                  aria-label={
+                    summary.incomeMinor > 0
+                      ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}% of Money In`
+                      : 'Percentage unavailable because Money In is zero'
+                  }
                 >
-                  ({summary.incomeMinor > 0
+                  (
+                  {summary.incomeMinor > 0
                     ? `${((summary.investedMinor / summary.incomeMinor) * 100).toFixed(1)}%`
-                    : '—'})
+                    : '—'}
+                  )
                 </span>
               </div>
             </article>

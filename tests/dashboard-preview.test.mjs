@@ -38,3 +38,22 @@ test('preview day uses India midnight independent of the browser timezone', () =
   assert.equal(todayInIndia(new Date('2026-10-17T18:29:59Z')), '2026-10-17')
   assert.equal(todayInIndia(new Date('2026-10-17T18:30:00Z')), '2026-10-18')
 })
+
+// Presets and bounds use India calendar dates supplied by todayInIndia.
+const { activityPreset, validActivityRange, activityLink } = await import('../.dashboard-preview-test-dist/lib/dashboard-range.js')
+test('dashboard periods handle India financial years, leap years and year rollover', () => {
+  assert.deepEqual(activityPreset('financialYear', '2026-03-31'), {fromDate:'2025-04-01',toDate:'2026-03-31'})
+  assert.deepEqual(activityPreset('financialYear', '2026-04-01'), {fromDate:'2026-04-01',toDate:'2026-04-01'})
+  assert.deepEqual(activityPreset('lastMonth', '2024-03-10'), {fromDate:'2024-02-01',toDate:'2024-02-29'})
+  assert.deepEqual(activityPreset('lastMonth', '2026-01-01'), {fromDate:'2025-12-01',toDate:'2025-12-31'})
+  assert.deepEqual(activityPreset('3Months', '2026-01-10'), {fromDate:'2025-11-01',toDate:'2026-01-10'})
+})
+test('custom periods reject invalid or excessive ranges and drill-down preserves exact dates', () => {
+  for(const [from,to] of [['2026-02-30','2026-03-01'],['2026-03-02','2026-03-01'],['1800-01-01','2026-01-01'],['2000-01-01','2026-01-01'],[null,'2026-01-01']]) assert.equal(validActivityRange(from,to),null)
+  const range = {fromDate:'2026-09-15',toDate:'2026-10-10'}
+  const link = new URL(activityLink(range,{type:'investment'}),'https://example.test')
+  assert.equal(link.searchParams.get('fromDate'),range.fromDate)
+  assert.equal(link.searchParams.get('toDate'),range.toDate)
+  assert.equal(link.searchParams.get('type'),'investment')
+  assert.equal(link.searchParams.get('status'),'confirmed')
+})

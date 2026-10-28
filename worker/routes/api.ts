@@ -1,3 +1,4 @@
+import { dateOnly } from '../lib/workflow-utils'
 import { zerodhaRoute } from './zerodha'
 import { statementImportsRoute } from './statement-imports'
 import { billsRoute } from './bills'
@@ -445,6 +446,16 @@ export async function handleApiRequest(
           'INVALID_PERIOD',
           'period must be thisMonth, 3Months, 6Months, 1Year, or all.',
         )
+      let explicitRange: { start: string; end: string } | undefined
+      if (url.searchParams.has('fromDate') || url.searchParams.has('toDate')) {
+        if (reportMatch[1] !== 'cash-flow')
+          throw new ApiError(400, 'INVALID_RANGE', 'Custom dates are supported for cash-flow reports only.')
+        const start = dateOnly(url.searchParams.get('fromDate'))
+        const end = dateOnly(url.searchParams.get('toDate'))
+        if (start < '1900-01-01' || end > '9998-12-31' || start > end || Date.parse(end) - Date.parse(start) > 3660 * 86400000)
+          throw new ApiError(400, 'INVALID_RANGE', 'Choose dates in order within a 10-year range.')
+        explicitRange = { start, end }
+      }
       const rawLimit = url.searchParams.get('limit'),
         limit = rawLimit === null ? 10 : Number(rawLimit)
       if (!Number.isInteger(limit) || limit < 1 || limit > 50)
@@ -460,6 +471,8 @@ export async function handleApiRequest(
           period as ReportPeriod,
           reportMatch[1],
           limit,
+          new Date(),
+          explicitRange,
         ),
       )
     }
