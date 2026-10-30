@@ -6,6 +6,8 @@ const columns = `id, workspace_id, transaction_type, description, amount_minor,
   source, external_id, original_transaction_id, status, created_at, updated_at`
 
 export interface TransactionFilters {
+  sortBy?: string
+  sortOrder?: string
   search?: string
   type?: string
   categoryId?: string
@@ -89,9 +91,11 @@ function listStatement(
   filters: TransactionFilters,
 ) {
   const { clause, values } = listConditions(workspaceId, filters)
+  const sorts: Record<string,string> = {date:accountingDateSql,amount:'t.amount_minor',description:'t.description COLLATE NOCASE',category:"COALESCE(c.name,'') COLLATE NOCASE",account:"COALESCE(fa.name,ta.name,'') COLLATE NOCASE"}
+  const order = filters.sortBy && sorts[filters.sortBy] ? `${sorts[filters.sortBy]} ${filters.sortOrder==='asc'?'ASC':'DESC'}, t.id DESC` : `${accountingDateSql} DESC, t.created_at DESC, t.id DESC`
   return db
     .prepare(
-      `SELECT ${listColumns} ${joins} WHERE ${clause} ORDER BY ${accountingDateSql} DESC, t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`,
+      `SELECT ${listColumns} ${joins} WHERE ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`,
     )
     .bind(...values, filters.limit, filters.offset)
 }

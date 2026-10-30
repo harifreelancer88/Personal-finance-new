@@ -7,6 +7,7 @@ const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
   { label: 'Dashboard preview', icon: FlaskConical, to: '/dashboard-preview' },
   { label: 'Transactions', icon: CreditCard, to: '/transactions' },
+  { label: 'Transactions · shadcn', icon: FlaskConical, to: '/transactions-shadcn' },
   { label: 'Accounts', icon: BarChart3, to: '/accounts' },
   { label: 'Investments', icon: TrendingUp, to: '/investments' },
   { label: 'Reports', icon: FileChartColumn, to: '/reports' },
@@ -20,7 +21,7 @@ const items = [
 interface SidebarProps { open: boolean; onClose: () => void; light?: boolean }
 
 export function Sidebar({ open, onClose, light = false }: SidebarProps) {
-  const orderedItems = light ? ['Dashboard','Dashboard preview','Accounts','Transactions','Reports','Investments','Bills & instalments','Statement imports','Comparison reports','Backup & restore','Settings'].map(label => items.find(item => item.label === label)!) : items
+  const orderedItems = light ? ['Dashboard','Dashboard preview','Accounts','Transactions','Transactions · shadcn','Reports','Investments','Bills & instalments','Statement imports','Comparison reports','Backup & restore','Settings'].map(label => items.find(item => item.label === label)!) : items
   const closeButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (!open) return

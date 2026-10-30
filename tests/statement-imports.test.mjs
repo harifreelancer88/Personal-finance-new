@@ -1531,3 +1531,10 @@ test('cash-flow API refuses invalid, incomplete, reversed and unbounded date ran
   }
   assert.equal((await api('/reports/summary?fromDate=2026-09-01&toDate=2026-09-30')).status,400)
 })
+
+test('transaction sort inputs reject arbitrary SQL and invalid directions', async () => {
+ const {api}=await fixture()
+ assert.equal((await api('/transactions?paginated=true&sortBy=amount&sortOrder=asc')).status,200)
+ assert.equal((await api('/transactions?sortBy=DROP%20TABLE%20transactions')).status,400)
+ assert.equal((await api('/transactions?sortBy=amount&sortOrder=sideways')).status,400)
+})

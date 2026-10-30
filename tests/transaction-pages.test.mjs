@@ -107,3 +107,33 @@ test('monthly invested total excludes pending, ignored, other months and other w
     assert.equal(september.summary.investedMinor,30000)
   }finally{sql.close()}
 })
+
+test('optional shadcn amount sorting covers the entire result and preserves aggregate totals',async()=>{
+ const {sql,db}=fixture()
+ try{
+  const options={...defaults,status:'confirmed',sortBy:'amount',sortOrder:'asc'}
+  const ascending=await getTransactionPage(db,'development-workspace',options)
+  const descending=await getTransactionPage(db,'development-workspace',{...options,sortOrder:'desc'})
+  assert.equal(ascending.items[0].id,'refund-linked')
+  assert.equal(descending.items[0].id,'salary')
+  assert.deepEqual(ascending.summary,descending.summary)
+  const end=await getTransactionPage(db,'development-workspace',{...options,offset:125})
+  const ordered=[...ascending.items,...end.items].map(t=>t.amount_minor)
+  assert.ok(ordered.every((amount,i)=>i===0||amount>=ordered[i-1]))
+  assert.equal(ascending.items.some(t=>t.workspace_id==='other'),false)
+ }finally{sql.close()}
+})
+test('description and accounting-date sorting are stable across pages without changing default order',async()=>{
+ const {sql,db}=fixture()
+ try{
+  sql.prepare("UPDATE transactions SET accounting_date='2026-10-01' WHERE id='salary'").run()
+  const date=await getTransactionPage(db,'development-workspace',{...defaults,status:'confirmed',sortBy:'date',sortOrder:'desc'})
+  assert.equal(date.items[0].id,'salary')
+  const first=await getTransactionPage(db,'development-workspace',{...defaults,sortBy:'description',sortOrder:'asc'})
+  const second=await getTransactionPage(db,'development-workspace',{...defaults,sortBy:'description',sortOrder:'asc',offset:25})
+  assert.equal(new Set([...first.items,...second.items].map(t=>t.id)).size,50)
+  const old=await getTransactionPage(db,'development-workspace',defaults)
+  const invalid=await getTransactionPage(db,'development-workspace',{...defaults,sortBy:'not_a_column'})
+  assert.deepEqual(old.items.map(t=>t.id),invalid.items.map(t=>t.id))
+ }finally{sql.close()}
+})
