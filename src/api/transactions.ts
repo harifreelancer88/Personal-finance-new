@@ -31,6 +31,8 @@ export interface TransactionDetailsDto extends TransactionDto {
   sms?: SmsDetails | null
 }
 export interface TransactionQuery {
+  sortBy?: string
+  sortOrder?: string
   search?: string
   type?: string
   categoryId?: string
@@ -63,6 +65,7 @@ export function getTransactionPage(
   return apiRequest<TransactionPage>(`/api/transactions?${query}`, { signal })
 }
 export interface TransactionInput {
+  originalTransactionId?: string | null
   transactionType: ApiTransactionType
   description: string
   amountMinor: number

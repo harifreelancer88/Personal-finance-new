@@ -82,6 +82,9 @@ function parseListQuery(url: URL) {
     throw new ApiError(400, 'INVALID_FILTER', 'fromDate must use YYYY-MM-DD.')
   if (toDate && !datePattern.test(toDate))
     throw new ApiError(400, 'INVALID_FILTER', 'toDate must use YYYY-MM-DD.')
+  const sortBy = value('sortBy'), sortOrder = value('sortOrder')
+  if (sortBy && !['date','amount','description','category','account'].includes(sortBy)) throw new ApiError(400,'INVALID_FILTER','Invalid sort column.')
+  if (sortOrder && !['asc','desc'].includes(sortOrder)) throw new ApiError(400,'INVALID_FILTER','Invalid sort order.')
   const limitRaw = value('limit')
   const offsetRaw = value('offset')
   const limit = limitRaw === undefined ? 100 : Number(limitRaw)
@@ -99,6 +102,7 @@ function parseListQuery(url: URL) {
       'offset must be a non-negative integer.',
     )
   return {
+    sortBy, sortOrder,
     search: value('search'),
     type,
     categoryId: value('categoryId'),
